@@ -1,0 +1,188 @@
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!                                                                   !!
+!!                   GNU General Public License                      !!
+!!                                                                   !!
+!! This file is part of the Flexible Modeling System (FMS).          !!
+!!                                                                   !!
+!! FMS is free software; you can redistribute it and/or modify       !!
+!! it and are expected to follow the terms of the GNU General Public !!
+!! License as published by the Free Software Foundation.             !!
+!!                                                                   !!
+!! FMS is distributed in the hope that it will be useful,            !!
+!! but WITHOUT ANY WARRANTY; without even the implied warranty of    !!
+!! MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the     !!
+!! GNU General Public License for more details.                      !!
+!!                                                                   !!
+!! You should have received a copy of the GNU General Public License !!
+!! along with FMS; if not, write to:                                 !!
+!!          Free Software Foundation, Inc.                           !!
+!!          59 Temple Place, Suite 330                               !!
+!!          Boston, MA  02111-1307  USA                              !!
+!! or see:                                                           !!
+!!          http://www.gnu.org/licenses/gpl.txt                      !!
+!!                                                                   !!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+module ocean_diagnostics_mod
+!  
+!<CONTACT EMAIL="Stephen.Griffies@noaa.gov"> S.M. Griffies 
+!</CONTACT>
+!
+!<OVERVIEW>
+! Routine that calls the various numerical diagnostics.
+!</OVERVIEW>
+!
+!<DESCRIPTION>
+! Routine that calls the various numerical diagnostics.
+! </DESCRIPTION>
+!
+use diag_manager_mod,        only: need_data
+use fms_mod,                 only: open_namelist_file, check_nml_error, close_file, write_version_number
+use fms_mod,                 only: FATAL, stdout, stdlog
+use mpp_mod,                 only: mpp_error
+use mpp_mod,                 only: mpp_clock_id, mpp_clock_begin, mpp_clock_end, CLOCK_MODULE
+use time_manager_mod,        only: time_type, increment_time
+
+use ocean_adv_vel_diag_mod,  only: ocean_adv_vel_diag_init, ocean_adv_vel_diagnostics
+use ocean_domains_mod,       only: get_local_indices
+use ocean_tracer_diag_mod,   only: ocean_tracer_diag_init, ocean_tracer_diagnostics
+use ocean_types_mod,         only: ocean_prog_tracer_type, ocean_diag_tracer_type
+use ocean_types_mod,         only: ocean_domain_type, ocean_grid_type
+use ocean_types_mod,         only: ocean_adv_vel_type, ocean_velocity_type
+use ocean_types_mod,         only: ocean_time_type, ocean_time_steps_type
+use ocean_types_mod,         only: ocean_external_mode_type, ocean_density_type
+use ocean_types_mod,         only: ocean_thickness_type
+use ocean_velocity_diag_mod, only: ocean_velocity_diag_init, ocean_velocity_diagnostics
+
+
+implicit none
+
+private
+
+#include <ocean_memory.h>
+
+integer :: num_prog_tracers = 0
+integer :: index_temp = -1
+integer :: index_salt = -1
+
+! for diagnostics clocks 
+integer :: id_adv_vel_diag
+integer :: id_tracer_diag
+integer :: id_velocity_diag
+
+logical :: module_is_initialized = .FALSE.
+
+character(len=128) :: version=&
+     '$Id$'
+character (len=128) :: tagname = &
+     '$Name$'
+
+public :: ocean_diag_init, ocean_diagnostics
+
+contains
+
+
+!#######################################################################
+! <SUBROUTINE NAME="ocean_diag_init">
+!
+! <DESCRIPTION>
+! Initialize the ocean_diag module.
+! </DESCRIPTION>
+!
+subroutine ocean_diag_init(Grid, Domain, Time, Time_steps, Adv_vel, T_prog, T_diag, Velocity, Ext_mode, Dens, have_obc)
+
+type(ocean_grid_type),           intent(in) :: Grid
+type(ocean_domain_type),         intent(in) :: Domain
+type(ocean_time_type),           intent(in) :: Time
+type(ocean_time_steps_type),     intent(in) :: Time_steps
+type(ocean_adv_vel_type),        intent(in) :: Adv_vel
+type(ocean_prog_tracer_type),    intent(in) :: T_prog(:)
+type(ocean_diag_tracer_type),    intent(in) :: T_diag(:)
+type(ocean_velocity_type),       intent(in) :: Velocity
+type(ocean_external_mode_type),  intent(in) :: Ext_mode
+type(ocean_density_type),        intent(in) :: Dens
+logical, intent(in)                         :: have_obc
+
+integer :: n, ioun, io_status, ierr
+
+module_is_initialized = .TRUE.
+
+call write_version_number(version, tagname)
+
+!ioun = open_namelist_file()
+!read(ioun, ocean_diag_nml, iostat=io_status)
+!write (stdlog(), ocean_diag_nml)
+!write (stdout(), ocean_diag_nml)
+!ierr = check_nml_error(io_status,'ocean_diag_nml')
+!call close_file(ioun)
+
+#ifndef STATIC_MEMORY
+call get_local_indices(Domain, isd, ied, jsd, jed, isc, iec, jsc, jec)
+nk = Grid%nk
+#endif
+
+num_prog_tracers = size(T_prog, 1)
+
+do n = 1, num_prog_tracers
+   if (trim(T_prog(n)%name) == 'temp') index_temp = n
+   if (trim(T_prog(n)%name) == 'salt') index_salt = n
+enddo
+
+if (index_temp < 1 .or. index_salt < 1) then 
+   call mpp_error(FATAL,'==>Error in ocean_diagnostics_mod (ocean_diag_init): temp and/or salt not in tracer array')
+endif 
+
+id_adv_vel_diag  = mpp_clock_id('(Ocean diagnostics: adv_vel)'  ,grain=CLOCK_MODULE)
+id_tracer_diag   = mpp_clock_id('(Ocean diagnostics: tracer)'   ,grain=CLOCK_MODULE)
+id_velocity_diag = mpp_clock_id('(Ocean diagnostics: velocity)' ,grain=CLOCK_MODULE)
+
+call ocean_adv_vel_diag_init (Grid, Domain, Time, Time_steps, Adv_vel, T_prog, Dens)
+call ocean_tracer_diag_init  (Grid, Domain, Time, Time_steps, T_prog, T_diag, Dens, have_obc)
+call ocean_velocity_diag_init(Grid, Domain, Time, Time_steps, Velocity)
+
+
+end subroutine ocean_diag_init
+! </SUBROUTINE>  NAME="ocean_adv_vel_diag_init"
+
+
+!#######################################################################
+! <SUBROUTINE NAME="ocean_diagnostics">
+!
+! <DESCRIPTION>
+! Call some ocean numerical diagnostics 
+! </DESCRIPTION>
+!
+subroutine ocean_diagnostics(Time, Thickness, T_prog, T_diag, Velocity, Adv_vel, Ext_mode, Dens, pme, river, visc_cbu)
+
+  type(ocean_time_type), intent(in)               :: Time
+  type(ocean_thickness_type), intent(in)          :: Thickness 
+  type(ocean_prog_tracer_type), intent(in)        :: T_prog(:)
+  type(ocean_diag_tracer_type), intent(in)        :: T_diag(:)
+  type(ocean_velocity_type), intent(in)           :: Velocity
+  type(ocean_adv_vel_type), intent(in)            :: Adv_vel
+  type(ocean_external_mode_type), intent(in)      :: Ext_mode
+  type(ocean_density_type), intent(in)            :: Dens
+  real, dimension(isd:ied,jsd:jed), intent(in)    :: pme
+  real, dimension(isd:ied,jsd:jed), intent(in)    :: river
+  real, intent(in), dimension(isd:ied,jsd:jed,nk) :: visc_cbu
+  
+  if (size(T_prog,1) /= num_prog_tracers) then 
+     call mpp_error(FATAL, '==>Error from ocean_diagnostics_mod (ocean_diagnostics): wrong size for tracer array')
+  endif 
+
+  call mpp_clock_begin(id_adv_vel_diag)
+  call ocean_adv_vel_diagnostics(Time, Thickness, Adv_vel, T_prog, Dens, visc_cbu)
+  call mpp_clock_end(id_adv_vel_diag)
+
+  call mpp_clock_begin(id_tracer_diag)
+  call ocean_tracer_diagnostics(Time, Thickness, T_prog, T_diag, Dens, Ext_mode, pme, river)
+  call mpp_clock_end(id_tracer_diag)
+
+  call mpp_clock_begin(id_velocity_diag)
+  call ocean_velocity_diagnostics(Time, Thickness, Velocity, Dens)
+  call mpp_clock_end(id_velocity_diag)
+
+end subroutine ocean_diagnostics
+! </SUBROUTINE>  NAME="ocean_diagnostics"
+
+
+end module ocean_diagnostics_mod

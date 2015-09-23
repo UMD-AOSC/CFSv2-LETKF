@@ -1,0 +1,20 @@
+#!/bin/bash
+## use by "source cpl_nml > outfile"
+## requires the env vars:
+##
+
+cstepmax=$((FCST_LEN*3600/$CPL_PERIOD))
+cstepres=$((3600*6/$CPL_PERIOD))        # 6 hours
+cat <<EOF
+
+&CPL_SETTINGS
+restart=F,
+cstepbeg=1,
+cstepmax=${cstepmax},
+cstepres=${cstepres},
+dt_c=${CPL_PERIOD},
+VerbLev=1,
+write_am_sst=.true.
+/
+
+EOF

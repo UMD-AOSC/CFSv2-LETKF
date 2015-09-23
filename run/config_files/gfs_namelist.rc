@@ -1,0 +1,148 @@
+#!/bin/bash
+# use by "source gfs_namelist.rc > outputfile"
+#
+# requires environment variables:
+#  $NPROC_AM
+
+cat << EOF
+
+#nam_gfs +++++++++++++++++++++++++++
+NLUNIT:                  35
+DELTIM:                  300.0
+NAMELIST:                gfs_namelist
+TOTAL_MEMBER:            1
+GRIB_INPUT:              0
+PE_MEMBER01:             $NPROC_AM
+PE_MEMBER02:             
+PE_MEMBER03:             
+PE_MEMBER04:             
+PE_MEMBER05:             
+PE_MEMBER06:             
+PE_MEMBER07:             
+PE_MEMBER08:             
+PE_MEMBER09:             
+PE_MEMBER10:             
+PE_MEMBER11:             
+PE_MEMBER12:             
+PE_MEMBER13:             
+PE_MEMBER14:             
+PE_MEMBER14:             
+PE_MEMBER16:             
+PE_MEMBER17:             
+PE_MEMBER18:             
+PE_MEMBER19:             
+PE_MEMBER20:             
+PE_MEMBER21:             
+
+# For stachastic purturbed runs -  added by dhou and wyang
+HH_INCREASE:             09
+HH_FINAL:                09
+HH_START:                00
+ADVANCECOUNT_SETUP:      0
+
+SPS_PARM1:               0.005 10.0 0.005 10.0 0.0 0.0 0.0 0.0 0.0 0.0
+SPS_PARM2:               0.105 0.03 0.12 42.0 0.0 0.0 0.0 0.0 0.0 0.0
+SPS_PARM3:               0.2 0.34 -0.34 3.0 0.0 0.0 0.0 0.0 0.0 0.0
+
+#ESMF_State_Namelist +++++++++++++++
+
+ENS_SPS:                          .false.
+HOUTASPS:                         10000
+
+IDATE1_IMPORT:                    .false.
+Z_IMPORT:                         .false.
+PS_IMPORT:                        .false.
+VOR_IMPORT:                       .false.
+DIV_IMPORT:                       .false.
+TEMP_IMPORT:                      .false.
+Q_IMPORT:                         .false.
+OZ_IMPORT:                        .false.
+SCLD_IMPORT:                      .false.
+TRIEO_IMPORT:                     .false.
+
+IDATE1_EXPORT:                    .false.
+Z_EXPORT:                         .false.
+PS_EXPORT:                        .false.
+VOR_EXPORT:                       .false.
+DIV_EXPORT:                       .false.
+TEMP_EXPORT:                      .false.
+Q_EXPORT:                         .false.
+OZ_EXPORT:                        .false.
+SCLD_EXPORT:                      .false.
+TRIEO_EXPORT:                     .true.
+
+# Surface state.
+#---------------
+OROGRAPHY_IMPORT:                 .false.
+T_SKIN_IMPORT:                    .false.
+SOIL_MOIS_IMPORT:                 .false.
+SNOW_DEPTH_IMPORT:                .false.
+SOIL_T_IMPORT:                    .false.
+DEEP_SOIL_T_IMPORT:               .false.
+ROUGHNESS_IMPORT:                 .false.
+CONV_CLOUD_COVER_IMPORT:          .false.
+CONV_CLOUD_BASE_IMPORT:           .false.
+CONV_CLOUD_TOP_IMPORT:            .false.
+ALBEDO_VISIBLE_SCATTERED_IMPORT:  .false.
+ALBEDO_VISIBLE_BEAM_IMPORT:       .false.
+ALBEDO_NEARIR_SCATTERED_IMPORT:   .false.
+ALBEDO_NEARIR_BEAM_IMPORT:        .false.
+SEA_LEVEL_ICE_MASK_IMPORT:        .false.
+VEGETATION_COVER_IMPORT:          .false.
+CANOPY_WATER_IMPORT:              .false.
+M10_WIND_FRACTION_IMPORT:         .false.
+VEGETATION_TYPE_IMPORT:           .false.
+SOIL_TYPE_IMPORT:                 .false.
+ZENEITH_ANGLE_FACSF_IMPORT:       .false.
+ZENEITH_ANGLE_FACWF_IMPORT:       .false.
+UUSTAR_IMPORT:                    .false.
+FFMM_IMPORT:                      .false.
+FFHH_IMPORT:                      .false.
+SEA_ICE_THICKNESS_IMPORT:         .false.
+SEA_ICE_CONCENTRATION_IMPORT:     .false.
+TPRCP_IMPORT:                     .false.
+SRFLAG_IMPORT:                    .false.
+ACTUAL_SNOW_DEPTH_IMPORT:         .false.
+LIQUID_SOIL_MOISTURE_IMPORT:      .false.
+VEGETATION_COVER_MIN_IMPORT:      .false.
+VEGETATION_COVER_MAX_IMPORT:      .false.
+SLOPE_TYPE_IMPORT:                .false.
+SNOW_ALBEDO_MAX_IMPORT:           .false.
+
+OROGRAPHY_EXPORT:                 .false.
+T_SKIN_EXPORT:                    .false.
+SOIL_MOIS_EXPORT:                 .false.
+SNOW_DEPTH_EXPORT:                .false.
+SOIL_T_EXPORT:                    .false.
+DEEP_SOIL_T_EXPORT:               .false.
+ROUGHNESS_EXPORT:                 .false.
+CONV_CLOUD_COVER_EXPORT:          .false.
+CONV_CLOUD_BASE_EXPORT:           .false.
+CONV_CLOUD_TOP_EXPORT:            .false.
+ALBEDO_VISIBLE_SCATTERED_EXPORT:  .false.
+ALBEDO_VISIBLE_BEAM_EXPORT:       .false.
+ALBEDO_NEARIR_SCATTERED_EXPORT:   .false.
+ALBEDO_NEARIR_BEAM_EXPORT:        .false.
+SEA_LEVEL_ICE_MASK_EXPORT:        .false.
+VEGETATION_COVER_EXPORT:          .false.
+CANOPY_WATER_EXPORT:              .false.
+M10_WIND_FRACTION_EXPORT:         .false.
+VEGETATION_TYPE_EXPORT:           .false.
+SOIL_TYPE_EXPORT:                 .false.
+ZENEITH_ANGLE_FACSF_EXPORT:       .false.
+ZENEITH_ANGLE_FACWF_EXPORT:       .false.
+UUSTAR_EXPORT:                    .false.
+FFMM_EXPORT:                      .false.
+FFHH_EXPORT:                      .false.
+SEA_ICE_THICKNESS_EXPORT:         .false.
+SEA_ICE_CONCENTRATION_EXPORT:     .false.
+TPRCP_EXPORT:                     .false.
+SRFLAG_EXPORT:                    .false.
+ACTUAL_SNOW_DEPTH_EXPORT:         .false.
+LIQUID_SOIL_MOISTURE_EXPORT:      .false.
+VEGETATION_COVER_MIN_EXPORT:      .false.
+VEGETATION_COVER_MAX_EXPORT:      .false.
+SLOPE_TYPE_EXPORT:                .false.
+SNOW_ALBEDO_MAX_EXPORT:           .false.
+
+EOF

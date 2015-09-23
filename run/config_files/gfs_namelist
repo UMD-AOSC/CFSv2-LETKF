@@ -1,0 +1,70 @@
+#!/bin/bash
+## use by "source gfs_namelist > outfile"
+##
+## Required the env vars:
+##  $FCST_LEN
+
+cat << EOF 
+&nam_mrf
+  FHOUT=${OUT_PERIOD}, FHMAX=${FCST_LEN}, IGEN=82, DELTIM=300,
+  FHRES=24, FHZER=06, FHLWR=1, FHSWR=1,
+  FHROT=0, FHDFI=0, FHCYC=0,
+  ntrac=3, jcap=${AM_RES}, levs=64,
+  lonf=${AM_RES_X}, lonr=${AM_RES_X}, latg=${AM_RES_Y},latr=${AM_RES_Y},
+  ntoz=2,ntcw=3,ncld=1,lsoil=4,
+  nmtvr=14, ngptc=30,hybrid=.true.,tfiltc=0.85,
+  gen_coord_hybrid=.false.,FHOUT_HF=1,FHMAX_HF=0,
+  IEMS=1,ISOL=1,IAER=111,ICO2=2,gfsio_in=.false.,gfsio_out=.false.,LDIAG3D=.false.,ras=.false., nsout=0, lsm=1,
+  tfiltc=0.85, liope=.true., zhao_mic=.true.,
+  old_monin=.true.,
+  ncw=10,100,crtrh=0.85,0.85,0.85,flgmin=0.220,liope=.true.,semilag=.false.,ialb=0,
+  iovr_lw=1,iovr_sw=1,
+  ISOL=1,ICO2=2,IAER=111,IEMS=1,
+  RUN_ENTHALPY=.false.,OUT_VIRTTEMP=.true.,
+  cnvgwd=.true.,mstrat=.false.,ccnorm=.false.,mom4ice=.true.,
+  ictm=0,climate=.true.,NGPTC=30,NCW=10,100, /
+&TRACER_CONSTANT
+   /
+&SOIL_VEG
+  LPARAM = .FALSE./
+&NAMSFC
+  FNGLAC="fix_am/global_glacier.2x2.grb",
+  FNMXIC="fix_am/global_maxice.2x2.grb",
+  FNTSFC="fix_am/cfs_oi2sst1x1monclim19822001.grb",
+  FNSNOC="fix_am/global_snoclim.1.875.grb",
+  FNZORC="fix_am/global_zorclim.1x1.grb",
+  FNALBC="fix_am/global_albedo4.1x1.grb",
+  FNAISC="fix_am/cfs_ice1x1monclim19822001.grb",
+  FNTG3C="fix_am/global_tg3clim.2.6x1.5.grb",
+  FNVEGC="fix_am/global_vegfrac.0.144.decpercent.grb",
+  FNVETC="fix_am/global_vegtype.1x1.grb",
+  FNSOTC="fix_am/global_soiltype.1x1.grb",
+  FNSMCC="fix_am/global_soilmcpc.1x1.grb",
+  FNMSKH="fix_am/seaice_newland.grb",
+  FNTSFA="",
+  FNACNA="",
+  FNSNOA="",
+  FNVMNC="fix_am/global_shdmin.0.144x0.144.grb",
+  FNVMXC="fix_am/global_shdmax.0.144x0.144.grb",
+  FNSLPC="fix_am/global_slope.1x1.grb",
+  FNABSC="fix_am/global_snoalb.1x1.grb",
+  LDEBUG=.false.,
+  FSMCL(2)=60,
+  FSMCL(3)=60,
+  FSMCL(4)=60,
+  FTSFS=90,
+  FAISS=99999,
+  FSNOL=99999,
+  FSICL=99999,
+  FTSFL=99999,
+  FAISL=99999,
+  FVETL=99999,
+  FSOTL=99999,
+  FvmnL=99999,
+  FvmxL=99999,
+  FSLPL=99999,
+  FABSL=99999,
+  FSNOS=99999,
+  FSICS=99999,
+   /
+EOF

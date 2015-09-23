@@ -1,0 +1,17 @@
+# Template for IBM xlf and xlc compilers
+#typical use with netCDF:
+# mkmf -t template.ibm -c"-Duse_libMPI -Duse_netCDF" path_names /usr/local/include
+FC = mpxlf90_r
+LD = mpxlf90_r
+CC = mpcc_r
+FFLAGS = -qsuffix=f=f90:cpp=F90 -qarch=auto -qmaxmem=-1 -qdpc -qrealsize=8 \
+	-qintsize=4 -qstrict -O -q64 -qwarn64 $(INCL)
+CFLAGS = -q64
+LDFLAGS = -brename:.flush,.flush_ -brename:.mld_id,.mld_id_ $(LIBS) -q64 -qwarn64
+# LIBS will need site-specific customization
+#LIBS = -L /usr/local/lib -lnetcdf -lmass
+#LIBS = -L/climate/save/wx24db/netcdf2/netcdf-3.5.0/lib \
+#	-L/climate/save/wx24db/netcdf/udunits-1.11.7/lib -lnetcdf -ludunits 
+#INCL = -I/climate/save/wx24db/netcdf2/netcdf-3.5.0/include
+LIBS = -L/nwprod/lib -lnetcdf_64
+INCL = -I/nwprod/lib/sorc/netcdf/godas_include
