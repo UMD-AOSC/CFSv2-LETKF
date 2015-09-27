@@ -1,0 +1,217 @@
+#!/usr/bin/env bash
+#SBATCH -n 20
+################################################################################
+## run_cycle.sh
+## Runs a single x hour forecast for the CFS model.
+##
+## Input arguments:
+##  $1   input directory containing the initial conditions of the forecast
+##  $2   output directory to place results
+##  $3   start date, in YYYYMMDDHH format
+##  $4   forecast lenght, in hours, normally is 6 or 9 hours
+##  $5   period, in hours, of atmospheric output (ocean, for now, only saves
+##       output at 6 hours)
+################################################################################
+set -e
+
+echo "CFSv2 LETKF"
+echo "arguments: $@"
+echo "main host: $(hostname)"
+
+
+## Experiment setup
+## ------------------------------
+
+SRC_DIR=$1
+OUT_DIR=$2
+START_DATE=$3
+FCST_LEN=$4               # forecast length in hours
+OUT_PERIOD=$5             # output file period (hours)
+
+#AM_RES=126         # atmosphere T resolution [62, ...]
+#AM_RES_X=384
+#AM_RES_Y=190
+AM_RES=62
+AM_RES_X=192
+AM_RES_Y=94
+
+OM_RES=05         # ocean resolution [05 or 1x1]
+
+CPL_PERIOD=300    # coulping period (s)
+
+
+## Computer configuration
+## ------------------------------
+## For DT2, use NPROC_OM=6, NPROC_AM=13 (for 20 cores total)
+## other configurations are not guaranteed to work, this
+## seems to be the least likely to crash
+#NPROC_OM=6    # number of cores for ocean model
+#NPROC_AM=13   # number of cores for atmo  model
+
+# 1 additional core used for coupler
+### timing experiments using different combinations of 20 cores total for coupler/atm/ocn
+# 12,7 = 1:18
+# 11,8 = dead
+# 10,9 = (dead?) 1:11
+# 9,10 = (dead?) 1:14
+# 8,11 = 1:17
+# 7,12 = dead
+# 6,13 = 1:25
+
+WORKDIR=/dev/shm/$USER/CFS
+
+echo "WORKDIR  = $WORKDIR"
+
+
+################################################################################
+# shouldn't have to modify below here
+################################################################################
+
+
+# create the working directory
+rm -rf $WORKDIR
+mkdir -p $WORKDIR
+cd $WORKDIR
+
+#copy the main executables over
+echo "Copying executables..."
+cp $CFS_LETKF_ROOT/cfs/bin/* .  &
+
+# create coupled namelist
+echo "creating coupled namelist (cpl_nml)..."
+source $CFS_LETKF_ROOT/run/config_files/cpl_nml > cpl_nml
+
+
+# Ocean Init
+########################################
+mkdir RESTART
+mkdir IRESTART
+
+# create config files
+echo "Creating MOM config files..."
+source $CFS_LETKF_ROOT/run/config_files/input.nml > input.nml
+cp $CFS_LETKF_ROOT/run/config_files/diag_table . &
+cp $CFS_LETKF_ROOT/run/config_files/data_table . &
+
+# copy fix files, select the correct ones
+# based on the desired resolution
+echo "Copying MOM fix files..."
+cp $FIX_DIR_OM/MOM4LND${OM_RES}GFSOCNt${AM_RES}.msk MOM4LND_GFSOCN &
+cp $FIX_DIR_OM/fluxes_init_OM_t${AM_RES} fluxes_init_OM &
+mkdir INPUT
+cd INPUT
+cp $FIX_DIR_OM/grid_spec_$OM_RES.nc.T$AM_RES grid_spec.nc &
+cp $FIX_DIR_OM/chl_$OM_RES.nc chl.nc &
+cp $FIX_DIR_OM/r2ts_clim.nc . &
+cp $FIX_DIR_OM/sst_ice_clim.nc . &
+cp $FIX_DIR_OM/runoff_$OM_RES.nc runoff.nc &
+cp $FIX_DIR_OM/ohf_sice.nc . &
+cd ..
+
+# copy initial conditions
+echo "Copying MOM initial conditions..."
+cd INPUT
+cp $SRC_DIR/$START_DATE.ice_model.res.nc                ice_model.res.nc &
+#cp $SRC_DIR/$START_DATE.ocean_density.res.nc            ocean_density.res.nc             ## really needed??
+#cp $SRC_DIR/$START_DATE.ocean_sbc.res.nc                ocean_sbc.res.nc                 ## really needed??
+cp $SRC_DIR/$START_DATE.ocean_velocity.res.nc           ocean_velocity.res.nc &
+cp $SRC_DIR/$START_DATE.ocean_velocity_advection.res.nc ocean_velocity_advection.res.nc &
+cp $SRC_DIR/$START_DATE.ocean_freesurf.res.nc           ocean_freesurf.res.nc &
+cp $SRC_DIR/$START_DATE.ocean_temp_salt.res.nc          ocean_temp_salt.res.nc &
+cp $SRC_DIR/$START_DATE.ocean_frazil.res.nc             ocean_frazil.res.nc &
+cp $SRC_DIR/$START_DATE.ocean_neutral.res.nc            ocean_neutral.res.nc &
+
+cd ..
+
+
+# Atmosphere init
+########################################
+# copy initial conditions
+echo "Copying GFS initial conditions..."
+cp $SRC_DIR/$START_DATE.sfc sfc_ini &
+cp $SRC_DIR/$START_DATE.sig sig_ini &
+
+
+# create namelists
+echo "Creating GFS config files..."
+source $CFS_LETKF_ROOT/run/config_files/gfs_namelist > gfs_namelist
+source $CFS_LETKF_ROOT/run/config_files/gfs_namelist.rc > gfs_namelist.rc
+
+# copy fix files
+echo "Copying GFS fix files..."
+cp $FIX_DIR_AM/global_climaeropac_global.txt aerosol.dat &
+cp $FIX_DIR_AM/global_co2con.l64.f77 fort.15 &
+cp $FIX_DIR_AM/global_mtnvar.t$AM_RES.f77 fort.24 &
+cp $FIX_DIR_AM/global_tbthe.f77 fort.27 &
+cp $FIX_DIR_AM/global_o3prdlos.f77 fort.28 &
+cp $FIX_DIR_AM/global_cldtune.f77 fort.43 &
+cp $FIX_DIR_AM/global_o3clim.txt fort.48 &
+cp $FIX_DIR_AM/global_orography.t$AM_RES.grb orography &
+cp $FIX_DIR_AM/global_orography_uf.t$AM_RES.$AM_RES_X.$AM_RES_Y.grb orography_uf &
+cp $FIX_DIR_AM/global_sfc_emissivity_idx.txt sfc_emissivity_idx.txt &
+cp $FIX_DIR_AM/global_co2historicaldata_2009.txt co2historicaldata_2009.txt &
+cp $FIX_DIR_AM/global_solarconstantdata.txt solarconstantdata.txt &
+mkdir fix_am
+cd fix_am
+cp $FIX_DIR_AM/global_glacier.2x2.grb . &
+cp $FIX_DIR_AM/global_maxice.2x2.grb . &
+cp $FIX_DIR_AM/cfs_oi2sst1x1monclim19822001.grb . &
+cp $FIX_DIR_AM/global_snoclim.1.875.grb . &
+cp $FIX_DIR_AM/global_zorclim.1x1.grb . &
+cp $FIX_DIR_AM/global_albedo4.1x1.grb . &
+cp $FIX_DIR_AM/cfs_ice1x1monclim19822001.grb . &
+cp $FIX_DIR_AM/global_tg3clim.2.6x1.5.grb . &
+cp $FIX_DIR_AM/global_vegfrac.0.144.decpercent.grb . &
+cp $FIX_DIR_AM/global_vegtype.1x1.grb . &
+cp $FIX_DIR_AM/global_soiltype.1x1.grb . &
+cp $FIX_DIR_AM/global_soilmcpc.1x1.grb . &
+cp $FIX_DIR_AM/seaice_newland.grb . &
+cp $FIX_DIR_AM/global_shdmin.0.144x0.144.grb . &
+cp $FIX_DIR_AM/global_shdmax.0.144x0.144.grb . &
+cp $FIX_DIR_AM/global_slope.1x1.grb . &
+cp $FIX_DIR_AM/global_snoalb.1x1.grb . &
+cd ..
+
+
+wait
+
+## Run the CFS model
+########################################
+echo "Running the CFS model..."
+export OMP_NUM_THREADS=1
+mpirun -n 1 cfs_mlc_coupler : -n $NPROC_OM cfs_ocean_mom4ice : -n $NPROC_AM global_fcst
+echo "Done running model...."
+
+START_DATE=$(date -u -d"${START_DATE:0:8} ${START_DATE:8:10}")
+mkdir -p $OUT_DIR
+
+## move the GFS output
+echo "Moving GFS output..."
+cdate=$(date -u -d "$START_DATE" +%Y%m%d%H)
+fdate=$(date -u -d "$START_DATE + 6 hours" +%Y%m%d%H)
+
+for i in $(seq -f "%02g" $OUT_PERIOD $OUT_PERIOD $FCST_LEN); do    
+    # md5sum SIG.F$i
+    # md5sum SFC.F$i    
+    mv SIG.F$i $OUT_DIR/${cdate}_F$i.sig
+    mv SFC.F$i $OUT_DIR/${cdate}_F$i.sfc
+done
+
+
+## move the MOM output
+echo "Moving MOM output..."
+mv IRESTART/${fdate}ocean_velocity.res.nc           $OUT_DIR/${cdate}_F06.ocean_velocity.res.nc &
+mv IRESTART/${fdate}ocean_velocity_advection.res.nc $OUT_DIR/${cdate}_F06.ocean_velocity_advection.res.nc &
+mv IRESTART/${fdate}ocean_freesurf.res.nc           $OUT_DIR/${cdate}_F06.ocean_freesurf.res.nc &
+mv IRESTART/${fdate}ocean_temp_salt.res.nc          $OUT_DIR/${cdate}_F06.ocean_temp_salt.res.nc &
+mv IRESTART/${fdate}ocean_frazil.res.nc             $OUT_DIR/${cdate}_F06.ocean_frazil.res.nc &
+mv IRESTART/${fdate}ocean_neutral.res.nc            $OUT_DIR/${cdate}_F06.ocean_neutral.res.nc &
+mv IRESTART/${fdate}ice_model.res.nc                $OUT_DIR/${cdate}_F06.ice_model.res.nc &
+
+#are the following really needed?
+mv IRESTART/${fdate}ocean_density.res.nc            $OUT_DIR/${cdate}_F06.ocean_density.res.nc &
+mv IRESTART/${fdate}ocean_sbc.res.nc                $OUT_DIR/${cdate}_F06.ocean_sbc.res.nc &
+
+wait
+
+echo "Done."

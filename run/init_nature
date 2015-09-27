@@ -1,0 +1,53 @@
+#!/usr/bin/env python
+import argparse
+import os, shutil
+import datetime as dt
+import sys
+
+from glob import glob
+
+
+defaultOut = os.getenv("CFS_LETKF_ROOT")+'/DATA/nature'
+parser = argparse.ArgumentParser(
+    formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    description=(
+        "Initialize the output directory for a 6 hour "
+        " cycling CFS run"))
+parser.add_argument("--date", required=True,help=(
+    "initial date of the nature run, format is in YYYYMMDDHH"))
+parser.add_argument('--path', default=defaultOut, help=(
+    "path to the output directory"))
+parser.add_argument('--res', type=int, default=62, help=(
+    "atmospheric resolution"))
+parser.add_argument('-f', action='store_true', help=(
+    "force overwriting of any existing directory"))
+args = parser.parse_args()
+args.cfsr = os.getenv("CFSR_DIR")
+
+## create the output directory
+if os.path.exists(args.path):
+    if args.f:
+        print 'Removing directory...'
+        shutil.rmtree(args.path)
+    else:
+        print ('Directory {0} already exists, remove and try again or'
+               ' force removal of old directory with the "-f" option').format(args.path)
+        sys.exit(1)
+cdate = dt.datetime.strptime(args.date, "%Y%m%d%H")
+os.makedirs(args.path+cdate.strftime("/%Y/%Y%m/%Y%m%d/%Y%m%d%H/"))
+
+
+dateDirOut=cdate.strftime("/%Y/%Y%m/%Y%m%d/%Y%m%d%H/")
+dateDirIn =cdate.strftime("/%Y/%Y%m/%Y%m%d/")
+
+## copy atmosphere files
+fromDirAtm = args.cfsr+'/T{0}/'.format(args.res)
+for ext in ['.sig','.sfc']:
+    shutil.copy(fromDirAtm+dateDirIn+args.date+ext,
+                args.path+dateDirOut)
+
+## copy ocean files
+files = glob(args.cfsr+'/ocn_05/'+dateDirIn+'/ocnanl.gdas.'+args.date+'.*.nc')
+for f in files:
+    shutil.copy(f, args.path+dateDirOut+'.'.join(f.split('.')[2:]))
+             

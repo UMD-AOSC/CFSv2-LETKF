@@ -1,0 +1,54 @@
+#!/usr/bin/env python
+import argparse
+import datetime as dt
+import subprocess as sp
+import os, shutil, sys
+
+
+## get command line arguments
+parser = argparse.ArgumentParser(description=(
+    "Downloads the CFSR T126 analysis"))
+parser.add_argument('--start', metavar='date', required=True, help=(
+    'start date of data to get, format is "YYYYMMDD"'))
+parser.add_argument('--end', metavar="date", help=(
+    'end date of data to get, format is "YYYYMMDD", if no date is '
+    'given, only the "start" date is downloaded'))
+args=parser.parse_args()
+if not args.end:
+    args.end=args.start
+
+## create temporary work directory
+tmpdir=os.getenv('TMP_DIR_LOCAL')+'/get_cfsr'
+if os.path.exists(tmpdir):
+    shutil.rmtree(tmpdir)
+outdir=os.getenv('CFSR_DIR')
+
+## start the loop    
+cdate = dt.datetime.strptime(args.start,'%Y%m%d')
+edate = dt.datetime.strptime(args.end,'%Y%m%d')
+data_url = "http://nomads.ncdc.noaa.gov/modeldata/cmd_LIC"  #T126
+while cdate <= edate:
+    os.makedirs(tmpdir)
+    print cdate
+
+    ## download the file
+    tarfile = cdate.strftime("/%Y/%Y%m/%Y%m%d/cfs_reanalysis_CFS_LIC_%Y%m%d.tar")
+    sp.call('wget '+data_url+tarfile,shell=True,cwd=tmpdir)
+
+    ## extract the required files
+    sp.call('tar -xaf '+os.path.basename(tarfile)+' s??anl.*', shell=True, cwd=tmpdir)
+    
+    ## move to output directory
+    outpfx = outdir+'/'+cdate.strftime('T126/%Y/%Y%m/%Y%m%d/%Y%m%d')
+    if not os.path.exists(os.path.dirname(outpfx)):
+        os.makedirs(os.path.dirname(outpfx))
+    for h in ['00','06','12','18']:
+        for t in ['sfc','sig']:
+            shutil.move(tmpdir+'/{0}anl.gdas2.{1}{2}'.format(t,cdate.strftime("%Y%m%d"),h),
+                      outpfx+h+'.'+t)
+
+    shutil.rmtree(tmpdir)
+    
+    cdate += dt.timedelta(days=1)
+
+shutil.rmtree(tmpdir)

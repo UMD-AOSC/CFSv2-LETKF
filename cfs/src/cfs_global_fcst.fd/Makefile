@@ -114,16 +114,16 @@ OBJ_MOD	= machine.o             \
 	  sigio_r_module.o         \
 	  gfsio_module.o           \
 	  gfsio_def.o              \
- 	  d3d_def.o                \
+	  d3d_def.o                \
           nstio_module.o           \
           module_nst_parameters.o  \
           module_nst_water_prop.o  \
           module_nst_model.o       \
 	  calpreciptype.o          \
 	  module_bfmicrophysics.o  \
- 	  kinds.o                  \
- 	  peuc.o                   \
- 	  pran.o                   \
+	  kinds.o                  \
+	  peuc.o                   \
+	  pran.o                   \
 	  prana.o                  \
 	  layout_lag.o             \
 	  slglat.o                 \
@@ -361,6 +361,8 @@ OBJS_CC= \
 	tiles.o
 
 SRC	= $(OBJS0:.o=.f) $(OBJ_MOD:.o=.f) $(OBJS:.o=.f) $(OBJS_RAD:.o=.f) $(OBJS_PHY:.o=.f) $(OBJS_IO:.o=.f) $(OBJS_CC:.o=.f)
+
+
 #
 INCS = f_hpm.h mpi_inc.h function2
 
@@ -391,10 +393,34 @@ omegas.o:	omegas.f
 #
 # *****************************************************************
 #
+$(OBJ_MOD) : machine.o
+
+
+slgscan_all_redgg.o:pmgrid.o
+gfidi_speed.o: resol_def.o
+mpi_tracers_a_to_b.o:resol_def.o
+gfidi_tracers.o:resol_def.o physcons.o
+getcon_lag.o:gg_def.o
+set_halos_lag_sn.o:resol_def.o
+get_cd_hyb_slg.o:resol_def.o
+sltini_all.o: resol_def.o
+set_longgs.o:resol_def.o
+gg_def.o : machine.o
+
+get_topo_grid_grad.o : sig_io.o
+
+tracer_const_h-new.o : physcons.o
+
+resol_def.o : machine.o
+
+sig_io.o : resol_def.o
+
+module.o: machine.o
+
 cnvc90.o:	cnvc90.f
 		$(F77) $(FFLAGM) -c cnvc90.f
 
-calpreciptype.o:	calpreciptype.f
+calpreciptype.o:	calpreciptype.f funcphys.o
 		$(F77) $(FFLAGM3) -c calpreciptype.f
 
 dcyc2.o:	dcyc2.f
@@ -436,13 +462,13 @@ filtr2eo.o:	filtr2eo.f
 gscond.o:	gscond.f
 		$(F77) $(FFLAGM) -c gscond.f
 
-gsmddrive.o:	gsmddrive.f
+gsmddrive.o:	gsmddrive.f module_bfmicrophysics.o
 		$(F77) $(FFLAGM) -c gsmddrive.f
 
 reduce_lons_grid_module.o:	reduce_lons_grid_module.f
 		$(F77) $(FFLAGM) -c reduce_lons_grid_module.f
 
-module_bfmicrophysics.o:	module_bfmicrophysics.f
+module_bfmicrophysics.o:	module_bfmicrophysics.f funcphys.o
 		$(F77) $(FFLAGM) -c module_bfmicrophysics.f
 
 gwdps.o:	gwdps.f
@@ -496,7 +522,7 @@ ozphys.o:	ozphys.f
 precpd.o:	precpd.f
 		$(F77) $(FFLAGM) -c precpd.f
 
-rascnvv2.o:	rascnvv2.f
+rascnvv2.o:	rascnvv2.f physcons.o
 		$(F77) $(FFLAGM) -c rascnvv2.f
 
 sfc_sice.o:	sfc_sice.f
@@ -510,7 +536,7 @@ namelist_soilveg.o:	namelist_soilveg.f
 
 sfc_land.o:	sfc_land.f
 		$(F77) $(FFLAGM) -c sfc_land.f
-                                                                            
+
 progt2.o:	progt2.f
 		$(F77) $(FFLAGM) -c progt2.f
 
@@ -523,7 +549,7 @@ sflx.o: 	sflx.f
 sfc_ocean.o:	sfc_ocean.f
 		$(F77) $(FFLAGM) -c sfc_ocean.f
 
-sfc_nst.o:	sfc_nst.f
+sfc_nst.o:	sfc_nst.f module_nst_model.o
 		$(F77) $(FFLAGM) -c sfc_nst.f
 
 sfc_diff.o:	sfc_diff.f
@@ -563,16 +589,16 @@ radlw_datatb.o:	radlw_datatb.f
 		$(F77) $(FFLAGM) -c radlw_datatb.f
 
 
-radlw_main.o:	radlw_main.f
+radlw_main.o:	radlw_main.f radlw_datatb.o
 		$(F77) $(FFLAGM) -c radlw_main.f
 
 radsw_param.o:	radsw_param.f
 		$(F77) $(FFLAGM) -c radsw_param.f
 
-radsw_datatb.o:	radsw_datatb.f
+radsw_datatb.o:	radsw_datatb.f radsw_param.o
 		$(F77) $(FFLAGM) -c radsw_datatb.f
 
-radsw_main.o:	radsw_main.f
+radsw_main.o:	radsw_main.f radsw_datatb.o
 		$(F77) $(FFLAGM) -c radsw_main.f
 
 radiation_astronomy.o:	radiation_astronomy.f
@@ -584,16 +610,16 @@ radiation_aerosols.o:	radiation_aerosols.f
 radiation_gases.o:	radiation_gases.f
 		$(F77) $(FFLAGM) -c radiation_gases.f
 
-radiation_clouds.o:	radiation_clouds.f
+radiation_clouds.o:	radiation_clouds.f module_bfmicrophysics.o
 		$(F77) $(FFLAGM) -c radiation_clouds.f
 
 radiation_surface.o:	radiation_surface.f
 		$(F77) $(FFLAGM) -c radiation_surface.f
 
-grrad.o:	grrad.f
+grrad.o:	grrad.f radsw_datatb.o radlw_datatb.o radsw_main.o
 		$(F77) $(FFLAGM) -c grrad.f
 
-progtm_module.o:	progtm_module.f
+progtm_module.o:	progtm_module.f machine.o
 		$(F77) $(FFLAGM) -c progtm_module.f
 
 machine.o:	machine.f
@@ -611,19 +637,19 @@ peuc.o:		GEFS_Cpl_Cal_Sto_Coef.fd/peuc.f90
 pran.o:		GEFS_Cpl_Cal_Sto_Coef.fd/pran.f90
 		$(F90) $(FFLAG90) -c GEFS_Cpl_Cal_Sto_Coef.fd/pran.f90
 
-prana.o:	GEFS_Cpl_Cal_Sto_Coef.fd/prana.f90
+prana.o:	GEFS_Cpl_Cal_Sto_Coef.fd/prana.f90 pran.o peuc.o
 		$(F90) $(FFLAG90) -c GEFS_Cpl_Cal_Sto_Coef.fd/prana.f90
 
 #
 # *****************************************************************
 #
-physcons.o:	physcons.f
+physcons.o:	physcons.f machine.o
 		$(F77) $(FFLAG90) -c physcons.f
 
 iounitdef.o:	iounitdef.f
 		$(F77) $(FFLAG90) -c iounitdef.f
 
-funcphys.o:	funcphys.f
+funcphys.o:	funcphys.f physcons.o
 		$(F77) $(FFLAG90) -c funcphys.f
 
 sfcio_module.o:	sfcio_module.f
@@ -632,13 +658,13 @@ sfcio_module.o:	sfcio_module.f
 sigio_module.o:	sigio_module.f
 		$(F77) $(FFLAGSI) -c sigio_module.f
 
-gfsio_def.o:	gfsio_def.f
+gfsio_def.o:	gfsio_def.f gfsio_module.o
 		$(F77) $(FFLAGSI) -c gfsio_def.f
 
 gfsio_module.o:	gfsio_module.f
 		$(F77) $(FFLAGSI) -c gfsio_module.f
 
-sigio_r_module.o:	sigio_r_module.f
+sigio_r_module.o:	sigio_r_module.f sigio_module.o
 		$(F77) $(FFLAGSI) -c sigio_r_module.f
 
 bafrio.o:	bafrio.f
@@ -654,7 +680,7 @@ read_fix.o:	read_fix.f
 softcount.o:	softcount.f
 		$(F77) $(FFLAGX) -c softcount.f
 
-gloopr.o:	gloopr.f
+gloopr.o:	gloopr.f grrad.o
 		$(F77) $(FFLAG_SER) -c gloopr.f
 
 sfcsub.o:	sfcsub.f
@@ -717,19 +743,19 @@ spect_tv_enthalpy_ps.o:	spect_tv_enthalpy_ps.f
 grid_to_spec.o:	grid_to_spec.f
 		$(F77) $(FFLAGIO) -c grid_to_spec.f
 
-wrtout.o:	wrtout.f
+wrtout.o:	wrtout.f sig_io.o
 		$(F77) $(FFLAGIO) -c wrtout.f
 
 nstio_module.o:	 nstio_module.f
 		$(F77) $(FFLAG90) -c nstio_module.f
 
-module_nst_parameters.o:	module_nst_parameters.f
+module_nst_parameters.o:	module_nst_parameters.f physcons.o
 		$(F77) $(FFLAG90) -c module_nst_parameters.f
 
-module_nst_water_prop.o:	 module_nst_water_prop.f
+module_nst_water_prop.o:	 module_nst_water_prop.f module_nst_parameters.o
 		$(F77) $(FFLAG90) -c module_nst_water_prop.f
 
-module_nst_model.o:		module_nst_model.f
+module_nst_model.o:		module_nst_model.f module_nst_water_prop.o
 		$(F77) $(FFLAG90) -c module_nst_model.f
 
 NameList_ESMFMod.o:	 NameList_ESMFMod.f
@@ -747,16 +773,16 @@ Lib_ESMFStateAddGetMod.o:	Lib_ESMFStateAddGetMod.f
 #GFS_ESMFStateAddGetMod.o:	 GFS_ESMFStateAddGetMod.f
 #		$(F77) $(FFLAG90) -c GFS_ESMFStateAddGetMod.f
 
-GFS_InternalState_ESMFMod.o:	 GFS_InternalState_ESMFMod.f
+GFS_InternalState_ESMFMod.o:	 GFS_InternalState_ESMFMod.f sig_io.o rascnvv2.o
 		$(F77) $(FFLAG90) -c GFS_InternalState_ESMFMod.f
 
-GFS_ESMFStateMod.o:	 GFS_ESMFStateMod.f
+GFS_ESMFStateMod.o:	 GFS_ESMFStateMod.f GFS_InternalState_ESMFMod.o
 		$(F77) $(FFLAG90) -c GFS_ESMFStateMod.f
 
 GFS_ErrMsgMod.o:	 GFS_ErrMsgMod.f
 		$(F77) $(FFLAG90) -c GFS_ErrMsgMod.f
 
-GFS_GetCf_ESMFMod.o:	 GFS_GetCf_ESMFMod.f 
+GFS_GetCf_ESMFMod.o:	 GFS_GetCf_ESMFMod.f GFS_InternalState_ESMFMod.o
 		$(F77) $(FFLAG90) -c GFS_GetCf_ESMFMod.f
 
 GFS_ESMFMod.o:	 GFS_ESMFMod.f
@@ -765,16 +791,16 @@ GFS_ESMFMod.o:	 GFS_ESMFMod.f
 #GFS_Grid_fnl_ESMFMod.o:	 GFS_Grid_fnl_ESMFMod.f
 		#$(F77) $(FFLAG90A) -c GFS_Grid_fnl_ESMFMod.f
 
-GFS_GridComp_ESMFMod.o:	 GFS_GridComp_ESMFMod.f
+GFS_GridComp_ESMFMod.o:	 GFS_GridComp_ESMFMod.f GFS_Initialize_ESMFMod.o GFS_Run_ESMFMod.o GFS_AddParameterToStateMod.o
 		$(F77) $(FFLAG90A) -c GFS_GridComp_ESMFMod.f
 
-GFS_Initialize_ESMFMod.o:	 GFS_Initialize_ESMFMod.f
+GFS_Initialize_ESMFMod.o:	 GFS_Initialize_ESMFMod.f GFS_GetCf_ESMFMod.o
 		$(F77) $(FFLAG90) -c GFS_Initialize_ESMFMod.f
 
-GFS_Run_ESMFMod.o:	GFS_Run_ESMFMod.f
+GFS_Run_ESMFMod.o:	GFS_Run_ESMFMod.f GFS_InternalState_ESMFMod.o
 		$(F77) $(FFLAG90) -c GFS_Run_ESMFMod.f
 
-GFS_Finalize_ESMFMod.o:	GFS_Finalize_ESMFMod.f
+GFS_Finalize_ESMFMod.o:	GFS_Finalize_ESMFMod.f GFS_InternalState_ESMFMod.o
 		$(F77) $(FFLAG90) -c GFS_Finalize_ESMFMod.f
 
 GFS_InputFile2ImportState.o:	 GFS_InputFile2ImportState.f
@@ -783,13 +809,13 @@ GFS_InputFile2ImportState.o:	 GFS_InputFile2ImportState.f
 #GFS_Standalone_ESMF_ENS.o:	 GFS_Standalone_ESMF_ENS.f
 #		$(F77) $(FFLAG90) -c GFS_Standalone_ESMF_ENS.f
 
-GFS_ESMF.o:	GFS_ESMF.f
+GFS_ESMF.o:	GFS_ESMF.f GEFS_CplComp_ESMFMod.o GFS_GridComp_ESMFMod.o
 		$(F77) $(FFLAG90) -c GFS_ESMF.f
 
-Grid_ESMFCreate.o:	 Grid_ESMFCreate.f
+Grid_ESMFCreate.o:	 Grid_ESMFCreate.f GFS_InternalState_ESMFMod.o
 		$(F77) $(FFLAG90) -c Grid_ESMFCreate.f
 
-StartTimeGet_ESMF.o:	 StartTimeGet_ESMF.f
+StartTimeGet_ESMF.o:	 StartTimeGet_ESMF.f sigio_r_module.o
 		$(F77) $(FFLAG90) -c StartTimeGet_ESMF.f
 
 Ensemble_sub.o:	 Ensemble_sub.f
@@ -801,31 +827,31 @@ mpi_more.o:	mpi_more.f
 cmp.comm.o:	cmp.comm.f
 		$(F77) $(FFLAGS) -c cmp.comm.f
 
-atm.comm.o:	atm.comm.f
+atm.comm.o:	atm.comm.f cmp.comm.o
 		$(F77) $(FFLAGS) -c atm.comm.f
 
-tiles.o:	tiles.f
+tiles.o:	tiles.f atm.comm.o
 		$(F77) $(FFLAGS) -c tiles.f
 
 GEFS_Cpl_InternalState_ESMFMod.o:	GEFS_Cpl_InternalState_ESMFMod.f
 		$(F77) $(FFLAG90) -c GEFS_Cpl_InternalState_ESMFMod.f
 
-GEFS_CplState_ESMFMod.o:	GEFS_CplState_ESMFMod.f
+GEFS_CplState_ESMFMod.o:	GEFS_CplState_ESMFMod.f GEFS_Cpl_InternalState_ESMFMod.o atm.comm.o
 		$(F77) $(FFLAG90) -c GEFS_CplState_ESMFMod.f
 
-GEFS_Sto_Per_Scheme.o:	GEFS_Sto_Per_Scheme.f
+GEFS_Sto_Per_Scheme.o:	GEFS_Sto_Per_Scheme.f GEFS_Cpl_InterfaceState_ESMFMod.o
 		$(F77) $(FFLAG90) -c GEFS_Sto_Per_Scheme.f
 
-GEFS_Cpl_Run_ESMFMod.o:	GEFS_Cpl_Run_ESMFMod.f
+GEFS_Cpl_Run_ESMFMod.o:	GEFS_Cpl_Run_ESMFMod.f atm.comm.o
 		$(F77) $(FFLAG90) -c GEFS_Cpl_Run_ESMFMod.f
 
-GEFS_Cpl_ESMFMod.o:	GEFS_Cpl_ESMFMod.f
+GEFS_Cpl_ESMFMod.o:	GEFS_Cpl_ESMFMod.f GEFS_Cpl_Run_ESMFMod.o
 		$(F77) $(FFLAG90) -c GEFS_Cpl_ESMFMod.f
 
-GEFS_CplComp_ESMFMod.o:	GEFS_CplComp_ESMFMod.f
+GEFS_CplComp_ESMFMod.o:	GEFS_CplComp_ESMFMod.f GEFS_Cpl_ESMFMod.o
 		$(F77) $(FFLAG90) -c GEFS_CplComp_ESMFMod.f
 
-GFS_AddParameterToStateMod.o:	GFS_AddParameterToStateMod.f
+GFS_AddParameterToStateMod.o:	GFS_AddParameterToStateMod.f GFS_InternalState_ESMFMod.o
 		$(F77) $(FFLAG90) -c GFS_AddParameterToStateMod.f
 
 GEFS_Sto_Per_Scheme_Step1.o:	GEFS_Sto_Per_Scheme_Step1.f
@@ -837,7 +863,7 @@ GEFS_Sto_Per_Scheme_Step2.o:	GEFS_Sto_Per_Scheme_Step2.f
 GEFS_GetParameterFromStateMod.o:	GEFS_GetParameterFromStateMod.f
 		$(F77) $(FFLAG90) -c GEFS_GetParameterFromStateMod.f
 
-Cal_Sto_Coef.o:		GEFS_Cpl_Cal_Sto_Coef.fd/Cal_Sto_Coef.f90
+Cal_Sto_Coef.o:		GEFS_Cpl_Cal_Sto_Coef.fd/Cal_Sto_Coef.f90 prana.o
 		$(F90) $(FFLAG90) -c GEFS_Cpl_Cal_Sto_Coef.fd/Cal_Sto_Coef.f90
 
 GEFS_bcst_global.o:	GEFS_bcst_global.f

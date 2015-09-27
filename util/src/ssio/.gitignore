@@ -1,0 +1,8 @@
+*.o
+*.f90
+*.mod
+grd2ss
+grdctl
+ss2grd
+ss2grdp
+sscycle

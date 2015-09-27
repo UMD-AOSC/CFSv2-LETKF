@@ -1,0 +1,205 @@
+#!/usr/bin/env python
+################################################################################
+## slurm_nature
+## Runs a series of 6 hours forecasts to create a free running nature
+##  run using the CFSv2
+##
+## Environment variables:
+##  CFSR_DIR        directory where the CFSR atmosphere analyses are stored
+##  CFS_LETKF_ROOT  root directory for the whole CFSv2-LETKF code
+##  TMP_DIR_LOCAL   
+################################################################################
+
+## setup the console logger. 
+import logging
+import sys
+log = logging.getLogger('')
+log.setLevel(logging.DEBUG)
+logFormat = logging.Formatter('[%(levelname)-5s %(asctime)s]  %(message)s')
+logScreen = logging.StreamHandler(sys.stdout)
+logScreen.setLevel(logging.INFO)
+logScreen.setFormatter(logFormat)
+log.addHandler(logScreen)
+logging.addLevelName(logging.INFO, "\033[01;37mINFO \033[00m")
+logging.addLevelName(logging.ERROR, "\033[01;31mERROR\033[00m")
+logging.addLevelName(logging.WARN, "\033[01;33mWARN \033[00m")
+logging.addLevelName(logging.CRITICAL, "\033[01;35mCRIT \033[00m")  
+
+## load built in modules
+import argparse
+import os,shutil
+import subprocess as sp
+from glob import glob
+import datetime as dt
+import time
+import numpy as np
+
+## load 3rd party modules
+
+## load local modules
+import slurm
+
+
+
+## configurables
+## TODO, make these configurable from the command line
+##############################
+jobWatchSleep = 2            # in seconds
+timeLimit_CFS = "5:00"
+analGFS = os.getenv("CFSR_DIR")+"/T62"
+
+
+rootDir = os.getenv("CFS_LETKF_ROOT")
+ssioPath = rootDir +'/util/bin/sscycle'
+tmpDir = os.getenv("TMP_DIR_LOCAL")+'/cfs_nature'
+
+
+################################################################################
+################################################################################
+
+## make a local temporary work directory
+if os.path.exists(tmpDir):
+    shutil.rmtree(tmpDir)
+os.makedirs(tmpDir)
+    
+## get the command line arguments
+parser = argparse.ArgumentParser(
+    formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    description="")
+parser.add_argument('-s','--start', metavar="date", required=True,
+  help="")
+parser.add_argument('-e','--end',  metavar="date",  required=True,
+  help="")
+parser.add_argument('-p','--path', metavar='path', required=True,
+  help="")
+parser.add_argument('--partition',
+  help="the SLURM partition to use, only meaningful overrides are 'debug' and 'scavenger'")
+parser.add_argument('--account', default="aosc-hi",
+  help="The slurm account to run the experiment with")
+args=parser.parse_args()
+
+
+## extra command line argument processing...
+args.path = os.path.abspath(args.path)
+slurmPartition = ''
+if args.partition:
+    slurmPartition ='-p '+args.partition   
+startDate = dt.datetime.strptime(args.start, "%Y%m%d%H")
+endDate   = dt.datetime.strptime(args.end, "%Y%m%d%H")
+slurm.account = args.account
+
+
+## create the logging directory if not already existing,
+## and setup a log file for this script
+logDir = args.path+'/logs/'
+if not os.path.exists(logDir):
+    os.makedirs(logDir)
+    os.makedirs(logDir+'/cfs')
+    os.makedirs(logDir+'/letkf')    
+logFormat = logging.Formatter('[%(levelname)-5s %(asctime)s]  %(message)s')
+logFile = logging.FileHandler(filename=logDir+'/controller_'+args.start+'.log', mode='w')
+logFile.setLevel(logging.DEBUG)
+logFile.setFormatter(logFormat)
+log.addHandler(logFile)
+logging.addLevelName(logging.INFO, "\033[01;37mINFO \033[00m")
+logging.addLevelName(logging.ERROR, "\033[01;31mERROR\033[00m")
+logging.addLevelName(logging.WARN, "\033[01;33mWARN \033[00m")
+logging.addLevelName(logging.CRITICAL, "\033[01;35mCRIT \033[00m")  
+log.info("CFSv2-LETKF nature run script")
+log.info("Travis Sluka, University of Maryland, 2015")
+log.info("")
+
+
+## Log stuff...
+log.debug(str(args))
+log.info("Start date: "+str(startDate))
+log.info("End date:   "+str(endDate))
+log.info("")
+
+
+################################################################################
+################################################################################
+
+
+## copy required files
+shutil.copy(ssioPath,tmpDir+'/sscycle')
+
+
+################################################################################
+## functions needed for the slurm module
+################################################################################
+def checkJob(job, path):
+    """ Function to be run after the completion of a 6 hour forecast,
+    Checks to make sure that the job finished correctly by inspecting
+    some of the key file outputs"""
+    
+    ## make sure there are the right number of files:
+    found = (len(glob(path+'/??????????_F06.*')) > 5)                  
+    if not found:
+        log.warn('checkJob: not enough files, waiting to see if lusture is just slow')
+    return found
+
+
+def resetJob(job, path):
+    """Function to be run before a job is resubmitted after failure.
+    Deletes the bad files that might have been created
+    """
+    log.debug('calling resetJob for '+job.name)
+    if os.path.exists(path):
+        shutil.rmtree(path)
+
+
+    
+##################################################################################            
+## Run cycle
+##################################################################################
+cdate = startDate
+while cdate < endDate:
+    log.info("*** Begining "+str(cdate))
+    cdateShort = cdate.strftime("%Y%m%d%H")
+    ndate = cdate + dt.timedelta(hours=6)
+
+    ## create the forecast from the given time
+    ############################################################
+    run = True
+    while run:
+        run = False
+        inPath  = args.path+cdate.strftime("/%Y/%Y%m/%Y%m%d/%Y%m%d%H/")
+        outPath = args.path+ndate.strftime("/%Y/%Y%m/%Y%m%d/%Y%m%d%H/")
+
+        # run the 6 hour step
+        job = slurm.Job(
+            name = 'CFS_nature',
+            cmd = "./run_fcst {0} {1} {2} 6 6".format(
+                inPath,outPath,cdateShort),
+            runtime = timeLimit_CFS,
+            output  = logDir+'/cfs/cfs_'+cdateShort+'_%j.log',
+            fnCheck = lambda x: checkJob(x, outPath),
+            fnRetry = lambda x: resetJob(x, outPath),            
+        )        
+        slurm.monitor((job,))
+
+        time.sleep(10)
+
+        ## run sscycle on the output of the gfs
+        [os.remove(f) for f in  glob(tmpDir+'/fort.*')]        
+        cfsrFiles = analGFS+ndate.strftime("/%Y/%Y%m/%Y%m%d/%Y%m%d%H")
+        shutil.copy(cfsrFiles+'.sig', tmpDir+'/fort.21')
+        shutil.copy(cfsrFiles+'.sfc', tmpDir+'/fort.22')
+        shutil.move(outPath+cdate.strftime("/%Y%m%d%H_F06.sig"), tmpDir+'/fort.11')
+        shutil.move(outPath+cdate.strftime("/%Y%m%d%H_F06.sfc"), tmpDir+'/fort.12')
+        if sp.call("./sscycle", cwd=tmpDir, shell=True) != 0:
+            print "error with calling sscyle"
+            sys.exit(1)
+        shutil.move(tmpDir+'/fort.21', outPath+ndate.strftime("/%Y%m%d%H.sig"))
+        shutil.move(tmpDir+'/fort.22', outPath+ndate.strftime("/%Y%m%d%H.sfc"))
+        [os.remove(f) for f in  glob(tmpDir+'/fort.*')]
+
+        ## rename the ocean/ice files
+        for f in glob(outPath+"/*F06.ocean*.nc")+glob(outPath+"/*F06.ice*.nc"):
+            shutil.move(f, outPath+ndate.strftime('/%Y%m%d%H')+os.path.basename(f)[14:])
+        
+    ## incremment the date
+    cdate += dt.timedelta(hours=6)
+        
+shutil.rmtree(tmpDir)
