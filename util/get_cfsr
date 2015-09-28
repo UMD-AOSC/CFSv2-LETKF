@@ -23,7 +23,14 @@ if os.path.exists(tmpdir):
     shutil.rmtree(tmpdir)
 outdir=os.getenv('CFSR_DIR')
 
-## start the loop    
+
+## if the user messed up and passed the date in with the hours at the end, just chop off the hours
+if len(args.start) == 10:
+    args.start = args.start[:8]
+if len(args.end) == 10:
+    args.end = args.end[:8]
+    
+## start the loop  
 cdate = dt.datetime.strptime(args.start,'%Y%m%d')
 edate = dt.datetime.strptime(args.end,'%Y%m%d')
 data_url = "http://nomads.ncdc.noaa.gov/modeldata/cmd_LIC"  #T126
@@ -50,5 +57,3 @@ while cdate <= edate:
     shutil.rmtree(tmpdir)
     
     cdate += dt.timedelta(days=1)
-
-shutil.rmtree(tmpdir)

@@ -17,8 +17,16 @@ all:	$(PROGS)
 
 commonlibs= common_gfs_pres.o common_gfs.o ssio_tools.o
 ss2grd.o : common_gfs.o ssio_tools.o
+grd2ss.o : common_gfs.o ssio_tools.o
+ss2grdp.o : common_gfs.o ssio_tools.o
+grdctl.o : common_gfs.o ssio_tools.o
+sscycle.o : common.o common_gfs.o ssio_tools.o
+
 common_gfs.o : common.o
 ssio_tools.o: common_gfs_pres.o physcons.o
+physcons.o : common.o
+common_gfs_pres.o : common.o common_gfs.o
+
 
 
 % : %.o $(commonlibs)

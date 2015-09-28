@@ -29,5 +29,5 @@ export CFSR_DIR=$CFS_LETKF_ROOT/DATA/CFSR
 
 
 ## other properties when running
-export NPROC_OM=6
-export NPROC_AM=13
+export NPROC_OM=8
+export NPROC_AM=11

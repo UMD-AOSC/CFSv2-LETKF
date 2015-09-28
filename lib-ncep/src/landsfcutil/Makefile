@@ -30,6 +30,7 @@ lib_4/$(LIB)_4.a: $(OBJECTS_4)
 lib_4/%.o : %.f
 	$(FC) $(FFLAGS) $(SIZE_4) -c $< -o $@ -module lib_4
 lib_4/interp_utils.o : lib_4/ll2xy_utils.o
+lib_4/interp_utils_nesdis.o : lib_4/ll2xy_utils.o
 
 
 ## 8 byte version of lib
@@ -39,6 +40,7 @@ lib_8/$(LIB)_8.a: $(OBJECTS_8)
 lib_8/%.o : %.f
 	$(FC) $(FFLAGS) $(SIZE_8) -c $< -o $@ -module lib_8
 lib_8/interp_utils.o : lib_8/ll2xy_utils.o
+lib_8/interp_utils_nesdis.o : lib_8/ll2xy_utils.o
 
 
 ## d byte version of lib
@@ -48,7 +50,7 @@ lib_d/$(LIB)_d.a: $(OBJECTS_D)
 lib_d/%.o : %.f
 	$(FC) $(FFLAGS) $(SIZE_D) -c $< -o $@ -module lib_d
 lib_d/interp_utils.o : lib_d/ll2xy_utils.o
-
+lib_8/interp_utils_nesdis.o : lib_8/ll2xy_utils.o
 
 clean:
 	rm -rf lib_4

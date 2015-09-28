@@ -81,9 +81,9 @@ args=parser.parse_args()
 
 ## extra command line argument processing...
 args.path = os.path.abspath(args.path)
-slurmPartition = ''
 if args.partition:
-    slurmPartition ='-p '+args.partition   
+    slurm.partition =args.partition
+    
 startDate = dt.datetime.strptime(args.start, "%Y%m%d%H")
 endDate   = dt.datetime.strptime(args.end, "%Y%m%d%H")
 slurm.account = args.account
@@ -95,7 +95,6 @@ logDir = args.path+'/logs/'
 if not os.path.exists(logDir):
     os.makedirs(logDir)
     os.makedirs(logDir+'/cfs')
-    os.makedirs(logDir+'/letkf')    
 logFormat = logging.Formatter('[%(levelname)-5s %(asctime)s]  %(message)s')
 logFile = logging.FileHandler(filename=logDir+'/controller_'+args.start+'.log', mode='w')
 logFile.setLevel(logging.DEBUG)
@@ -170,7 +169,7 @@ while cdate < endDate:
         # run the 6 hour step
         job = slurm.Job(
             name = 'CFS_nature',
-            cmd = "./run_fcst {0} {1} {2} 6 6".format(
+            cmd = rootDir+"/run/run_fcst {0} {1} {2} 6 6".format(
                 inPath,outPath,cdateShort),
             runtime = timeLimit_CFS,
             output  = logDir+'/cfs/cfs_'+cdateShort+'_%j.log',

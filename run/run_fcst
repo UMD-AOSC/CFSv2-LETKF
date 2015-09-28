@@ -61,7 +61,8 @@ CPL_PERIOD=300    # coulping period (s)
 WORKDIR=/dev/shm/$USER/CFS
 
 echo "WORKDIR  = $WORKDIR"
-
+echo $NPROC_OM
+echo $NPROC_AM
 
 ################################################################################
 # shouldn't have to modify below here

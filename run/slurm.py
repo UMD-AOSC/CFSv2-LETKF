@@ -31,7 +31,7 @@ maxJobRetries = 5     # number of times to retry running a SLURM job after failu
 maxSlurmRetries = 100 # number of times to retry SLURM commands ('sacct', 'squeue', etc.)
 sleepDuration = 5     # seconds to wait after a failure
 account = None        # account to submit the SLURM job as   
-
+partition = None
 
 ## global parameters
 _bannedNodes = []     # list of nodes determined to be bad,
@@ -298,6 +298,8 @@ class Job:
             shellCmd += ' -o ' + self.output
         if self.name:
             shellCmd += ' -J ' + self.name
+        if partition:
+            shellCmd += ' -p ' + partition
                 
 
         ## add on the main command we want to run
