@@ -1,0 +1,131 @@
+#!/usr/bin/env python
+################################################################################
+## create the initial ensemble for the CFSv2-LETKF using analysis from
+## some subsequent dates
+##
+## Environment variables required
+##  CFSR_DIR
+##  CFS_LETKF_ROOT
+##  TMP_DIR_LOCAL
+################################################################################
+
+import argparse
+import os, shutil
+import datetime as dt
+import sys
+import subprocess as sp
+from glob import glob
+
+
+## parse the command line arguments
+parser = argparse.ArgumentParser( description=(
+    "CFSv2-LETKF, ensemble member and project directory initialization.\n "
+    "Generates the initial ensemble members for a new experiment by choosing different "
+    "dates from analyses at a different time."))
+
+g = parser.add_argument_group('required arguments')
+g.add_argument('--date', required=True, help=(
+    'Initial date of data to generate. Should be in format of "YYYYMMDDHH"'))
+g.add_argument('--source', required=True, help=(
+    "date to start generating ensemble members from"))
+g.add_argument('--mem', metavar='members', required=True, type=int, help=(
+    "Number of ensemble members to generate"))
+g.add_argument('--path', metavar='path', required=True, help=(
+    "Path to the new directory to create for the experiment. E.g., '-p ../DATA/exp1'"))
+
+g = parser.add_argument_group('optional arguments')
+g.add_argument('-f', action='store_true', help= (
+    "force overwriting of any existing directory"))
+g.add_argument('--step', type=int, default=24, help=(
+    "number of hours between selection of ensemble members, to avoid diurnal effect, "
+    "This should be left at the default (Default: 24)"))
+g.add_argument('--res',type=int,choices=[62,126],default=62,help=(
+    "horizontal resolution of the atmosphere (Default: 62)"))
+args = parser.parse_args()
+
+initDate = dt.datetime.strptime(args.source,"%Y%m%d%H")
+initStep = dt.timedelta(hours=args.step)
+
+
+##paths
+analGFS = os.getenv("CFSR_DIR")+"/T{0}".format(args.res)
+initGFS = analGFS
+initMOM = os.getenv("CFSR_DIR")+"/ocn_05"
+rootDir = os.getenv("CFS_LETKF_ROOT")
+ssioDir = rootDir+'/util/bin'
+tmp= os.getenv("TMP_DIR_LOCAL")+"/init/"
+
+
+## setup temporary directory
+if os.path.exists(tmp):
+    shutil.rmtree(tmp)
+os.makedirs(tmp)
+shutil.copy(ssioDir+'/sscycle', tmp)
+
+## create the output directory if it does not already exist
+if os.path.exists(args.path):
+    if args.f:
+        print 'removing dir'
+        shutil.rmtree(args.path)
+    else:
+        print ('Directory {0} already exists, remove and try again or force removal of old '
+               ' directory with the "-f" option.').format(os.path.abspath(args.path))
+os.makedirs(args.path)
+
+
+## create folders for ensemble members, and copy
+## other date into it for the initial conditions
+cdate = initDate
+
+anaPfx = "/{0}/{0}{1}/{0}{1}{2}/{0}{1}{2}{3}".format(
+    args.date[0:4],args.date[4:6],args.date[6:8],args.date[8:10])
+shutil.copy(analGFS+anaPfx+'.sig', tmp+'/fort.21')
+shutil.copy(analGFS+anaPfx+'.sfc', tmp+'/fort.22')
+for d in ('anal','gues'):
+    [os.makedirs(args.path+'/{0}/{1}'.format(d,d2)) for d2 in ('mean','sprd')]
+        
+for m in range(1,args.mem+1):
+    for d in ('anal','gues'):
+        os.makedirs(args.path+'/{0}/{1:03d}/'.format(d,m))
+    print 'member {0:03d}  from {1}'.format(m,cdate)
+
+    ## make sure the file exists
+    count = 0
+    while not os.path.exists(initGFS+cdate.strftime("/%Y/%Y%m/%Y%m%d/%Y%m%d%H.sig")) and count < 5:
+        cdate += initStep
+        count += 1
+        
+    ## Atmosphere files
+    ##############################
+    ## copy to a tmp dir, and run sscycle on it,
+    ## ssycle is needed to set the correct date and other boundary conditions
+    shutil.copy(
+        initGFS+cdate.strftime("/%Y/%Y%m/%Y%m%d/%Y%m%d%H.sig"),
+        tmp+'/fort.11')
+    shutil.copy(
+        initGFS+cdate.strftime("/%Y/%Y%m/%Y%m%d/%Y%m%d%H.sfc"),        
+        tmp+'/fort.12')
+    if sp.call("./sscycle",cwd=tmp, shell=True) != 0:
+        print 'Error with calling sscyle'
+        sys.exit(1)
+    shutil.copy(tmp+'/fort.21', args.path+'/anal/{0:03d}/{1}.sig'.format(m, args.date))
+    shutil.copy(tmp+'/fort.22', args.path+'/anal/{0:03d}/{1}.sfc'.format(m, args.date))
+    [os.remove(f) for f in glob(tmp+'/fort.1*')]
+
+    ## Ocean files
+    ##############################
+    ## TODO, for now it is just copying the single IC from the default CFS IC conditions
+    files=['ocean_'+x for x in (
+        'frazil', 'freesurf', 'neutral', 'temp_salt',
+        'velocity', 'velocity_advection', 'sbc','density')]
+    files += ('ice_model',)
+    for f in files:
+        shutil.copy(initMOM + cdate.strftime("/%Y/%Y%m/%Y%m%d/ocnanl.gdas.%Y%m%d%H.")+f+'.res.nc',
+                    args.path+'/anal/{0:03d}/{1}.{2}.res.nc'.format(m, args.date, f))
+
+    
+    ## increment time
+    cdate += initStep
+
+## cleanup
+shutil.rmtree(tmp)
