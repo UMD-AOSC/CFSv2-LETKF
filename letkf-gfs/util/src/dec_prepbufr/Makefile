@@ -1,0 +1,29 @@
+include $(CFS_LETKF_ROOT)/config/makefile.mk
+
+COMMON_DIR = $(CFS_LETKF_ROOT)/letkf-gfs/common
+
+COMMON_OBJS = $(COMMON_DIR)/SFMT.o           \
+               $(COMMON_DIR)/common.o         \
+               $(COMMON_DIR)/common_mtx.o     \
+               $(COMMON_DIR)/netlib.o         \
+               $(COMMON_DIR)/common_letkf.o   \
+               $(COMMON_DIR)/common_gfs.o     \
+               $(COMMON_DIR)/common_obs_gfs.o
+
+
+#LIBS := -L$(NCEPLIBDIR)/lib -lsp_4 $(LIBBLAS) -lbufrlib
+LIBS := $(LIBBLAS) -L$(NCEPLIBDIR)/lib -lsp_4 -lbufrlib
+FOPTS=$(F_CNVTBE) -O2 #-mcmodel=medium
+
+.PHONY: all clean
+
+all: dec_prepbufr
+
+dec_prepbufr:dec_prepbufr.o
+	$(FC) $(FOPTS) $(COMMON_OBJS) $? -o $@ $(LIBS)
+
+%.o:%.f90
+	$(F90) $(FOPTS) -I$(COMMON_DIR) -c $<
+
+clean:
+	rm -f *.o *.mod dec_prepbufr

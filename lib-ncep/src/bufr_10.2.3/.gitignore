@@ -1,0 +1,6 @@
+*.a
+*.rpm
+*.o
+wrdlen.f
+irev.f
+*.prm

@@ -26,7 +26,8 @@ export TMP_DIR_LOCAL=/dev/shm/$USER
 export FIX_DIR_AM=/lustre/tsluka/CFSv2/support/fix/fix_am
 export FIX_DIR_OM=/lustre/tsluka/CFSv2/support/fix/fix_om
 export CFSR_DIR=$CFS_LETKF_ROOT/DATA/CFSR
-
+export OBS_ATM=$CFS_LETKF_ROOT/DATA/obs/atm_prepbufr
+export OBSNCEP=$CFS_LETKF_ROOT/DATA
 
 ## other properties when running
 export NPROC_OM=8

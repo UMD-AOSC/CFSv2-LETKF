@@ -1,6 +1,6 @@
 include $(CFS_LETKF_ROOT)/config/makefile.mk
 
-TARGETS := ip sp bacio sigio w3lib-2.0 gfsio sfcio landsfcutil
+TARGETS := ip sp bacio sigio w3lib-2.0 gfsio sfcio landsfcutil bufrlib
 
 .PHONY: all clean dirs $(TARGETS)
 
@@ -19,6 +19,12 @@ landsfcutil: w3lib-2.0
 	cp src/landsfcutil/lib_4/*.mod incmod/landsfcutil_4/
 	cp src/landsfcutil/lib_8/*.mod incmod/landsfcutil_8/
 	cp src/landsfcutil/lib_d/*.mod incmod/landsfcutil_d/
+
+bufrlib:
+	+make -C src/bufr_10.2.3
+	cp src/bufr_10.2.3/*.a lib/
+# mkdir -p incmod/bufrlib
+# cp src/bufrlib/*.mod incmod/bufrlib
 
 sfcio:
 	+make -C src/sfcio
@@ -63,3 +69,4 @@ clean:
 	+make -C src/ip clean
 	+make -C src/sp clean
 	+make -C src/bacio clean
+	+make -C src/bufrlib clean

@@ -31,3 +31,5 @@ F_R8 = -r8
 F_R4 = -r4
 F_I8 = -i8
 F_I4 = -i4
+FMCMODEL = -mcmodel=medium
+LIBBLAS = -mkl
