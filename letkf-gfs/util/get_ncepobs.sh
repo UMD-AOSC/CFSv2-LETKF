@@ -59,7 +59,7 @@ rm -fr $tmprun/*
 mkdir -p $tmprun/download
 cd $tmprun
 if [ "$IF_DECODE" = '1' ]; then
-  cp $DIR/obs/dec_prepbufr .
+  cp $BUFRBIN/dec_prepbufr .
 fi
 
 cd $tmprun/download
@@ -125,7 +125,8 @@ while [ "$time" -le "$ETIME" ]; do
 #    mv -f prepbufr.gdas.${timef}.nr $OBSNCEP/obs${timef}/gdas1.t${hh}z.prepbufr.nr
   done
 
-time=$(datetime $time 1 d)
+  
+time=$(date +%Y%m%d -d "$time + 1 day")
 done
 
 rm -rf $tmprun

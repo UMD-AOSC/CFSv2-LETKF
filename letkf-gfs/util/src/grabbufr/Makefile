@@ -10,3 +10,5 @@ grabbufr: grabbufr.o spbufr.o
 %.o : %.f
 	$(FC) -c $< -o $@
 
+clean:
+	rm *.o grabbufr
