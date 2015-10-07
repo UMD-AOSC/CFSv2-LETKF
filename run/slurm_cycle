@@ -1,0 +1,200 @@
+#!/usr/bin/env python
+################################################################################
+
+## setup the console logger. 
+import logging
+import sys
+log = logging.getLogger('')
+log.setLevel(logging.DEBUG)
+logFormat = logging.Formatter('[%(levelname)-5s %(asctime)s]  %(message)s')
+logScreen = logging.StreamHandler(sys.stdout)
+logScreen.setLevel(logging.INFO)
+logScreen.setFormatter(logFormat)
+log.addHandler(logScreen)
+logging.addLevelName(logging.INFO, "\033[01;37mINFO \033[00m")
+logging.addLevelName(logging.ERROR, "\033[01;31mERROR\033[00m")
+logging.addLevelName(logging.WARN, "\033[01;33mWARN \033[00m")
+logging.addLevelName(logging.CRITICAL, "\033[01;35mCRIT \033[00m")  
+
+## load built in modules
+import argparse
+import os,shutil
+import subprocess as sp
+from glob import glob
+import datetime as dt
+
+## load 3rd party modules
+
+## load local modules
+import slurm
+
+
+
+## configurables
+##############################
+timeLimit_CFS = "5:00"
+timeLimit_DA  = "5:00"
+analGFS = os.getenv("CFSR_DIR")+"/T62"
+
+rootDir = os.getenv("CFS_LETKF_ROOT")
+
+
+################################################################################
+################################################################################
+
+
+## get the command line arguments
+################################################################################
+parser = argparse.ArgumentParser(
+    formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    description=(
+        "CFS-LETKF 6 hour DA/forecast cycle script. Manages the SLURM "
+        "submission of alternating LETKF and forecast jobs. This script monitors "
+        "the job progress and relaunches any failed jobs. If a job fails due to "
+        "a bad computational node, that node is flagged and will not be used again."))
+
+## required variables
+g = parser.add_argument_group(title="required parameters")
+g.add_argument('-s','--start', metavar="date", required=True,
+    help="start date, in format YYYYMMDDHH")
+g.add_argument('-e','--end',  metavar="date",  required=True,
+    help="stop date, in format YYYYMMDDHH")
+g.add_argument('-p','--path', metavar='path', required=True,
+    help="path to the directory storing the experiment")
+
+## optional variables
+g = parser.add_argument_group(title="optional parameters")
+g.add_argument('--mem', metavar='members', type=int,
+    help=("number of ensemble members. By default the script "
+          "will automatically determine the number of ensemble "
+          "members based on the directory structure in the path given"))
+g.add_argument('--period', type=int, default=6,
+    help="the cycle period, in hours")
+g.add_argument('--partition',
+    help=("the SLURM partition to use, only meaningful overrides are "
+          "'debug' and 'scavenger'"))
+g.add_argument('--account', default="aosc-hi",
+    help="The slurm account to run the experiment with")
+g.add_argument('--clear', metavar="hours", default="12", type=int,
+    help=("age (in hours) at which old no longer required individual "
+          "ensemble members are deleted. Setting to 0 disables this and "
+          "leaves all members (which will use a lot of space!)"))
+g.add_argument('--retries', metavar='int', default="3", type=int,
+    help=("number of retry attempts to perform when a forecast or data "
+          "assimilation step fails."))
+
+## parse the variables
+args=parser.parse_args()
+args.path = os.path.abspath(args.path)
+slurmPartition = ''
+if args.partition:
+    slurmPartition = '-p '+args.partition
+startDate = dt.datetime.strptime(args.start, "%Y%m%d%H")
+endDate   = dt.datetime.strptime(args.end, "%Y%m%d%H")
+slurm.account = args.account
+slurm.maxJobRetries = 10
+
+## create the logging directory if not already existing,
+## and setup a log file for this script
+logDir = args.path+'/logs/'
+if not os.path.exists(logDir):
+    os.makedirs(logDir)
+    os.makedirs(logDir+'/cfs')
+    os.makedirs(logDir+'/letkf')    
+logFormat = logging.Formatter('[%(levelname)-5s %(asctime)s]  %(message)s')
+logFile = logging.FileHandler(filename=logDir+'/controller_'+args.start+'.log', mode='w')
+logFile.setLevel(logging.DEBUG)
+logFile.setFormatter(logFormat)
+log.addHandler(logFile)
+logging.addLevelName(logging.INFO, "\033[01;37mINFO \033[00m")
+logging.addLevelName(logging.ERROR, "\033[01;31mERROR\033[00m")
+logging.addLevelName(logging.WARN, "\033[01;33mWARN \033[00m")
+logging.addLevelName(logging.CRITICAL, "\033[01;35mCRIT \033[00m")  
+log.info("CFSv2-LETKF DA cycle script")
+log.info("Travis Sluka, University of Maryland, 2015")
+log.info("")
+
+## other stuff
+log.info(str(args))
+log.info("Start date: "+str(startDate))
+log.info("End date:   "+str(endDate))
+
+## determine the number of ensemble members we are using,
+## if not from the command line then implicitly by
+## looking at the number of folders in the data directory
+if args.mem is None:
+    dirs = glob(args.path+'/gues/*/')
+    dirs = [d.split('/')[-2] for d in dirs]
+    dirs = sorted(filter(lambda x: x.isdigit(), dirs))
+    args.mem = len(dirs)
+    assert (int(dirs[-1]) == len(dirs))
+    log.info("Using {0} ensemble members".format(args.mem))  
+
+log.info("")
+
+
+    
+##################################################################################            
+## Run cycle
+##################################################################################
+cdate = startDate
+while cdate < endDate:
+    log.info("*** Begining "+str(cdate))
+    ndate = cdate + dt.timedelta(hours=6)
+    cdateShort = cdate.strftime("%Y%m%d%H")
+    ndateShort = ndate.strftime("%Y%m%d%H")
+
+    # run the 6 hour forecasts
+    ############################################################
+    jobs = []
+    for m in range(1,args.mem+1):
+        mem = '{0:03d}'.format(m)
+        inPath  = args.path+'/anal/'+mem+'/'
+        outPath = args.path+'/gues/'+mem+'/'
+        job = slurm.Job(
+            name = 'CFS_'+mem,
+            cmd = "./run_fcst {0} {1} {2} 9 1".format(
+                inPath, outPath, cdateShort),
+            runtime = timeLimit_CFS,
+            output  = logDir+'/cfs/cfs_'+cdateShort+'-'+mem+'_%j.log',
+        )
+        jobs.append(job)
+    log.info("    Running forecasts...")
+    slurm.monitor(jobs)
+
+
+    ## run the data assimilation
+    ############################################################
+    jobs = []
+    job = slurm.Job(
+        name = 'CFSDA_GFS',
+        cmd = "./run_DA_gfs --path {0} --date {1}".format(args.path,ndateShort),
+        runtime = timeLimit_DA,
+        output  = logDir+'/letkf/gfs/letkf_gfs_'+ndateShort+'_%j.log',
+    )
+    jobs.append(job)
+    job = slurm.Job(
+        name = 'CFSDA_MOM',
+        cmd = "./run_DA_mom --path {0} --date {1}".format(args.path,ndateShort),
+        runtime = timeLimit_DA,
+        output  = logDir+'/letkf/mom/letkf_mom_'+ndateShort+'_%j.log',
+    )
+    jobs.append(job)
+    log.info("    Running LETKF ...")
+    slurm.monitor(jobs)
+
+    ## clean up old files
+    ############################################################
+    if args.clear > 0:
+        files  = glob(args.path+'/gues/???/??????????_*')
+        files += glob(args.path+'/anal/???/??????????.*')
+        for f in files:
+            date = f.split('/')[-1].split('.')[0].split('_')[0]
+            if (cdate - dt.datetime.strptime(date,"%Y%m%d%H")) > dt.timedelta(hours = args.clear):
+                os.remove(f)
+    
+
+                
+    ## increment date
+    ############################################################
+    cdate = ndate

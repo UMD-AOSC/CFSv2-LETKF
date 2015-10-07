@@ -1,0 +1,260 @@
+#!/usr/bin/env python
+#SBATCH -n 20
+################################################################################
+
+## setup the console logger.
+import logging
+import sys
+log = logging.getLogger('')
+log.setLevel(logging.DEBUG)
+logFormat = logging.Formatter('[%(levelname)-5s %(asctime)s]  %(message)s')
+logScreen = logging.StreamHandler(sys.stdout)
+logScreen.setLevel(logging.INFO)
+logScreen.setFormatter(logFormat)
+log.addHandler(logScreen)
+logging.addLevelName(logging.INFO, "\033[01;37mINFO \033[00m")
+logging.addLevelName(logging.ERROR, "\033[01;31mERROR\033[00m")
+logging.addLevelName(logging.WARN, "\033[01;33mWARN \033[00m")
+logging.addLevelName(logging.CRITICAL, "\033[01;35mCRIT \033[00m")   
+
+log.info("GFS-LETKF, orginally developed by Guo-Yuan Lien")
+log.info("")
+
+## load built-in modules
+import argparse
+import os, shutil, sys
+import subprocess as sp
+from glob import glob
+import datetime as dt
+
+## load 3rd party modules
+
+
+## directory locations
+tmpDir     = os.getenv("TMP_DIR_LOCAL")+'/cfs/gfs-letkf'
+letkfDir   = os.getenv("CFS_LETKF_ROOT")+'/letkf-gfs/letkf'
+ssioDir    = os.getenv("CFS_LETKF_ROOT")+'/util/bin'
+#superobDir = '/lustre/tsluka/gfs-letkf/obs'
+obsDir     = os.getenv("OBS_ATM")
+cfsrDir    = os.getenv("CFSR_DIR")+'/T62/'
+
+## get the command line arguments
+parser = argparse.ArgumentParser(
+    formatter_class = argparse.ArgumentDefaultsHelpFormatter,
+    description=(
+        "CFS-LETKF data assimilation step for the GFS"))
+
+## required variables
+g = parser.add_argument_group(title="required parameters")
+g.add_argument('--date', metavar='date', required=True,
+    help="date to perform the analysis for, in format of YYYYMMDDHH")
+g.add_argument('--path', metavar='path', required=True,
+    help="path to the directory storing the experiment")
+
+## optional variables
+g = parser.add_argument_group(title="optional parameters")
+g. add_argument('--mem', metavar='members', type=int,
+    help=("number of ensemble members. BY default the script "
+          "will automatically determine the number of ensemble "
+          "members based on the directory structure in the path given"))
+
+## parse the variables
+args = parser.parse_args()
+args.path = os.path.abspath(args.path)
+cdate = dt.datetime.strptime(args.date, "%Y%m%d%H")
+
+
+## other stuff
+log.info(str(args))
+
+## determine the number of ensembe members we are using
+if args.mem is None:
+    dirs = glob(args.path+'/gues/*/')
+    dirs = [d.split('/')[-2] for d in dirs]
+    dirs = sorted(filter(lambda x: x.isdigit(), dirs))
+    args.mem = len(dirs)
+    assert (int(dirs[-1]) == len(dirs))
+    log.info("Using {0} ensemble members".format(args.mem))
+
+
+
+
+################################################################################
+################################################################################
+
+##todo, move these to configurables
+fcstHrStart = 3
+fcstHrEnd   = 9
+baseSlot    = 4     ## hour 6
+mems = ['{0:03d}'.format(m+1) for m in range(args.mem)]
+pdate = cdate - dt.timedelta(hours=6)
+pdateShort = pdate.strftime("%Y%m%d%H")  ## previous date (when the forecast was run from)
+cdateShort = cdate.strftime("%Y%m%d%H")  ## current date (the date that was passed in as an arg)
+log.info("timeslot start: "+str(fcstHrStart))
+log.info("timeslot end: "+str(fcstHrEnd))
+log.info("timeslot base: "+str(baseSlot))
+log.info("")
+
+## setup local temporary directory
+log.info('Setting up work directory...')
+if os.path.exists(tmpDir):
+    shutil.rmtree(tmpDir)
+os.makedirs(tmpDir)
+os.makedirs(tmpDir+'/bin')
+
+for f in ['ss2grd','grd2ss']:
+    shutil.copy(ssioDir+'/'+f, tmpDir+'/bin/')
+for f in ['obsope','letkf','mean']:
+    shutil.copy(letkfDir+'/'+f, tmpDir+'/bin/')
+#shutil.copy(superobDir+'/superob', tmpDir+'/')
+
+for mem in (mems+['mean',]):
+    os.makedirs(tmpDir+'/'+mem)  
+
+
+## copy required files into the temporary directories
+log.info('Copying GFS forecasts...')
+for mem in mems:
+    for fcstHr in range (fcstHrStart,fcstHrEnd+1):
+        fcstHrText = 'F{0:02d}'.format(fcstHr)
+        fcstHrIdx  = '{0:02d}'.format(fcstHr-fcstHrStart+1)
+        filebase = args.path+'/gues/{0}/{1}_{2}'.format(mem,pdateShort,fcstHrText)      
+        for ext in ['sig','sfc']:
+            shutil.copy(filebase+'.'+ext, tmpDir+'/'+mem+'/')
+
+## copy the observations
+log.info('Copying observations...')
+window = 3
+idx = 1
+for slot in range(-window,window+1):
+    fromPfx = '{0:+d}'.format(slot)
+    if slot == 0:
+        fromPfx =''
+    shutil.copy(
+        obsDir+cdate.strftime('/%Y/%Y%m/%Y%m%d/%Y%m%d%H/t')+fromPfx+'.dat',
+        tmpDir+'/obs{0:02d}.dat'.format(idx))
+    idx += 1
+            
+
+## copy the adaptive inflation file
+inflFile = args.path+'/infl_mul/atm/'+pdate.strftime('%Y/%Y%m/%Y%m%d/%Y%m%d%H/%Y%m%d%H.grd')
+if os.path.exists(inflFile):
+    log.info("Coying inflation file...")
+    shutil.copy(inflFile, tmpDir+'/infl_mul.grd')
+else:
+    log.warn("No previous inflation file was found")
+
+## convert GFS output from spectral to gridded
+log.info("Converting GFS output from spectral to gridded...")
+for fcstHr in range (fcstHrStart,fcstHrEnd+1):
+    procs = []
+    ## individual ensemble members
+    for mem in mems:
+        fcstHrText = 'F{0:02d}'.format(fcstHr)
+        fcstHrIdx  = '{0:02d}'.format(fcstHr-fcstHrStart+1)
+        filebase = tmpDir+'/'+mem+'/{1}_{2}'.format(mem,pdateShort,fcstHrText)
+        os.symlink(filebase+'.sig',      tmpDir+'/'+mem+'/fort.11')
+        os.symlink(filebase+'.sfc',      tmpDir+'/'+mem+'/fort.12')
+        os.symlink(tmpDir+'/'+mem+'/gs{0}{1}.grd'.format(fcstHrIdx,mem),
+                   tmpDir+'/'+mem+'/fort.31')
+        procs.append(sp.Popen('../bin/ss2grd',shell=True,cwd=tmpDir+'/'+mem))
+    [p.wait() for p in procs] 
+    [os.remove(f) for f in glob(tmpDir+'/???/fort.*')]
+
+
+## link the base timeslot, and obsop output
+for mem in mems:
+    os.symlink(tmpDir+'/{1}/gs{0:02d}{1}.grd'.format(baseSlot,mem),
+               tmpDir+'/gues{0}.grd'.format(mem))
+    os.symlink(tmpDir+'/{0}/obsout.dat'.format(mem),
+               tmpDir+'/obs{0}.dat'.format(mem))
+
+    
+## perform superob / thinning
+## caculate the mean,
+## TODO, should this be done in the spectral space instead?
+
+# sp.call('mean', shell=True, cwd=tmpDir)
+# shutil.move(tmpDir+'/gues_me.grd',tmpDir+'/refpres.dat')
+# ## call superobs
+# sp.call('superob', shell=True, cwd=tmpDir)
+# for f in glob(tmpDir+'/obs??.dat'):
+#     os.remove(f)
+# for i in ['{0:02d}'.format(i+1) for i in range(7)]:
+#     shutil.move(tmpDir+'/sup'+i+'.dat' , tmpDir+'/obs'+i+'.dat')
+        
+
+
+## run observation operator
+log.info("Running observations operators...")
+procs = []
+for mem in mems:
+    for fcstHr in range(1,(fcstHrEnd-fcstHrStart)+2):
+        os.symlink(tmpDir+'/{1}/gs{0:02d}{1}.grd'.format(fcstHr,mem),
+                   tmpDir+'/{1}/gues{0:02d}.grd'.format(fcstHr,mem))
+    for i in ['{0:02d}'.format(i+1) for i in range(7)]:
+        os.symlink(tmpDir+'/obs'+i+'.dat' , tmpDir+'/'+mem+'/obsin'+i+'.dat')
+        
+    procs.append(sp.Popen('../bin/obsope',shell=True,cwd=tmpDir+'/'+mem))
+[p.wait() for p in procs]
+[os.remove(f) for f in glob(tmpDir+'/obsin*')]
+
+
+
+## run the LETKF
+log.info("Running GFS-LETKF...")
+sp.call('mpirun -n {} bin/letkf'.format(os.getenv('NPROC')),
+        shell=True, cwd=tmpDir)
+
+
+## convert output from gridded to spectral
+log.info("Converting output from gridded to spectral...")
+procs = []
+files = []
+for mem in mems:
+    os.symlink(tmpDir+'/anal{0}.grd'.format(mem),
+               tmpDir+'/{0}/fort.41'.format(mem))
+    os.symlink(tmpDir+'/{0}/{1}_F06.sig'.format(mem,pdateShort),
+               tmpDir+'/{0}/fort.11'.format(mem))
+    os.symlink(tmpDir+'/{0}/{1}_F06.sfc'.format(mem,pdateShort),
+               tmpDir+'/{0}/fort.12'.format(mem))
+    cfsrFile = cfsrDir+pdate.strftime('/%Y/%Y%m/%Y%m%d/%Y%m%d%H')
+    shutil.copy(cfsrFile+'.sig',
+                tmpDir+'/{0}/fort.21'.format(mem))
+    shutil.copy(cfsrFile+'.sfc',
+                tmpDir+'/{0}/fort.22'.format(mem))
+    procs.append(sp.Popen('../bin/grd2ss',shell=True,cwd=tmpDir+'/'+mem))
+for p in procs:
+    p.wait()
+
+## copy the files
+log.info("Copying output files to destination directory...")
+for mem in mems:
+    shutil.copy(tmpDir+'/{0}/fort.21'.format(mem), args.path+'/anal/{0}/{1}.sig'.format(mem,cdateShort))
+    shutil.copy(tmpDir+'/{0}/fort.22'.format(mem), args.path+'/anal/{0}/{1}.sfc'.format(mem,cdateShort))
+
+files = [
+    ('gues_me.grd', '/gues/mean/%Y/%Y%m/%Y%m%d/%Y%m%d%H/%Y%m%d%H.grd'),
+    ('gues_sp.grd', '/gues/sprd/%Y/%Y%m/%Y%m%d/%Y%m%d%H/%Y%m%d%H.grd'),
+    ('anal_me.grd', '/anal/mean/%Y/%Y%m/%Y%m%d/%Y%m%d%H/%Y%m%d%H.grd'),
+    ('anal_sp.grd', '/anal/sprd/%Y/%Y%m/%Y%m%d/%Y%m%d%H/%Y%m%d%H.grd'),
+    ('infl_mul.grd', '/infl_mul/atm/%Y/%Y%m/%Y%m%d/%Y%m%d%H/%Y%m%d%H.grd')] 
+for f in files:
+    dst = args.path+cdate.strftime(f[1])
+    if not os.path.exists(os.path.dirname(dst)):
+        os.makedirs(os.path.dirname(dst))
+    shutil.copy(tmpDir+'/'+f[0], dst)
+
+##TODO move log files
+    
+log.info("GFS-LETKF is complete.")
+log.info("cleaning up...")
+
+f = open(tmpDir+'/NOUT-000','r')
+log.info("\n\nContents of LETKF output file...\n\n")
+log.info(f.read())
+f.close()
+
+
+## cleanup
+shutil.rmtree(tmpDir)

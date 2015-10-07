@@ -1,0 +1,97 @@
+#!/usr/bin/env python
+#SBATCH -n 20
+################################################################################
+
+## setup the console logger.
+import logging
+import sys
+log = logging.getLogger('')
+log.setLevel(logging.DEBUG)
+logFormat = logging.Formatter('[%(levelname)-5s %(asctime)s]  %(message)s')
+logScreen = logging.StreamHandler(sys.stdout)
+logScreen.setLevel(logging.INFO)
+logScreen.setFormatter(logFormat)
+log.addHandler(logScreen)
+logging.addLevelName(logging.INFO, "\033[01;37mINFO \033[00m")
+logging.addLevelName(logging.ERROR, "\033[01;31mERROR\033[00m")
+logging.addLevelName(logging.WARN, "\033[01;33mWARN \033[00m")
+logging.addLevelName(logging.CRITICAL, "\033[01;35mCRIT \033[00m")   
+
+## load built-in modules
+import argparse
+import os, shutil
+import subprocess as sp
+from glob import glob
+import datetime as dt
+
+## load 3rd party modules
+
+## directory locations
+## TODO, make these configurable
+tmpDir   = os.getenv("TMP_DIR_LOCAL")+'/cfs/mom-letkf'
+#obsDir   = '/lustre/tsluka/data/obs/ncep_obs'
+#letkfDir = '/lustre/tsluka/gfs-letkf/letkf'
+#cfsrDir   = '/lustre/tsluka/data/CFSR/T62/'
+
+## get the command line arguments
+parser = argparse.ArgumentParser(
+    formatter_class = argparse.ArgumentDefaultsHelpFormatter,
+    description=(
+        "CFS-LETKF data assimilation step for the MOM"))
+
+## required variables
+g = parser.add_argument_group(title="required parameters")
+g.add_argument('--date', metavar='date', required=True,
+    help="date to perform the analysis for, in format of YYYYMMDDHH")
+g.add_argument('--path', metavar='path', required=True,
+    help="path to the directory storing the experiment")
+
+## optional variables
+g = parser.add_argument_group(title="optional parameters")
+g. add_argument('--mem', metavar='members', type=int,
+    help=("number of ensemble members. BY default the script "
+          "will automatically determine the number of ensemble "
+          "members based on the directory structure in the path given"))
+
+## parse the variables
+args = parser.parse_args()
+args.path = os.path.abspath(args.path)
+cdate = dt.datetime.strptime(args.date, "%Y%m%d%H")
+pdate = cdate - dt.timedelta(hours=6)
+cdateShort = cdate.strftime("%Y%m%d%H")  ## current date (the date that was passed in as an arg)
+pdateShort = pdate.strftime("%Y%m%d%H")  ## previous date (when the forecast was run from)
+
+## other stuff
+log.info(str(args))
+
+## determine the number of ensembe members we are using
+if args.mem is None:
+    dirs = glob(args.path+'/gues/*/')
+    dirs = [d.split('/')[-2] for d in dirs]
+    dirs = sorted(filter(lambda x: x.isdigit(), dirs))
+    args.mem = len(dirs)
+    assert (int(dirs[-1]) == len(dirs))
+    log.info("Using {0} ensemble members".format(args.mem))
+
+log.info("")
+
+
+################################################################################
+################################################################################
+
+procs = []
+for m in range(1,args.mem+1):
+
+    
+    log.info("member {0:03d}".format(m))
+    filePatternIn  = args.path+"/gues/{0:03d}/{1}_F06.".format(m,pdateShort)
+    filePatternOut = args.path+"/anal/{0:03d}/{1}.".format(m,cdateShort)    
+    fileEndings = [
+        'ice_model', 'ocean_density', 'ocean_frazil', 'ocean_freesurf',
+        'ocean_neutral' , 'ocean_sbc','ocean_temp_salt','ocean_velocity',
+        'ocean_velocity_advection']
+    for f in fileEndings:
+        outFile = filePatternOut+f+'.res.nc'
+        if os.path.exists(outFile):
+            os.remove(outFile)
+        os.symlink(filePatternIn+f+'.res.nc', outFile)

@@ -30,5 +30,6 @@ export OBS_ATM=$CFS_LETKF_ROOT/DATA/obs/atm_prepbufr
 export OBSNCEP=$CFS_LETKF_ROOT/DATA
 
 ## other properties when running
+export NPROC=20
 export NPROC_OM=8
 export NPROC_AM=11
