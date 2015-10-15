@@ -114,7 +114,6 @@ for m in range(1,args.mem+1):
 
     ## Ocean files
     ##############################
-    ## TODO, for now it is just copying the single IC from the default CFS IC conditions
     files=['ocean_'+x for x in (
         'frazil', 'freesurf', 'neutral', 'temp_salt',
         'velocity', 'velocity_advection', 'sbc','density')]
@@ -127,5 +126,19 @@ for m in range(1,args.mem+1):
     ## increment time
     cdate += initStep
 
+## create/copy the grads ctl files
+datestr=dt.datetime.strptime(args.date,"%Y%m%d%H").strftime("%e%b%Y")
+with open(rootDir+'/letkf-mom/mom4/grads/ocn.ctl','r') as fin:
+    with open(args.path+'/anal/mean/ocn.ctl','w') as fout:
+        for line in fin:
+            line = line.replace("##DATE##", datestr)
+            fout.write(line)
+with open(args.path+'/anal/mean/atm.ctl','w') as out:
+    sp.call(ssioDir+'/grdctl "%y4/%y4%m2/%y4%m2%d2/%y4%m2%d2%h2/%y4%m2%d2%h2_atm.grd" "template byteswapped" '+ datestr +' 6hr 10000 s'
+         , shell=True, stdout=out)
+for f in ('/anal/sprd/','/gues/mean/','/gues/sprd/'):
+    shutil.copy(args.path+'/anal/mean/ocn.ctl',args.path+f)
+    shutil.copy(args.path+'/anal/mean/atm.ctl',args.path+f)
+    
 ## cleanup
 shutil.rmtree(tmp)
