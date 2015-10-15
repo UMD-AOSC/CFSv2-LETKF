@@ -23,6 +23,8 @@ import os, shutil
 import subprocess as sp
 from glob import glob
 import datetime as dt
+import multiprocessing as mp
+#from multiprocessing import Pool
 
 ## load 3rd party modules
 
@@ -30,8 +32,9 @@ import datetime as dt
 ## TODO, make these configurable
 tmpDir   = os.getenv("TMP_DIR_LOCAL")+'/cfs/mom-letkf'
 #obsDir   = '/lustre/tsluka/data/obs/ncep_obs'
-#letkfDir = '/lustre/tsluka/gfs-letkf/letkf'
+letkfDir = os.getenv("CFS_LETKF_ROOT")+'/letkf-mom/mom4'
 #cfsrDir   = '/lustre/tsluka/data/CFSR/T62/'
+fixDir = os.getenv("FIX_DIR_OM")
 
 ## get the command line arguments
 parser = argparse.ArgumentParser(
@@ -78,20 +81,94 @@ log.info("")
 
 ################################################################################
 ################################################################################
+## do the useful stuff...
 
-procs = []
-for m in range(1,args.mem+1):
+pdate = cdate - dt.timedelta(hours=6)
+pdateShort = pdate.strftime("%Y%m%d%H")
+cdateShort = cdate.strftime("%Y%m%d%H")
+mems = ['{0:03d}'.format(m+1) for m in range(args.mem)]
+
+
+## setup local temporary directory
+log.info('Setting up work directory...')
+if os.path.exists(tmpDir):
+    shutil.rmtree(tmpDir)
+os.makedirs(tmpDir)
+for m in mems:
+    os.makedirs(tmpDir+'/'+m)
+for f in ['letkf/letkf','obs/obsop']:
+    shutil.copy(letkfDir+'/'+f,tmpDir+'/')
+shutil.copy(fixDir+'/grid_spec_{}.nc.T{}'.format('05','62'),
+            tmpDir+'/grid_spec.nc')
+shutil.copy(os.getenv("CFS_LETKF_ROOT")+'/run/letkf_mom.nml',
+            tmpDir+'/input.nml')
+
+            
+## copy the required shared files into the temporary directories
+log.info('Copying MOM forecasts...')
+for mem in mems:         
+    filebase = args.path+'/gues/{}/{}_{}.'.format(
+        mem, pdateShort,'F06')
+    for f in ['temp_salt','velocity','sbc']:
+        os.symlink(filebase+'ocean_{}.res.nc'.format(f),
+                   tmpDir+'/gs01{}.ocean_{}.res.nc'.format(mem,f))
+        shutil.copy(tmpDir+'/gs01001.ocean_{}.res.nc'.format(f),
+                    tmpDir+'/anal{}.ocean_{}.res.nc'.format(mem,f))
+
+        
+## run the LETKF
+log.info("Running GFS-LETKF...")
+ret=sp.call('mpirun -n {} letkf'.format(os.getenv('NPROC')),
+        shell=True, cwd=tmpDir)
+if ret != 0:
+    sys.exit(1)
+
+
+## move the output to its final location
+
+log.info("copying ensemble members to destination directory...")
+def cp_func(mem):
+    for f in ['temp_salt','velocity','sbc']:
+        shutil.copy(tmpDir+'/anal{}.ocean_{}.res.nc'.format(mem,f),
+            args.path+'/anal/{}/{}.ocean_{}.res.nc'.format(mem,cdateShort,f))
+p=mp.Pool()
+p.map(cp_func,mems)
+
+log.info("copying mean/sprd files to destination directory...")
+files=[
+    ('gues_me.grd','/gues/mean/{}_ocn.grd'),
+    ('gues_sp.grd','/gues/sprd/{}_ocn.grd'),
+    ('anal_me.grd','/anal/mean/{}_ocn.grd'),
+    ('anal_sp.grd','/anal/sprd/{}_ocn.grd'),]
+def cp_func(f):
+    dateStr=cdate.strftime('%Y/%Y%m/%Y%m%d/%Y%m%d%H/%Y%m%d%H')
+    dst = args.path+f[1].format(dateStr)
+    try:
+        os.makedirs(os.path.dirname(dst))
+    except:
+        pass
+    shutil.copy(tmpDir+'/'+f[0], dst)
+p=mp.Pool()
+p.map(cp_func,files)
+
+
+## creat links for the restart files that were not changes
+for m in mems:
+    files = ['ocean_{}.res.nc'.format(x) for x in [
+        'frazil','freesurf','neutral','velocity_advection']]
+    files.append('ice_model.res.nc')
+    for f in files:
+        try:
+            os.symlink(args.path+'/gues/{}/{}_F06.{}'.format(m,pdateShort,f),
+                       args.path+'/anal/{}/{}.{}'.format(m,cdateShort,f))
+        except:
+            pass
 
     
-    log.info("member {0:03d}".format(m))
-    filePatternIn  = args.path+"/gues/{0:03d}/{1}_F06.".format(m,pdateShort)
-    filePatternOut = args.path+"/anal/{0:03d}/{1}.".format(m,cdateShort)    
-    fileEndings = [
-        'ice_model', 'ocean_density', 'ocean_frazil', 'ocean_freesurf',
-        'ocean_neutral' , 'ocean_sbc','ocean_temp_salt','ocean_velocity',
-        'ocean_velocity_advection']
-    for f in fileEndings:
-        outFile = filePatternOut+f+'.res.nc'
-        if os.path.exists(outFile):
-            os.remove(outFile)
-        os.symlink(filePatternIn+f+'.res.nc', outFile)
+
+##TODO, change the 20 above to be equal to nprocs
+##TODO move the infl_mul file
+
+##TODO move log viles
+
+log.info("Finished!")

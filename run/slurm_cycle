@@ -88,7 +88,7 @@ args=parser.parse_args()
 args.path = os.path.abspath(args.path)
 slurmPartition = ''
 if args.partition:
-    slurmPartition = '-p '+args.partition
+    slurm.partition = args.partition
 startDate = dt.datetime.strptime(args.start, "%Y%m%d%H")
 endDate   = dt.datetime.strptime(args.end, "%Y%m%d%H")
 slurm.account = args.account
@@ -167,14 +167,14 @@ while cdate < endDate:
     ############################################################
     jobs = []
     job = slurm.Job(
-        name = 'CFSDA_GFS',
+        name = 'CFSDAGFS',
         cmd = "./run_DA_gfs --path {0} --date {1}".format(args.path,ndateShort),
         runtime = timeLimit_DA,
         output  = logDir+'/letkf/gfs/letkf_gfs_'+ndateShort+'_%j.log',
     )
     jobs.append(job)
     job = slurm.Job(
-        name = 'CFSDA_MOM',
+        name = 'CFSDAMOM',
         cmd = "./run_DA_mom --path {0} --date {1}".format(args.path,ndateShort),
         runtime = timeLimit_DA,
         output  = logDir+'/letkf/mom/letkf_mom_'+ndateShort+'_%j.log',

@@ -234,15 +234,19 @@ for mem in mems:
     shutil.copy(tmpDir+'/{0}/fort.22'.format(mem), args.path+'/anal/{0}/{1}.sfc'.format(mem,cdateShort))
 
 files = [
-    ('gues_me.grd', '/gues/mean/%Y/%Y%m/%Y%m%d/%Y%m%d%H/%Y%m%d%H.grd'),
-    ('gues_sp.grd', '/gues/sprd/%Y/%Y%m/%Y%m%d/%Y%m%d%H/%Y%m%d%H.grd'),
-    ('anal_me.grd', '/anal/mean/%Y/%Y%m/%Y%m%d/%Y%m%d%H/%Y%m%d%H.grd'),
-    ('anal_sp.grd', '/anal/sprd/%Y/%Y%m/%Y%m%d/%Y%m%d%H/%Y%m%d%H.grd'),
-    ('infl_mul.grd', '/infl_mul/atm/%Y/%Y%m/%Y%m%d/%Y%m%d%H/%Y%m%d%H.grd')] 
+    ('gues_me.grd', '/gues/mean/{}_atm.grd'),
+    ('gues_sp.grd', '/gues/sprd/{}_atm.grd'),
+    ('anal_me.grd', '/anal/mean/{}_atm.grd'),
+    ('anal_sp.grd', '/anal/sprd/{}_atm.grd'),
+    ('infl_mul.grd', '/infl_mul/{}_atm.grd')]
+dateStr=cdate.strftime('%Y/%Y%m/%Y%m%d/%Y%m%d%H/%Y%m%d%H')
 for f in files:
-    dst = args.path+cdate.strftime(f[1])
-    if not os.path.exists(os.path.dirname(dst)):
+    dst = args.path+f[1].format(dateStr)
+#    if not os.path.exists(os.path.dirname(dst)):
+    try:
         os.makedirs(os.path.dirname(dst))
+    except:
+        pass
     shutil.copy(tmpDir+'/'+f[0], dst)
 
 ##TODO move log files
