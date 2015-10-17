@@ -24,7 +24,7 @@ log.info("")
 tmpDir     = os.getenv("TMP_DIR_LOCAL")+'/cfs/gfs-letkf'
 letkfDir   = os.getenv("CFS_LETKF_ROOT")+'/letkf-gfs/letkf'
 ssioDir    = os.getenv("CFS_LETKF_ROOT")+'/util/bin'
-#superobDir = '/lustre/tsluka/gfs-letkf/obs'
+superobDir = os.getenv("CFS_LETKF_ROOT")+'/letkf-gfs/util'
 obsDir     = os.getenv("OBS_ATM")
 cfsrDir    = os.getenv("CFSR_DIR")+'/T62/'
 
@@ -92,9 +92,9 @@ for f in ['ss2grd','grd2ss']:
     shutil.copy(ssioDir+'/'+f, tmpDir+'/bin/')
 for f in ['obsope','letkf','mean']:
     shutil.copy(letkfDir+'/'+f, tmpDir+'/bin/')
-#shutil.copy(superobDir+'/superob', tmpDir+'/')
+shutil.copy(superobDir+'/superob', tmpDir+'/')
 
-for mem in (mems+['mean',]):
+for mem in mems:
     os.makedirs(tmpDir+'/'+mem)  
 
 
@@ -158,17 +158,15 @@ for mem in mems:
     
 ## perform superob / thinning
 ## caculate the mean,
-## TODO, should this be done in the spectral space instead?
-
-# sp.call('mean', shell=True, cwd=tmpDir)
-# shutil.move(tmpDir+'/gues_me.grd',tmpDir+'/refpres.dat')
-# ## call superobs
-# sp.call('superob', shell=True, cwd=tmpDir)
-# for f in glob(tmpDir+'/obs??.dat'):
-#     os.remove(f)
-# for i in ['{0:02d}'.format(i+1) for i in range(7)]:
-#     shutil.move(tmpDir+'/sup'+i+'.dat' , tmpDir+'/obs'+i+'.dat')
-        
+sp.call('./bin/mean', shell=True, cwd=tmpDir)
+shutil.move(tmpDir+'/gues_me.grd',tmpDir+'/refpres.dat')
+## call superobs
+sp.call('superob', shell=True, cwd=tmpDir)
+for f in glob(tmpDir+'/obs??.dat'):
+     os.remove(f)
+for i in ['{0:02d}'.format(i+1) for i in range(7)]:
+     shutil.move(tmpDir+'/sup'+i+'.dat' , tmpDir+'/obs'+i+'.dat')
+##TODO, move the superobs log file        
 
 
 ## run observation operator
