@@ -1,21 +1,6 @@
 #!/usr/bin/env python
 ################################################################################
 
-## setup the console logger. 
-import logging
-import sys
-log = logging.getLogger('')
-log.setLevel(logging.DEBUG)
-logFormat = logging.Formatter('[%(levelname)-5s %(asctime)s]  %(message)s')
-logScreen = logging.StreamHandler(sys.stdout)
-logScreen.setLevel(logging.INFO)
-logScreen.setFormatter(logFormat)
-log.addHandler(logScreen)
-logging.addLevelName(logging.INFO, "\033[01;37mINFO \033[00m")
-logging.addLevelName(logging.ERROR, "\033[01;31mERROR\033[00m")
-logging.addLevelName(logging.WARN, "\033[01;33mWARN \033[00m")
-logging.addLevelName(logging.CRITICAL, "\033[01;35mCRIT \033[00m")  
-
 ## load built in modules
 import argparse
 import os,shutil
@@ -24,18 +9,18 @@ from glob import glob
 import datetime as dt
 
 ## load 3rd party modules
-
-## load local modules
+import common
 import slurm
 
+## setup the logging system
+log = common.setupLog()
 
 
-## configurables
+## configurables (TODO, make these configurable from outside)
 ##############################
 timeLimit_CFS = "5:00"
 timeLimit_DA  = "5:00"
 analGFS = os.getenv("CFSR_DIR")+"/T62"
-
 rootDir = os.getenv("CFS_LETKF_ROOT")
 
 
@@ -99,15 +84,7 @@ slurm.maxJobRetries = 10
 logDir = args.path+'/logs/'
 if not os.path.exists(logDir):
     os.makedirs(logDir)
-logFormat = logging.Formatter('[%(levelname)-5s %(asctime)s]  %(message)s')
-logFile = logging.FileHandler(filename=logDir+'/controller_'+args.start+'.log', mode='w')
-logFile.setLevel(logging.DEBUG)
-logFile.setFormatter(logFormat)
-log.addHandler(logFile)
-logging.addLevelName(logging.INFO, "\033[01;37mINFO \033[00m")
-logging.addLevelName(logging.ERROR, "\033[01;31mERROR\033[00m")
-logging.addLevelName(logging.WARN, "\033[01;33mWARN \033[00m")
-logging.addLevelName(logging.CRITICAL, "\033[01;35mCRIT \033[00m")  
+common.addFileLog(log, logDir+'/controller_'+args.start+'.log')
 log.info("CFSv2-LETKF DA cycle script")
 log.info("Travis Sluka, University of Maryland, 2015")
 log.info("")
@@ -121,11 +98,7 @@ log.info("End date:   "+str(endDate))
 ## if not from the command line then implicitly by
 ## looking at the number of folders in the data directory
 if args.mem is None:
-    dirs = glob(args.path+'/gues/*/')
-    dirs = [d.split('/')[-2] for d in dirs]
-    dirs = sorted(filter(lambda x: x.isdigit(), dirs))
-    args.mem = len(dirs)
-    assert (int(dirs[-1]) == len(dirs))
+    args.mem = common.getEnsMem(args.path)
     log.info("Using {0} ensemble members".format(args.mem))  
 
 log.info("")
@@ -165,15 +138,17 @@ while cdate < endDate:
     ############################################################
     jobs = []
     job = slurm.Job(
-        name = 'CFSDAGFS',
-        cmd = "./run_DA_gfs --path {0} --date {1}".format(args.path,ndateShort),
+        name = 'CFSDAATM',
+        wdir = rootDir+'/run',
+        cmd = "./run_DA_atm --path {0} --date {1}".format(args.path,ndateShort),
         runtime = timeLimit_DA,
         output  = logDir+ndate.strftime('/%Y/%Y%m/%Y%m%d/%Y%m%d%H')+'_letkf-atm'+'_%j.log',
     )
     jobs.append(job)
     job = slurm.Job(
-        name = 'CFSDAMOM',
-        cmd = "./run_DA_mom --path {0} --date {1}".format(args.path,ndateShort),
+        name = 'CFSDAOCN',
+        wdir = rootDir+'/run',        
+        cmd = "./run_DA_ocn --path {0} --date {1}".format(args.path,ndateShort),
         runtime = timeLimit_DA,
         output  = logDir+ndate.strftime('/%Y/%Y%m/%Y%m%d/%Y%m%d%H')+'_letkf-ocn'+'_%j.log',
     )

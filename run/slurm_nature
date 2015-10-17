@@ -10,24 +10,9 @@
 ##  TMP_DIR_LOCAL   
 ################################################################################
 
-## setup the console logger. 
-import logging
-import sys
-log = logging.getLogger('')
-log.setLevel(logging.DEBUG)
-logFormat = logging.Formatter('[%(levelname)-5s %(asctime)s]  %(message)s')
-logScreen = logging.StreamHandler(sys.stdout)
-logScreen.setLevel(logging.INFO)
-logScreen.setFormatter(logFormat)
-log.addHandler(logScreen)
-logging.addLevelName(logging.INFO, "\033[01;37mINFO \033[00m")
-logging.addLevelName(logging.ERROR, "\033[01;31mERROR\033[00m")
-logging.addLevelName(logging.WARN, "\033[01;33mWARN \033[00m")
-logging.addLevelName(logging.CRITICAL, "\033[01;35mCRIT \033[00m")  
-
 ## load built in modules
 import argparse
-import os,shutil
+import os,shutil, sys
 import subprocess as sp
 from glob import glob
 import datetime as dt
@@ -35,11 +20,11 @@ import time
 import numpy as np
 
 ## load 3rd party modules
-
-## load local modules
+import common
 import slurm
 
-
+## setup the logger
+log = common.setupLog()
 
 ## configurables
 ## TODO, make these configurable from the command line
@@ -95,15 +80,7 @@ logDir = args.path+'/logs/'
 if not os.path.exists(logDir):
     os.makedirs(logDir)
     os.makedirs(logDir+'/cfs')
-logFormat = logging.Formatter('[%(levelname)-5s %(asctime)s]  %(message)s')
-logFile = logging.FileHandler(filename=logDir+'/controller_'+args.start+'.log', mode='w')
-logFile.setLevel(logging.DEBUG)
-logFile.setFormatter(logFormat)
-log.addHandler(logFile)
-logging.addLevelName(logging.INFO, "\033[01;37mINFO \033[00m")
-logging.addLevelName(logging.ERROR, "\033[01;31mERROR\033[00m")
-logging.addLevelName(logging.WARN, "\033[01;33mWARN \033[00m")
-logging.addLevelName(logging.CRITICAL, "\033[01;35mCRIT \033[00m")  
+common.addFileLog(log, logDir+'/controller_'+args.start+'.log')
 log.info("CFSv2-LETKF nature run script")
 log.info("Travis Sluka, University of Maryland, 2015")
 log.info("")

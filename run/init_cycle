@@ -137,7 +137,7 @@ with open(rootDir+'/letkf-mom/mom4/grads/ocn.ctl','r') as fin:
 with open(args.path+'/anal/mean/atm.ctl','w') as out:
     sp.call(ssioDir+'/grdctl "%y4/%y4%m2/%y4%m2%d2/%y4%m2%d2%h2/%y4%m2%d2%h2_atm.grd" "template byteswapped" '+ datestr +' 6hr 10000 s'
          , shell=True, stdout=out)
-for f in ('/anal/sprd/','/gues/mean/','/gues/sprd/', 'infl_mul/'):
+for f in ('/anal/sprd/','/gues/mean/','/gues/sprd/', '/infl_mul/'):
     shutil.copy(args.path+'/anal/mean/ocn.ctl',args.path+f)
     shutil.copy(args.path+'/anal/mean/atm.ctl',args.path+f)
     

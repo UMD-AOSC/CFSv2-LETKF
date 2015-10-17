@@ -2,23 +2,6 @@
 #SBATCH -n 20
 ################################################################################
 
-## setup the console logger.
-import logging
-import sys
-log = logging.getLogger('')
-log.setLevel(logging.DEBUG)
-logFormat = logging.Formatter('[%(levelname)-5s %(asctime)s]  %(message)s')
-logScreen = logging.StreamHandler(sys.stdout)
-logScreen.setLevel(logging.INFO)
-logScreen.setFormatter(logFormat)
-log.addHandler(logScreen)
-logging.addLevelName(logging.INFO, "\033[01;37mINFO \033[00m")
-logging.addLevelName(logging.ERROR, "\033[01;31mERROR\033[00m")
-logging.addLevelName(logging.WARN, "\033[01;33mWARN \033[00m")
-logging.addLevelName(logging.CRITICAL, "\033[01;35mCRIT \033[00m")   
-
-log.info("GFS-LETKF, orginally developed by Guo-Yuan Lien")
-log.info("")
 
 ## load built-in modules
 import argparse
@@ -28,6 +11,13 @@ from glob import glob
 import datetime as dt
 
 ## load 3rd party modules
+sys.path.insert(1,'.')
+import common
+
+## setup logging system
+log = common.setupLog()
+log.info("GFS-LETKF, orginally developed by Guo-Yuan Lien")
+log.info("")
 
 
 ## directory locations
@@ -69,11 +59,7 @@ log.info(str(args))
 
 ## determine the number of ensembe members we are using
 if args.mem is None:
-    dirs = glob(args.path+'/gues/*/')
-    dirs = [d.split('/')[-2] for d in dirs]
-    dirs = sorted(filter(lambda x: x.isdigit(), dirs))
-    args.mem = len(dirs)
-    assert (int(dirs[-1]) == len(dirs))
+    args.mem = common.getEnsMem(args.path)
     log.info("Using {0} ensemble members".format(args.mem))
 
 

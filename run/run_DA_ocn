@@ -2,31 +2,23 @@
 #SBATCH -n 20
 ################################################################################
 
-## setup the console logger.
-import logging
-import sys
-log = logging.getLogger('')
-log.setLevel(logging.DEBUG)
-logFormat = logging.Formatter('[%(levelname)-5s %(asctime)s]  %(message)s')
-logScreen = logging.StreamHandler(sys.stdout)
-logScreen.setLevel(logging.INFO)
-logScreen.setFormatter(logFormat)
-log.addHandler(logScreen)
-logging.addLevelName(logging.INFO, "\033[01;37mINFO \033[00m")
-logging.addLevelName(logging.ERROR, "\033[01;31mERROR\033[00m")
-logging.addLevelName(logging.WARN, "\033[01;33mWARN \033[00m")
-logging.addLevelName(logging.CRITICAL, "\033[01;35mCRIT \033[00m")   
-
 ## load built-in modules
+import sys
 import argparse
 import os, shutil
 import subprocess as sp
 from glob import glob
 import datetime as dt
 import multiprocessing as mp
-#from multiprocessing import Pool
 
 ## load 3rd party modules
+sys.path.insert(1,'.')
+import common
+
+## setup the logging system
+log = common.setupLog()
+log.info("MOM-LETKF, originally developed by Steve Penny")
+log.info("")
 
 ## directory locations
 ## TODO, make these configurable
@@ -69,11 +61,7 @@ log.info(str(args))
 
 ## determine the number of ensembe members we are using
 if args.mem is None:
-    dirs = glob(args.path+'/gues/*/')
-    dirs = [d.split('/')[-2] for d in dirs]
-    dirs = sorted(filter(lambda x: x.isdigit(), dirs))
-    args.mem = len(dirs)
-    assert (int(dirs[-1]) == len(dirs))
+    args.mem = common.getEnsMem(args.path)
     log.info("Using {0} ensemble members".format(args.mem))
 
 log.info("")
@@ -125,7 +113,6 @@ if ret != 0:
 
 
 ## move the output to its final location
-
 log.info("copying ensemble members to destination directory...")
 def cp_func(mem):
     for f in ['temp_salt','velocity','sbc']:
@@ -166,7 +153,6 @@ for m in mems:
 
     
 
-##TODO, change the 20 above to be equal to nprocs
 ##TODO move the infl_mul file
 
 ##TODO move log viles

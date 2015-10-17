@@ -1,0 +1,72 @@
+#!/bin/bash
+#SBATCH -n 20
+################################################################################
+## basic script to run the 6 hour forecast script in a cylce
+## to produce a nature run and test the CFS system.
+## This script might need to be modified to suit your own system
+################################################################################
+set -e
+
+
+## Configurables
+stime=2010010100
+etime=2010020100
+path=$CFS_LETKF_ROOT/DATA/nature
+
+
+
+## directories
+rootDir=$CFS_LETKF_ROOT
+ssioFile=$CFS_LETKF_ROOT/util/bin/sscycle
+tmpDir=$TMP_DIR_LOCAL/cfs_nature
+analGFS=$CFSR_DIR/T62
+
+## run the loop
+time=$stime
+while [ "$time" -le "$etime" ]; do
+    cd $CFS_LETKF_ROOT/run
+    echo "Forecast from $time"
+
+    ## determine source and destination directories
+    ntime=$(date +%Y%m%d%H -d "${time:0:8} ${time:8:2} + 6 hours")
+    srcDir=$path/${time:0:4}/${time:0:6}/${time:0:8}/${time}
+    dstDir=$path/${ntime:0:4}/${ntime:0:6}/${ntime:0:8}/${ntime}
+
+    ## run the 6 hour forecast, with output at 6 hours
+   logPath=$path/logs/${time:0:4}/${time:0:6}   
+   mkdir -p $logPath
+   $rootDir/run/run_fcst $srcDir $dstDir $time 6 6 > $logPath/$time.log
+
+
+    ## rename the ocean/ice files
+    mv $dstDir/${time}_F06.ice_model.res.nc $dstDir/$ntime.ice_model.res.nc
+    ocnfiles=("density" "frazil" "freesurf" "neutral" "sbc" "temp_salt" "velocity" "velocity_advection")
+    for f in ${ocnfiles[@]}; do
+    	mv $dstDir/${time}_F06.ocean_$f.res.nc $dstDir/${ntime}.ocean_$f.res.nc
+    done
+
+    
+    ## change the atmosphere forecast to an analysis.
+    ## This runs sscycle on the forecast output so that
+    ## the sig and sfc file headers are updated, and
+    ## various boundary conditions are updated
+    rm -rf $tmpDir
+    mkdir -p $tmpDir
+    cd $tmpDir
+    cfsrFile=${analGFS}/${ntime:0:4}/${ntime:0:6}/${ntime:0:8}/${ntime}
+    cp $cfsrFile.sig fort.21
+    cp $cfsrFile.sfc fort.22
+    mv $dstDir/${time}_F06.sig fort.11
+    mv $dstDir/${time}_F06.sfc fort.12
+    cp $ssioFile .
+    ./sscycle
+    mv fort.21 $dstDir/${ntime}.sig
+    mv fort.22 $dstDir/${ntime}.sfc
+    rm -rf $tmpDir
+    
+
+    ## increment the time 6 hours
+    time=$ntime
+    
+
+done

@@ -262,7 +262,7 @@ class Job:
 
 
     
-    def __init__(self, cmd, runtime, fnCheck=None, fnRetry=None, output=None,name=None, log=None):
+    def __init__(self, cmd, runtime, fnCheck=None, fnRetry=None, output=None,name=None, log=None, wdir=None):
         self.fnCheck   = fnCheck
         self.fnRetry = fnRetry
         self.cmd     = cmd
@@ -271,6 +271,7 @@ class Job:
         self.id      = None
         self.retries = 0
         self.name    = name
+        self.wdir    = wdir
 
         
     def wait(self):
@@ -303,6 +304,9 @@ class Job:
             shellCmd += ' -J ' + self.name
         if partition:
             shellCmd += ' -p ' + partition
+        if self.wdir:
+            shellCmd += ' -D ' + self.wdir
+                
                 
 
         ## add on the main command we want to run
