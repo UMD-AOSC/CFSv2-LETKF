@@ -32,6 +32,8 @@ maxSlurmRetries = 100 # number of times to retry SLURM commands ('sacct', 'squeu
 sleepDuration = 5     # seconds to wait after a failure
 account = None        # account to submit the SLURM job as   
 partition = None
+banNodes = False
+
 
 ## global parameters
 _bannedNodes = []     # list of nodes determined to be bad,
@@ -217,10 +219,11 @@ def monitor(jobs):
                             j.name,j.id))
 
                     ## add this node to the  banned node list
-                    badNodes = info['nodelist']
-                    if badNodes not in _bannedNodes:
-                        log.warn("banning node(s): "+str(badNodes))
-                        _bannedNodes.append(badNodes)
+                    if banNodes:
+                        badNodes = info['nodelist']
+                        if badNodes not in _bannedNodes:
+                            log.warn("banning node(s): "+str(badNodes))
+                            _bannedNodes.append(badNodes)
 
                     ## retry if we can
                     j.retries += 1

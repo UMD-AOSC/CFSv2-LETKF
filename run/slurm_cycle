@@ -99,8 +99,6 @@ slurm.maxJobRetries = 10
 logDir = args.path+'/logs/'
 if not os.path.exists(logDir):
     os.makedirs(logDir)
-    os.makedirs(logDir+'/cfs')
-    os.makedirs(logDir+'/letkf')    
 logFormat = logging.Formatter('[%(levelname)-5s %(asctime)s]  %(message)s')
 logFile = logging.FileHandler(filename=logDir+'/controller_'+args.start+'.log', mode='w')
 logFile.setLevel(logging.DEBUG)
@@ -156,7 +154,7 @@ while cdate < endDate:
             cmd = "./run_fcst {0} {1} {2} 9 1".format(
                 inPath, outPath, cdateShort),
             runtime = timeLimit_CFS,
-            output  = logDir+'/cfs/cfs_'+cdateShort+'-'+mem+'_%j.log',
+            output  = logDir+cdate.strftime('/%Y/%Y%m/%Y%m%d/%Y%m%d%H')+'_CFS-'+mem+'_%j.log',
         )
         jobs.append(job)
     log.info("    Running forecasts...")
@@ -170,14 +168,14 @@ while cdate < endDate:
         name = 'CFSDAGFS',
         cmd = "./run_DA_gfs --path {0} --date {1}".format(args.path,ndateShort),
         runtime = timeLimit_DA,
-        output  = logDir+'/letkf/gfs/letkf_gfs_'+ndateShort+'_%j.log',
+        output  = logDir+ndate.strftime('/%Y/%Y%m/%Y%m%d/%Y%m%d%H')+'_letkf-atm'+'_%j.log',
     )
     jobs.append(job)
     job = slurm.Job(
         name = 'CFSDAMOM',
         cmd = "./run_DA_mom --path {0} --date {1}".format(args.path,ndateShort),
         runtime = timeLimit_DA,
-        output  = logDir+'/letkf/mom/letkf_mom_'+ndateShort+'_%j.log',
+        output  = logDir+ndate.strftime('/%Y/%Y%m/%Y%m%d/%Y%m%d%H')+'_letkf-ocn'+'_%j.log',
     )
     jobs.append(job)
     log.info("    Running LETKF ...")

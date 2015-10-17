@@ -137,7 +137,7 @@ for slot in range(-window,window+1):
             
 
 ## copy the adaptive inflation file
-inflFile = args.path+'/infl_mul/atm/'+pdate.strftime('%Y/%Y%m/%Y%m%d/%Y%m%d%H/%Y%m%d%H.grd')
+inflFile = args.path+'/infl_mul/'+pdate.strftime('%Y/%Y%m/%Y%m%d/%Y%m%d%H/%Y%m%d%H_atm.grd')
 if os.path.exists(inflFile):
     log.info("Coying inflation file...")
     shutil.copy(inflFile, tmpDir+'/infl_mul.grd')
