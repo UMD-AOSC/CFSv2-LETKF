@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#SBATCH -n 20
+#SBATCH -N 2
 ################################################################################
 ## run_cycle.sh
 ## Runs a single x hour forecast for the CFS model.
@@ -27,6 +27,7 @@ OUT_DIR=$2
 START_DATE=$3
 FCST_LEN=$4               # forecast length in hours
 OUT_PERIOD=$5             # output file period (hours)
+WORKDIR=$6
 
 #AM_RES=126         # atmosphere T resolution [62, ...]
 #AM_RES_X=384
@@ -42,29 +43,14 @@ CPL_PERIOD=300    # coulping period (s)
 
 ## Computer configuration
 ## ------------------------------
-## For DT2, use NPROC_OM=6, NPROC_AM=13 (for 20 cores total)
-## other configurations are not guaranteed to work, this
-## seems to be the least likely to crash
-#NPROC_OM=6    # number of cores for ocean model
-#NPROC_AM=13   # number of cores for atmo  model
-
-# 1 additional core used for coupler
-### timing experiments using different combinations of 20 cores total for coupler/atm/ocn
-# 12,7 = 1:18
-# 11,8 = dead
-# 10,9 = (dead?) 1:11
-# 9,10 = (dead?) 1:14
-# 8,11 = 1:17
-# 7,12 = dead
-# 6,13 = 1:25
-
-WORKDIR=/dev/shm/$USER/CFS
+#WORKDIR=/dev/shm/$USER/CFS
+#WORKDIR=/lustre/tsluka/tmp/$MEM
 
 echo "WORKDIR  = $WORKDIR"
 echo $NPROC_OM
 echo $NPROC_AM
 
-################################################################################
+#x###############################################################################
 # shouldn't have to modify below here
 ################################################################################
 
@@ -82,6 +68,7 @@ cp $CFS_LETKF_ROOT/cfs/bin/* .  &
 echo "creating coupled namelist (cpl_nml)..."
 source $CFS_LETKF_ROOT/run/config_files/cpl_nml > cpl_nml
 
+cl="ln -s"  ## either copy or link files, #TODO depending on where our tmp folder is
 
 # Ocean Init
 ########################################
@@ -91,36 +78,36 @@ mkdir IRESTART
 # create config files
 echo "Creating MOM config files..."
 source $CFS_LETKF_ROOT/run/config_files/input.nml > input.nml
-cp $CFS_LETKF_ROOT/run/config_files/diag_table . &
-cp $CFS_LETKF_ROOT/run/config_files/data_table . &
+$cl $CFS_LETKF_ROOT/run/config_files/diag_table . &
+$cl $CFS_LETKF_ROOT/run/config_files/data_table . &
 
 # copy fix files, select the correct ones
 # based on the desired resolution
 echo "Copying MOM fix files..."
-cp $FIX_DIR_OM/MOM4LND${OM_RES}GFSOCNt${AM_RES}.msk MOM4LND_GFSOCN &
-cp $FIX_DIR_OM/fluxes_init_OM_t${AM_RES} fluxes_init_OM &
+$cl $FIX_DIR_OM/MOM4LND${OM_RES}GFSOCNt${AM_RES}.msk MOM4LND_GFSOCN &
+$cl $FIX_DIR_OM/fluxes_init_OM_t${AM_RES} fluxes_init_OM &
 mkdir INPUT
 cd INPUT
-cp $FIX_DIR_OM/grid_spec_$OM_RES.nc.T$AM_RES grid_spec.nc &
-cp $FIX_DIR_OM/chl_$OM_RES.nc chl.nc &
-cp $FIX_DIR_OM/r2ts_clim.nc . &
-cp $FIX_DIR_OM/sst_ice_clim.nc . &
-cp $FIX_DIR_OM/runoff_$OM_RES.nc runoff.nc &
-cp $FIX_DIR_OM/ohf_sice.nc . &
+$cl $FIX_DIR_OM/grid_spec_$OM_RES.nc.T$AM_RES grid_spec.nc &
+$cl $FIX_DIR_OM/chl_$OM_RES.nc chl.nc &
+$cl $FIX_DIR_OM/r2ts_clim.nc . &
+$cl $FIX_DIR_OM/sst_ice_clim.nc . &
+$cl $FIX_DIR_OM/runoff_$OM_RES.nc runoff.nc &
+$cl $FIX_DIR_OM/ohf_sice.nc . &
 cd ..
 
 # copy initial conditions
 echo "Copying MOM initial conditions..."
 cd INPUT
-cp $SRC_DIR/$START_DATE.ice_model.res.nc                ice_model.res.nc &
-#cp $SRC_DIR/$START_DATE.ocean_density.res.nc            ocean_density.res.nc             ## really needed??
-#cp $SRC_DIR/$START_DATE.ocean_sbc.res.nc                ocean_sbc.res.nc                 ## really needed??
-cp $SRC_DIR/$START_DATE.ocean_velocity.res.nc           ocean_velocity.res.nc &
-cp $SRC_DIR/$START_DATE.ocean_velocity_advection.res.nc ocean_velocity_advection.res.nc &
-cp $SRC_DIR/$START_DATE.ocean_freesurf.res.nc           ocean_freesurf.res.nc &
-cp $SRC_DIR/$START_DATE.ocean_temp_salt.res.nc          ocean_temp_salt.res.nc &
-cp $SRC_DIR/$START_DATE.ocean_frazil.res.nc             ocean_frazil.res.nc &
-cp $SRC_DIR/$START_DATE.ocean_neutral.res.nc            ocean_neutral.res.nc &
+$cl $SRC_DIR/$START_DATE.ice_model.res.nc                ice_model.res.nc &
+$cl $SRC_DIR/$START_DATE.ocean_density.res.nc            ocean_density.res.nc             ## really needed??
+$cl $SRC_DIR/$START_DATE.ocean_sbc.res.nc                ocean_sbc.res.nc                 ## really needed??
+$cl $SRC_DIR/$START_DATE.ocean_velocity.res.nc           ocean_velocity.res.nc &
+$cl $SRC_DIR/$START_DATE.ocean_velocity_advection.res.nc ocean_velocity_advection.res.nc &
+$cl $SRC_DIR/$START_DATE.ocean_freesurf.res.nc           ocean_freesurf.res.nc &
+$cl $SRC_DIR/$START_DATE.ocean_temp_salt.res.nc          ocean_temp_salt.res.nc &
+$cl $SRC_DIR/$START_DATE.ocean_frazil.res.nc             ocean_frazil.res.nc &
+$cl $SRC_DIR/$START_DATE.ocean_neutral.res.nc            ocean_neutral.res.nc &
 
 cd ..
 
@@ -129,8 +116,8 @@ cd ..
 ########################################
 # copy initial conditions
 echo "Copying GFS initial conditions..."
-cp $SRC_DIR/$START_DATE.sfc sfc_ini &
-cp $SRC_DIR/$START_DATE.sig sig_ini &
+$cl $SRC_DIR/$START_DATE.sfc sfc_ini &
+$cl $SRC_DIR/$START_DATE.sig sig_ini &
 
 
 # create namelists
@@ -140,39 +127,38 @@ source $CFS_LETKF_ROOT/run/config_files/gfs_namelist.rc > gfs_namelist.rc
 
 # copy fix files
 echo "Copying GFS fix files..."
-cp $FIX_DIR_AM/global_climaeropac_global.txt aerosol.dat &
-cp $FIX_DIR_AM/global_co2con.l64.f77 fort.15 &
-cp $FIX_DIR_AM/global_mtnvar.t$AM_RES.f77 fort.24 &
-cp $FIX_DIR_AM/global_tbthe.f77 fort.27 &
-cp $FIX_DIR_AM/global_o3prdlos.f77 fort.28 &
-cp $FIX_DIR_AM/global_cldtune.f77 fort.43 &
-cp $FIX_DIR_AM/global_o3clim.txt fort.48 &
-cp $FIX_DIR_AM/global_orography.t$AM_RES.grb orography &
-cp $FIX_DIR_AM/global_orography_uf.t$AM_RES.$AM_RES_X.$AM_RES_Y.grb orography_uf &
-cp $FIX_DIR_AM/global_sfc_emissivity_idx.txt sfc_emissivity_idx.txt &
-cp $FIX_DIR_AM/global_co2historicaldata_2009.txt co2historicaldata_2009.txt &
-cp $FIX_DIR_AM/global_solarconstantdata.txt solarconstantdata.txt &
+$cl $FIX_DIR_AM/global_climaeropac_global.txt aerosol.dat &
+$cl $FIX_DIR_AM/global_co2con.l64.f77 fort.15 &
+$cl $FIX_DIR_AM/global_mtnvar.t$AM_RES.f77 fort.24 &
+$cl $FIX_DIR_AM/global_tbthe.f77 fort.27 &
+$cl $FIX_DIR_AM/global_o3prdlos.f77 fort.28 &
+$cl $FIX_DIR_AM/global_cldtune.f77 fort.43 &
+$cl $FIX_DIR_AM/global_o3clim.txt fort.48 &
+$cl $FIX_DIR_AM/global_orography.t$AM_RES.grb orography &
+$cl $FIX_DIR_AM/global_orography_uf.t$AM_RES.$AM_RES_X.$AM_RES_Y.grb orography_uf &
+$cl $FIX_DIR_AM/global_sfc_emissivity_idx.txt sfc_emissivity_idx.txt &
+$cl $FIX_DIR_AM/global_co2historicaldata_2009.txt co2historicaldata_2009.txt &
+$cl $FIX_DIR_AM/global_solarconstantdata.txt solarconstantdata.txt &
 mkdir fix_am
 cd fix_am
-cp $FIX_DIR_AM/global_glacier.2x2.grb . &
-cp $FIX_DIR_AM/global_maxice.2x2.grb . &
-cp $FIX_DIR_AM/cfs_oi2sst1x1monclim19822001.grb . &
-cp $FIX_DIR_AM/global_snoclim.1.875.grb . &
-cp $FIX_DIR_AM/global_zorclim.1x1.grb . &
-cp $FIX_DIR_AM/global_albedo4.1x1.grb . &
-cp $FIX_DIR_AM/cfs_ice1x1monclim19822001.grb . &
-cp $FIX_DIR_AM/global_tg3clim.2.6x1.5.grb . &
-cp $FIX_DIR_AM/global_vegfrac.0.144.decpercent.grb . &
-cp $FIX_DIR_AM/global_vegtype.1x1.grb . &
-cp $FIX_DIR_AM/global_soiltype.1x1.grb . &
-cp $FIX_DIR_AM/global_soilmcpc.1x1.grb . &
-cp $FIX_DIR_AM/seaice_newland.grb . &
-cp $FIX_DIR_AM/global_shdmin.0.144x0.144.grb . &
-cp $FIX_DIR_AM/global_shdmax.0.144x0.144.grb . &
-cp $FIX_DIR_AM/global_slope.1x1.grb . &
-cp $FIX_DIR_AM/global_snoalb.1x1.grb . &
+$cl $FIX_DIR_AM/global_glacier.2x2.grb . &
+$cl $FIX_DIR_AM/global_maxice.2x2.grb . &
+$cl $FIX_DIR_AM/cfs_oi2sst1x1monclim19822001.grb . &
+$cl $FIX_DIR_AM/global_snoclim.1.875.grb . &
+$cl $FIX_DIR_AM/global_zorclim.1x1.grb . &
+$cl $FIX_DIR_AM/global_albedo4.1x1.grb . &
+$cl $FIX_DIR_AM/cfs_ice1x1monclim19822001.grb . &
+$cl $FIX_DIR_AM/global_tg3clim.2.6x1.5.grb . &
+$cl $FIX_DIR_AM/global_vegfrac.0.144.decpercent.grb . &
+$cl $FIX_DIR_AM/global_vegtype.1x1.grb . &
+$cl $FIX_DIR_AM/global_soiltype.1x1.grb . &
+$cl $FIX_DIR_AM/global_soilmcpc.1x1.grb . &
+$cl $FIX_DIR_AM/seaice_newland.grb . &
+$cl $FIX_DIR_AM/global_shdmin.0.144x0.144.grb . &
+$cl $FIX_DIR_AM/global_shdmax.0.144x0.144.grb . &
+$cl $FIX_DIR_AM/global_slope.1x1.grb . &
+$cl $FIX_DIR_AM/global_snoalb.1x1.grb . &
 cd ..
-
 
 wait
 
@@ -180,7 +166,7 @@ wait
 ########################################
 echo "Running the CFS model..."
 export OMP_NUM_THREADS=1
-mpirun -n 1 cfs_mlc_coupler : -n $NPROC_OM cfs_ocean_mom4ice : -n $NPROC_AM global_fcst
+time mpirun -n 1 cfs_mlc_coupler : -n $NPROC_OM cfs_ocean_mom4ice : -n $NPROC_AM global_fcst
 echo "Done running model...."
 
 START_DATE=$(date -u -d"${START_DATE:0:8} ${START_DATE:8:10}")
@@ -192,8 +178,6 @@ cdate=$(date -u -d "$START_DATE" +%Y%m%d%H)
 fdate=$(date -u -d "$START_DATE + 6 hours" +%Y%m%d%H)
 
 for i in $(seq -f "%02g" $OUT_PERIOD $OUT_PERIOD $FCST_LEN); do    
-    # md5sum SIG.F$i
-    # md5sum SFC.F$i    
     mv SIG.F$i $OUT_DIR/${cdate}_F$i.sig
     mv SFC.F$i $OUT_DIR/${cdate}_F$i.sfc
 done

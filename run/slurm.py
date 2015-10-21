@@ -227,7 +227,7 @@ def monitor(jobs):
 
                     ## retry if we can
                     j.retries += 1
-                    if j.retries < maxJobRetries:
+                    if j.retries <= maxJobRetries:
                         if j.fnRetry:
                             j.fnRetry(j)
                         j.submit()
@@ -262,8 +262,8 @@ class Job:
 
 
     
-    def __init__(self, cmd, runtime, fnCheck=None, fnRetry=None, output=None,name=None, log=None, wdir=None):
-        self.fnCheck   = fnCheck
+    def __init__(self, cmd, runtime, fnCheck=None, fnRetry=None, output=None,name=None, log=None, wdir=None,nproc=None):
+        self.fnCheck = fnCheck
         self.fnRetry = fnRetry
         self.cmd     = cmd
         self.runtime = runtime
@@ -272,6 +272,7 @@ class Job:
         self.retries = 0
         self.name    = name
         self.wdir    = wdir
+        self.nproc   = nproc
 
         
     def wait(self):
@@ -306,6 +307,9 @@ class Job:
             shellCmd += ' -p ' + partition
         if self.wdir:
             shellCmd += ' -D ' + self.wdir
+        if self.nproc:
+            shellCmd += ' -n ' + str(self.nproc)
+                
                 
                 
 

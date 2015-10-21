@@ -63,10 +63,12 @@ w3lib-2.0: sigio
 clean:
 	rm -rf lib
 	rm -rf incmod
+	+make -C src/bacio clean
+	+make -C src/bufr_10.2.3 clean
 	+make -C src/gfsio clean
+	+make -C src/ip clean
+	+make -C src/landsfcutil clean
 	+make -C src/sfcio clean
 	+make -C src/sigio clean
-	+make -C src/ip clean
 	+make -C src/sp clean
-	+make -C src/bacio clean
-	+make -C src/bufrlib clean
+	+make -C src/w3lib-2.0 clean

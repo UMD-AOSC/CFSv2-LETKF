@@ -22,6 +22,7 @@ export CFS_LETKF_ROOT="$( cd -P "$( dirname "$SOURCE" )/.." && pwd )"
 ## set directories
 ########################################
 export TMP_DIR_LOCAL=/dev/shm/$USER
+export TMP_DIR_SHARED=/lustre/tsluka/tmp/cfs/
 
 export FIX_DIR_AM=/lustre/tsluka/CFSv2/support/fix/fix_am
 export FIX_DIR_OM=/lustre/tsluka/CFSv2/support/fix/fix_om
@@ -30,6 +31,8 @@ export OBS_ATM=$CFS_LETKF_ROOT/DATA/obs/atm_prepbufr
 export OBSNCEP=$CFS_LETKF_ROOT/DATA
 
 ## other properties when running
-export NPROC=20
-export NPROC_OM=8
-export NPROC_AM=11
+export NPROC_OM=19      ## number of cores for ocean model
+export NPROC_AM=20      ## number of cores for atmosphere model
+                        ## plus 1 core for the coupler
+
+export NPROC_LETKF=20   ## number of cores for the LETKF
