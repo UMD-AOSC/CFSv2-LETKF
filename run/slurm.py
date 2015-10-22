@@ -32,7 +32,7 @@ maxSlurmRetries = 100 # number of times to retry SLURM commands ('sacct', 'squeu
 sleepDuration = 5     # seconds to wait after a failure
 account = None        # account to submit the SLURM job as   
 partition = None
-banNodes = False
+banNodes = True
 
 
 ## global parameters

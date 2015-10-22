@@ -22,7 +22,7 @@ timeLimit_CFS = "5:00"
 timeLimit_DA  = "5:00"
 analGFS = os.getenv("CFSR_DIR")+"/T62"
 rootDir = os.getenv("CFS_LETKF_ROOT")
-
+tmpDir  = os.getenv("TMP_DIR_SHARED")
 
 ################################################################################
 ################################################################################
@@ -108,6 +108,9 @@ log.info("")
 ##################################################################################            
 ## Run cycle
 ##################################################################################
+nproc_cfs = int(os.getenv("NPROC_OM"))+int(os.getenv("NPROC_AM"))+1
+log.info("Using {:d} cores for each CFS ens member.".format(nproc_cfs))
+
 cdate = startDate
 while cdate < endDate:
     log.info("*** Begining "+str(cdate))
@@ -124,9 +127,10 @@ while cdate < endDate:
         outPath = args.path+'/gues/'+mem+'/'
         job = slurm.Job(
             name = 'CFS_'+mem,
-            cmd = "./run_fcst {0} {1} {2} 9 1 {3}".format(
-                inPath, outPath, cdateShort, m),
+            cmd = "./run_fcst {} {} {} 9 1 {}".format(
+                inPath, outPath, cdateShort, tmpDir+'/CFS_{:03d}'.format(m)),
             runtime = timeLimit_CFS,
+            nproc   = nproc_cfs,
             output  = logDir+cdate.strftime('/%Y/%Y%m/%Y%m%d/%Y%m%d%H')+'_CFS-'+mem+'_%j.log',
         )
         jobs.append(job)
@@ -142,6 +146,7 @@ while cdate < endDate:
         wdir = rootDir+'/run',
         cmd = "./run_DA_atm --path {0} --date {1}".format(args.path,ndateShort),
         runtime = timeLimit_DA,
+        nproc = os.getenv("NPROC_LETKF"),
         output  = logDir+ndate.strftime('/%Y/%Y%m/%Y%m%d/%Y%m%d%H')+'_letkf-atm'+'_%j.log',
     )
     jobs.append(job)
@@ -150,6 +155,7 @@ while cdate < endDate:
         wdir = rootDir+'/run',        
         cmd = "./run_DA_ocn --path {0} --date {1}".format(args.path,ndateShort),
         runtime = timeLimit_DA,
+        nproc = os.getenv("NPROC_LETKF"),        
         output  = logDir+ndate.strftime('/%Y/%Y%m/%Y%m%d/%Y%m%d%H')+'_letkf-ocn'+'_%j.log',
     )
     jobs.append(job)

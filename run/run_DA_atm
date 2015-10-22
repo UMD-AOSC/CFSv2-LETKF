@@ -14,6 +14,7 @@ import datetime as dt
 sys.path.insert(1,'.')
 import common
 
+
 ## setup logging system
 log = common.setupLog()
 log.info("GFS-LETKF, orginally developed by Guo-Yuan Lien")
@@ -27,6 +28,7 @@ ssioDir    = os.getenv("CFS_LETKF_ROOT")+'/util/bin'
 superobDir = os.getenv("CFS_LETKF_ROOT")+'/letkf-gfs/util'
 obsDir     = os.getenv("OBS_ATM")
 cfsrDir    = os.getenv("CFSR_DIR")+'/T62/'
+
 
 ## get the command line arguments
 parser = argparse.ArgumentParser(
@@ -56,6 +58,7 @@ cdate = dt.datetime.strptime(args.date, "%Y%m%d%H")
 
 ## other stuff
 log.info(str(args))
+
 
 ## determine the number of ensembe members we are using
 if args.mem is None:
@@ -158,9 +161,16 @@ for mem in mems:
     
 ## perform superob / thinning
 ## caculate the mean,
-sp.call('./bin/mean', shell=True, cwd=tmpDir)
+log.info("calling mean...")
+sp.call('mpirun -n 1 ./bin/mean', shell=True, cwd=tmpDir)
 shutil.move(tmpDir+'/gues_me.grd',tmpDir+'/refpres.dat')
-## call superobs
+f = open(tmpDir+'/NOUT-000','r')
+log.info("\n\nContents of Mean output file...\n\n")
+log.info(f.read())
+f.close()
+
+# ## call superobs
+log.info("calling superobs...")
 sp.call('superob', shell=True, cwd=tmpDir)
 for f in glob(tmpDir+'/obs??.dat'):
      os.remove(f)
@@ -169,7 +179,7 @@ for i in ['{0:02d}'.format(i+1) for i in range(7)]:
 ##TODO, move the superobs log file        
 
 
-## run observation operator
+# ## run observation operator
 log.info("Running observations operators...")
 procs = []
 for mem in mems:
@@ -187,8 +197,7 @@ for mem in mems:
 
 ## run the LETKF
 log.info("Running GFS-LETKF...")
-sp.call('mpirun -n {} bin/letkf'.format(os.getenv('NPROC')),
-        shell=True, cwd=tmpDir)
+sp.call('mpirun bin/letkf', shell=True, cwd=tmpDir)
 
 
 ## convert output from gridded to spectral
@@ -202,7 +211,7 @@ for mem in mems:
                tmpDir+'/{0}/fort.11'.format(mem))
     os.symlink(tmpDir+'/{0}/{1}_F06.sfc'.format(mem,pdateShort),
                tmpDir+'/{0}/fort.12'.format(mem))
-    cfsrFile = cfsrDir+pdate.strftime('/%Y/%Y%m/%Y%m%d/%Y%m%d%H')
+    cfsrFile = cfsrDir+cdate.strftime('/%Y/%Y%m/%Y%m%d/%Y%m%d%H')
     shutil.copy(cfsrFile+'.sig',
                 tmpDir+'/{0}/fort.21'.format(mem))
     shutil.copy(cfsrFile+'.sfc',
@@ -210,6 +219,8 @@ for mem in mems:
     procs.append(sp.Popen('../bin/grd2ss',shell=True,cwd=tmpDir+'/'+mem))
 for p in procs:
     p.wait()
+    if p.returncode:
+        log.error("problem running grd2ss")
 
 ## copy the files
 log.info("Copying output files to destination directory...")
@@ -226,12 +237,12 @@ files = [
 dateStr=cdate.strftime('%Y/%Y%m/%Y%m%d/%Y%m%d%H/%Y%m%d%H')
 for f in files:
     dst = args.path+f[1].format(dateStr)
-#    if not os.path.exists(os.path.dirname(dst)):
     try:
         os.makedirs(os.path.dirname(dst))
     except:
         pass
-    shutil.copy(tmpDir+'/'+f[0], dst)
+    if (f[0] != 'infl_mul.grd' or os.path.exists(tmpDir+'/'+f[0])):
+        shutil.copy(tmpDir+'/'+f[0], dst)
 
 ##TODO move log files
     

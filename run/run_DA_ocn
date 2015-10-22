@@ -20,13 +20,14 @@ log = common.setupLog()
 log.info("MOM-LETKF, originally developed by Steve Penny")
 log.info("")
 
+
 ## directory locations
-## TODO, make these configurable
 tmpDir   = os.getenv("TMP_DIR_LOCAL")+'/cfs/mom-letkf'
 #obsDir   = '/lustre/tsluka/data/obs/ncep_obs'
 letkfDir = os.getenv("CFS_LETKF_ROOT")+'/letkf-mom/mom4'
 #cfsrDir   = '/lustre/tsluka/data/CFSR/T62/'
 fixDir = os.getenv("FIX_DIR_OM")
+
 
 ## get the command line arguments
 parser = argparse.ArgumentParser(
@@ -106,21 +107,21 @@ for mem in mems:
         
 ## run the LETKF
 log.info("Running GFS-LETKF...")
-ret=sp.call('mpirun -n {} letkf'.format(os.getenv('NPROC')),
-        shell=True, cwd=tmpDir)
+ret=sp.call('mpirun letkf', shell=True, cwd=tmpDir)
 if ret != 0:
     sys.exit(1)
 
 
-## move the output to its final location
+## move the analysis ensemble members to their final location
 log.info("copying ensemble members to destination directory...")
 def cp_func(mem):
     for f in ['temp_salt','velocity','sbc']:
         shutil.copy(tmpDir+'/anal{}.ocean_{}.res.nc'.format(mem,f),
             args.path+'/anal/{}/{}.ocean_{}.res.nc'.format(mem,cdateShort,f))
-p=mp.Pool()
-p.map(cp_func,mems)
+mp.Pool().map(cp_func,mems)
 
+
+## copy the mean and spread files to their final locations
 log.info("copying mean/sprd files to destination directory...")
 files=[
     ('gues_me.grd','/gues/mean/{}_ocn.grd'),
@@ -135,14 +136,13 @@ def cp_func(f):
     except:
         pass
     shutil.copy(tmpDir+'/'+f[0], dst)
-p=mp.Pool()
-p.map(cp_func,files)
+mp.Pool().map(cp_func,files)
 
 
 ## creat links for the restart files that were not changes
 for m in mems:
     files = ['ocean_{}.res.nc'.format(x) for x in [
-        'frazil','freesurf','neutral','velocity_advection']]
+        'density', 'frazil','freesurf','neutral','velocity_advection']]
     files.append('ice_model.res.nc')
     for f in files:
         try:
@@ -150,11 +150,15 @@ for m in mems:
                        args.path+'/anal/{}/{}.{}'.format(m,cdateShort,f))
         except:
             pass
-
     
 
 ##TODO move the infl_mul file
 
 ##TODO move log viles
+f = open(tmpDir+'/NOUT-0000','r')
+log.info("\n\nContents of LETKF output file...\n\n")
+log.info(f.read())
+f.close()
+
 
 log.info("Finished!")
