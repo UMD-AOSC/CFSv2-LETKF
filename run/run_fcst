@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#SBATCH -N 2
+
 ################################################################################
 ## run_cycle.sh
 ## Runs a single x hour forecast for the CFS model.
@@ -11,6 +11,13 @@
 ##  $4   forecast lenght, in hours, normally is 6 or 9 hours
 ##  $5   period, in hours, of atmospheric output (ocean, for now, only saves
 ##       output at 6 hours)
+##  $6   atmospheric resolution
+##  $7   temporary work directory
+##
+## Environment variables  required:
+##   NPROC_AM  number of cores to use for the GFS
+##   NPROC_OM  number of cores to use for the MOM
+##             + one additional implicit core for the coupler
 ################################################################################
 set -e
 
@@ -27,14 +34,28 @@ OUT_DIR=$2
 START_DATE=$3
 FCST_LEN=$4               # forecast length in hours
 OUT_PERIOD=$5             # output file period (hours)
-WORKDIR=$6
+AM_RES=$6
+WORKDIR=$7
+
+
 
 #AM_RES=126         # atmosphere T resolution [62, ...]
 #AM_RES_X=384
 #AM_RES_Y=190
-AM_RES=62
-AM_RES_X=192
-AM_RES_Y=94
+
+#AM_RES=62
+if [ "$AM_RES" -eq "62" ]; then
+    AM_RES_X=192
+    AM_RES_Y=94
+elif [ "$AM_RES" -eq "126" ]; then
+    AM_RES_X=384
+    AM_RES_Y=190
+elif [ "$AM_RES" -eq "382" ]; then
+    AM_RES_X=1152
+    AM_RES_Y=576
+else
+    echo "unsupported atm resolution: $AM_RES"	 
+fi	 
 
 OM_RES=05         # ocean resolution [05 or 1x1]
 

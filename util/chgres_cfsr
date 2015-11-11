@@ -10,20 +10,38 @@ chgres_bin = rootDir+'/util/global_chgres.sh'
 
 
 ## Get the command line arguments
-parser = argparse.ArgumentParser(description=(
-    "converts a downloaded CFSR dataset into a different resolution"))
-parser.add_argument('--start', required=True, help=(
+parser = argparse.ArgumentParser(
+#    formatter_class = argparse.ArgumentDefaultsHelpFormatter,
+    usage="chgres_cfsr --start YYYYMMDDHH [--end YYMMDDHH] [options]",
+    description=(
+      "converts a downloaded CFSR dataset into a different resolution")
+)
+
+g = parser.add_argument_group('required arguments')
+g.add_argument('--start', required=True, help=(
     'start date of data to convert, format is "YYYYMMDDHH"'))
-parser.add_argument('--end', help=(
+g.add_argument('--end', help=(
     'end date of data to convert, format is "YYYYMMDDHH", '
     ' if no start date is given, only the start date is downloaded'))
-parser.add_argument('--res', choices=['62'], default='62', help=(
+
+g = parser.add_argument_group('optional arguments')
+g.add_argument('--ares', choices=['62','126','190','382','574','1148'], default='62', help=(
     "desired spectral resolution to convert to"))
+g.add_argument('--src', help=(
+    "Source directory of original CFSR data. By default $CFSR_DIR/T126 will be used"))
+g.add_argument('--dst', help=(
+    "Destination of the new resolution CFSR data. By default $CFSR_DIR/T<ares> will be used"))
+
+
 args=parser.parse_args()
 if not args.end:
     args.end = args.start
-args.input  = os.path.abspath(os.getenv('CFSR_DIR')+'/T126')
-args.output = os.path.abspath(os.getenv('CFSR_DIR')+'/T'+args.res)
+if not args.src:
+    args.src = os.getenv('CFSR_DIR')+'/T126'
+if not args.dst:
+    args.dst = os.getenv('CFSR_DIR')+'/T'+args.ares
+args.src=os.path.abspath(args.src)
+args.dst=os.path.abspath(args.dst)
 print args
 
 
@@ -31,7 +49,11 @@ print args
 ## deterimine the resolutions
 xy = {
     '62' : ('192','94'),
-    #'128'
+    '126' : ('384','190'),
+    '190' : ('576','288'),
+    '382' : ('1152','576'),
+    '574' : ('1760','880'),
+    '1148': ('2304','1152'),
 }
 vres = '64'
 
@@ -51,24 +73,24 @@ while cdate <= edate:
     filepfx=cdate.strftime('/%Y/%Y%m/%Y%m%d/%Y%m%d%H')
 
     ## make sure the output directory exists
-    outdir=os.path.dirname(args.output+filepfx)
+    outdir=os.path.dirname(args.dst+filepfx)
     if not os.path.exists(outdir):
         os.makedirs(outdir)
 
     ## setup the environment for the chgres script
     env = os.environ.copy()
     env2 = {
-        'JCAP'    : args.res,
+        'JCAP'    : args.ares,
         'LEVS'    : vres,
-        'LONB'    : xy[args.res][0],
-        'LONR'    : xy[args.res][0],    
-        'LATB'    : xy[args.res][1],
-        'LATR'    : xy[args.res][1],    
+        'LONB'    : xy[args.ares][0],
+        'LONR'    : xy[args.ares][0],    
+        'LATB'    : xy[args.ares][1],
+        'LATR'    : xy[args.ares][1],    
         
-        'SIGINP'  : args.input+filepfx+'.sig',
-        'SFCINP'  : args.input+filepfx+'.sfc',
-        'SIGOUT'  : args.output+filepfx+'.sig',
-        'SFCOUT'  : args.output+filepfx+'.sfc',
+        'SIGINP'  : args.src+filepfx+'.sig',
+        'SFCINP'  : args.src+filepfx+'.sfc',
+        'SIGOUT'  : args.dst+filepfx+'.sig',
+        'SFCOUT'  : args.dst+filepfx+'.sfc',
         
         'IDVC'    : '2',
         'IDSL'    : '1',
@@ -84,7 +106,7 @@ while cdate <= edate:
         'EXECGLOBAL' : rootDir+'/cfs/bin',
         'FIXGLOBAL'  : os.getenv('FIX_DIR_AM'),
         'SIGLEVEL'   : os.getenv('FIX_DIR_AM')+'/global_hyblev.l{0}.txt'.format(vres),
-        'OROGRAPHY'  : os.getenv('FIX_DIR_AM')+'/global_orography.t{0}.grb'.format(args.res),
+        'OROGRAPHY'  : os.getenv('FIX_DIR_AM')+'/global_orography.t{0}.grb'.format(args.ares),
     }
     env.update(env2)
 

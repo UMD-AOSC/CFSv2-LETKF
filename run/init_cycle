@@ -39,7 +39,7 @@ g.add_argument('-f', action='store_true', help= (
 g.add_argument('--step', type=int, default=24, help=(
     "number of hours between selection of ensemble members, to avoid diurnal effect, "
     "This should be left at the default (Default: 24)"))
-g.add_argument('--res',type=int,choices=[62,126],default=62,help=(
+g.add_argument('--ares',type=int,choices=[62,126,382],default=62,help=(
     "horizontal resolution of the atmosphere (Default: 62)"))
 args = parser.parse_args()
 
@@ -48,7 +48,7 @@ initStep = dt.timedelta(hours=args.step)
 
 
 ##paths
-analGFS = os.getenv("CFSR_DIR")+"/T{0}".format(args.res)
+analGFS = os.getenv("CFSR_DIR")+"/T{0}".format(args.ares)
 initGFS = analGFS
 initMOM = os.getenv("CFSR_DIR")+"/ocn_05"
 rootDir = os.getenv("CFS_LETKF_ROOT")

@@ -52,12 +52,14 @@ for d in (tmpDir, scycle_tmpDir):
 parser = argparse.ArgumentParser(
     formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     description="")
-parser.add_argument('-s','--start', metavar="date", required=True,
+parser.add_argument('--start', metavar="date", required=True,
   help="")
-parser.add_argument('-e','--end',  metavar="date",  required=True,
+parser.add_argument('--end',  metavar="date",  required=True,
   help="")
-parser.add_argument('-p','--path', metavar='path', required=True,
+parser.add_argument('--path', metavar='path', required=True,
   help="")
+parser.add_argument('--ares', type=int, choices=[62,126,190,382,574,1148], default=62,help=(
+    "horizontal resolution of the atmosphere (Default:T62)"))
 parser.add_argument('--partition',
   help="the SLURM partition to use, only meaningful overrides are 'debug' and 'scavenger'")
 parser.add_argument('--account', default="aosc-hi",
@@ -149,8 +151,8 @@ while cdate < endDate:
         # run the 6 hour step
         job = slurm.Job(
             name = 'CFS_nature',
-            cmd = rootDir+"/run/run_fcst {} {} {} 6 6 {}".format(
-                inPath, outPath, cdateShort, tmpDir),
+            cmd = rootDir+"/run/run_fcst {} {} {} 6 6 {} {}".format(
+                inPath, outPath, cdateShort, args.ares, tmpDir),
             runtime = timeLimit_CFS,
             output  = logDir+'/cfs/cfs_'+cdateShort+'_%j.log',
             nproc   = nproc_cfs,

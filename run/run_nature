@@ -12,14 +12,14 @@ set -e
 stime=2010010100
 etime=2010020100
 path=$CFS_LETKF_ROOT/DATA/nature
-
+amres=62
 
 
 ## directories
 rootDir=$CFS_LETKF_ROOT
 ssioFile=$CFS_LETKF_ROOT/util/bin/sscycle
 tmpDir=$TMP_DIR_LOCAL/cfs_nature
-analGFS=$CFSR_DIR/T62
+analGFS=$CFSR_DIR/T$amres
 
 ## run the loop
 time=$stime
@@ -35,7 +35,7 @@ while [ "$time" -le "$etime" ]; do
     ## run the 6 hour forecast, with output at 6 hours
    logPath=$path/logs/${time:0:4}/${time:0:6}   
    mkdir -p $logPath
-   $rootDir/run/run_fcst $srcDir $dstDir $time 6 6 > $logPath/$time.log
+   $rootDir/run/run_fcst $srcDir $dstDir $time 6 6 $amres $tmpDir > $logPath/$time.log
 
 
     ## rename the ocean/ice files

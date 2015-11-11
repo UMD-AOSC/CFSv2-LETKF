@@ -3,57 +3,127 @@ import argparse
 import datetime as dt
 import subprocess as sp
 import os, shutil, sys
-
+from glob import  glob
 
 ## get command line arguments
-parser = argparse.ArgumentParser(description=(
-    "Downloads the CFSR T126 analysis"))
-parser.add_argument('--start', metavar='date', required=True, help=(
-    'start date of data to get, format is "YYYYMMDD"'))
-parser.add_argument('--end', metavar="date", help=(
-    'end date of data to get, format is "YYYYMMDD", if no date is '
+parser = argparse.ArgumentParser(
+    description=("Downloads the CFSR initial conditions. By default "
+                 "T126 atmosphere is downloaded. Ocean, and higher resolution"
+                 " T382 atmosphere can also be downloaded"),
+    usage=("get_cfsr --start date [--end date] [options]"))
+
+g = parser.add_argument_group(title="required parameters")
+g.add_argument('--start', metavar='date', required=True, help=(
+    'start date of data to get, format is "YYYYMMDDHH"'))
+g.add_argument('--end', metavar="date", help=(
+    'end date of data to get, format is "YYYYMMDDHH", if no date is '
     'given, only the "start" date is downloaded'))
+
+g = parser.add_argument_group(title="optional parameters")
+g.add_argument('--ocn', action="store_true", default=False, help=(
+    "Download only the ocean initial conditions (can be combined with --atm)"))
+g.add_argument('--atm', action="store_true", default=False, help=(
+    "Download only the atmosphere initial conditions (can be combined wtih --ocn)"))
+
+g.add_argument('--high', action="store_true", default=False, help=(
+    "Downloads the full resolution CFSR initial conditions (T382), otherwise T126"
+    " will be downloaded"))
+g.add_argument('--daily', action="store_true", default=False, help=(
+    "If set, only the 00Z data is kept"))
+g.add_argument('--dst', metavar="path", default=os.getenv('CFSR_DIR'), help=(
+    "directory to which files are save, by default this is set by the \"CFSR_DIR\""
+    " environemnt variable" ))
+
+
+## parse arguments
 args=parser.parse_args()
+if args.ocn and args.atm and not args.high:
+    print ("ERROR: you are trying to download both the atmosphere and ocean at the same time,"
+           " this can only be done if you are downloading the high resolution files, specify "
+           " --high and try again")
+if args.ocn:
+    args.high = True
+else:
+    args.atm = True
 if not args.end:
     args.end=args.start
+resStr = 'LIC'
+if args.high:
+    resStr = 'HIC'   
+data_url = "http://nomads.ncdc.noaa.gov/modeldata/cmd_"+resStr
+
 
 ## create temporary work directory
 tmpdir=os.getenv('TMP_DIR_LOCAL')+'/get_cfsr'
 if os.path.exists(tmpdir):
     shutil.rmtree(tmpdir)
-outdir=os.getenv('CFSR_DIR')
 
 
-## if the user messed up and passed the date in with the hours at the end, just chop off the hours
-if len(args.start) == 10:
-    args.start = args.start[:8]
-if len(args.end) == 10:
-    args.end = args.end[:8]
-    
+## print out some information
+cdate = dt.datetime.strptime(args.start,'%Y%m%d%H')
+edate = dt.datetime.strptime(args.end,'%Y%m%d%H')   
+print "* Downloading CFSR data from: \n     "+data_url
+if args.ocn:
+    print "* Saving OCEAN data only"
+if args.atm:
+    atmRes = '126'
+    if args.high:
+        atmRes = '382'
+    print "* Downloading T{} atmosphere data".format(atmRes)
+if args.daily:
+    print "* Only saving 00Z data"
+print "* Dates: {} to {}".format(args.start, args.end)
+print "\n\n"
+
+
 ## start the loop  
-cdate = dt.datetime.strptime(args.start,'%Y%m%d')
-edate = dt.datetime.strptime(args.end,'%Y%m%d')
-data_url = "http://nomads.ncdc.noaa.gov/modeldata/cmd_LIC"  #T126
 while cdate <= edate:
     os.makedirs(tmpdir)
     print cdate
 
     ## download the file
-    tarfile = cdate.strftime("/%Y/%Y%m/%Y%m%d/cfs_reanalysis_CFS_LIC_%Y%m%d.tar")
+    strFmt  = "/%Y/%Y%m/%Y%m%d/cfs_reanalysis_CFS_{}_%Y%m%d.tar"
+    if args.high:
+        strFmt = "/%Y/%Y%m/%Y%m%d/cfs_reanalysis_{}_%Y%m%d%H.tar.gz"
+    tarfile = cdate.strftime(strFmt.format(resStr))
     sp.call('wget '+data_url+tarfile,shell=True,cwd=tmpdir)
 
+
     ## extract the required files
-    sp.call('tar -xaf '+os.path.basename(tarfile)+' s??anl.*', shell=True, cwd=tmpdir)
-    
-    ## move to output directory
-    outpfx = outdir+'/'+cdate.strftime('T126/%Y/%Y%m/%Y%m%d/%Y%m%d')
-    if not os.path.exists(os.path.dirname(outpfx)):
-        os.makedirs(os.path.dirname(outpfx))
-    for h in ['00','06','12','18']:
-        for t in ['sfc','sig']:
-            shutil.move(tmpdir+'/{0}anl.gdas2.{1}{2}'.format(t,cdate.strftime("%Y%m%d"),h),
+    hours = ['00','06','12','18']
+    if args.high:
+        hours = [ cdate.strftime("%H") ]
+
+    if args.atm:
+        sp.call('tar -xaf '+os.path.basename(tarfile)+' s??anl.*', shell=True, cwd=tmpdir)
+        outpfx = args.dst+'/'+cdate.strftime('T{}/%Y/%Y%m/%Y%m%d/%Y%m%d'.format(atmRes))
+        if not os.path.exists(os.path.dirname(outpfx)):
+            os.makedirs(os.path.dirname(outpfx))
+        for h in hours:
+            for t in ['sfc','sig']:
+                gdas='gdas2'
+                if args.high:
+                    gdas='gdas'
+                print tmpdir+'/{}anl.{}.{}{}'.format(t,gdas,cdate.strftime("%Y%m%d"),h)
+                shutil.move(tmpdir+'/{}anl.{}.{}{}'.format(t,gdas,cdate.strftime("%Y%m%d"),h),
                       outpfx+h+'.'+t)
 
+    if args.ocn:
+        sp.call('tar -xaf '+os.path.basename(tarfile)+' ocnanl.gdas.*', shell=True, cwd=tmpdir)
+        outpfx = args.dst+'/'+cdate.strftime('ocn_05/%Y/%Y%m/%Y%m%d/')
+        if not os.path.exists(os.path.dirname(outpfx)):
+            os.makedirs(os.path.dirname(outpfx))
+        for h in hours:
+            files = glob(tmpdir+'/ocnanl.gdas.*')
+            print tmpdir
+            for f in files:
+                print f
+                shutil.move(f, outpfx+'/'+os.path.basename(f))
+        
+
     shutil.rmtree(tmpdir)
-    
-    cdate += dt.timedelta(days=1)
+
+    if args.high:
+        cdate += dt.timedelta(hours=6)
+    else:
+        cdate += dt.timedelta(days=1)

@@ -48,6 +48,10 @@ g. add_argument('--mem', metavar='members', type=int,
     help=("number of ensemble members. BY default the script "
           "will automatically determine the number of ensemble "
           "members based on the directory structure in the path given"))
+g.add_argument('--ares', type=int, choices=[62,126,190,382,574,1148], default=62, help=(
+    "horizontal triangular truncation resolution of the atmosphere"))
+g.add_argument('--ores', choices=['05','1x1'], default='05', help=(
+    "hoizontal resolution of the ocean, either 1/2 (05) or 1 (1x1) degree"))
 
 ## parse the variables
 args = parser.parse_args()
@@ -87,7 +91,7 @@ for m in mems:
     os.makedirs(tmpDir+'/'+m)
 for f in ['letkf/letkf','obs/obsop']:
     shutil.copy(letkfDir+'/'+f,tmpDir+'/')
-shutil.copy(fixDir+'/grid_spec_{}.nc.T{}'.format('05','62'),
+shutil.copy(fixDir+'/grid_spec_{}.nc.T{}'.format(args.ores,args.ares),
             tmpDir+'/grid_spec.nc')
 shutil.copy(os.getenv("CFS_LETKF_ROOT")+'/run/letkf_mom.nml',
             tmpDir+'/input.nml')

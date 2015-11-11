@@ -10,16 +10,21 @@ from glob import glob
 defaultOut = os.getenv("CFS_LETKF_ROOT")+'/DATA/nature'
 parser = argparse.ArgumentParser(
     formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    usage="init_nature --date DATE --path PATH [options]",
     description=(
-        "Initialize the output directory for a 6 hour "
-        " cycling CFS run"))
-parser.add_argument("--date", required=True,help=(
+        "Initialize the output directory for a 6 hour cycling CFS run "
+        "by creating the directory structure and copying the initial conditions"))
+
+g = parser.add_argument_group('required arguments')
+g.add_argument("--date", required=True,help=(
     "initial date of the nature run, format is in YYYYMMDDHH"))
-parser.add_argument('--path', default=defaultOut, help=(
+g.add_argument('--path', default=defaultOut, help=(
     "path to the output directory"))
-parser.add_argument('--res', type=int, default=62, help=(
+
+g = parser.add_argument_group('optional arguments')
+g.add_argument('--ares', type=int, choices=[62,126,382], default=62, help=(
     "atmospheric resolution"))
-parser.add_argument('-f', action='store_true', help=(
+g.add_argument('-f', action='store_true', help=(
     "force overwriting of any existing directory"))
 args = parser.parse_args()
 args.cfsr = os.getenv("CFSR_DIR")
@@ -41,7 +46,7 @@ dateDirOut=cdate.strftime("/%Y/%Y%m/%Y%m%d/%Y%m%d%H/")
 dateDirIn =cdate.strftime("/%Y/%Y%m/%Y%m%d/")
 
 ## copy atmosphere files
-fromDirAtm = args.cfsr+'/T{0}/'.format(args.res)
+fromDirAtm = args.cfsr+'/T{0}/'.format(args.ares)
 for ext in ['.sig','.sfc']:
     shutil.copy(fromDirAtm+dateDirIn+args.date+ext,
                 args.path+dateDirOut)
