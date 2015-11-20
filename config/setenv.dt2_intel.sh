@@ -3,11 +3,13 @@
 ## load compiler and other modules
 ########################################
 module load intel/2013.1.039
-module load openmpi/intel/1.8.1
-module load netcdf/4.3.2
+#module load openmpi/intel/1.8.1
+#module load netcdf/4.3.2
 module load netcdf-fortran
-module load hdf5
+#module load hdf5
 module load python/2.7.8
+
+export HDFLIB=/cell_root/software/hdf/1.8.13/intel/2013.1.039/intel/shared/sys/lib
 export LD_LIBRARY_PATH=$NETCDF_LIBDIR:$NETCDF_FORTRAN_LIBDIR:$HDFLIB:$LD_LIBRARY_PATH
 ulimit -s unlimited
 

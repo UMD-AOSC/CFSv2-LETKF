@@ -9,11 +9,14 @@ set -e
 
 
 ## Configurables
-stime=2010010100
-etime=2010020100
-path=$CFS_LETKF_ROOT/DATA/nature
-amres=62
+stime=2010010100                  ## starting date
+etime=2010020100                  ## ending date
+path=$CFS_LETKF_ROOT/DATA/nature  ## path to work in
+amres=62                          ## atmospheric resolution
 
+
+## The following shouldn't need to be modified
+##--------------------------------------------
 
 ## directories
 rootDir=$CFS_LETKF_ROOT

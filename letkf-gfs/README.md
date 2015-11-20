@@ -1,12 +1,6 @@
-## Downloading Conventional Atm Obs
+The GFS-LETKF, modified, from Guo-Yuan Lien. For details on how to use it, see the wiki:[Atmospheric DA wiki](../../../wiki/Atmosphere-DA)
 
-from within this directory, rum `make` to compile  the following:
-
-* `util/grabbufr` - NCEP utility to decode downloaded BUFR observation files
-* `util/dec_prepbufr` - converts downloaded PREPBUFR files into a format readable by the LETKF
-
-To download conventional atmospheric observations for a month, run:
-```
-./util/get_ncepobs.sh EMAIL PASSWD 20100101 20100131
-```
-where `EMAIL` and `PASSWD` are for your account at rda.ucar.edu
+#### Directory Structure
+* `common` - code common to the LETKF and other parts.
+* `letkf` - the main GFS-LETF code
+* `util` - utilities use in pre- or post-processing (superobing, etc.)
