@@ -31,7 +31,8 @@ g.add_argument('--src', help=(
     "Source directory of original CFSR data. By default $CFSR_DIR/T126 will be used"))
 g.add_argument('--dst', help=(
     "Destination of the new resolution CFSR data. By default $CFSR_DIR/T<ares> will be used"))
-
+g.add_argument('--daily', default=False, action="store_true", help=(
+    "Only process the 00Z times"))
 
 args=parser.parse_args()
 if not args.end:
@@ -112,6 +113,9 @@ while cdate <= edate:
 
     sp.call(chgres_bin, env=env, shell=True,cwd=tmpdir)
 
-    cdate += dt.timedelta(hours=6)
+    if args.daily:
+        cdate += dt.timedelta(days=1)
+    else:
+        cdate += dt.timedelta(hours=6)
 
 shutil.rmtree(tmpdir)

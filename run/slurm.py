@@ -262,7 +262,7 @@ class Job:
 
 
     
-    def __init__(self, cmd, runtime, fnCheck=None, fnRetry=None, output=None,name=None, log=None, wdir=None,nproc=None):
+    def __init__(self, cmd, runtime, fnCheck=None, fnRetry=None, output=None,name=None, log=None, wdir=None,nproc=None,nodes=None):
         self.fnCheck = fnCheck
         self.fnRetry = fnRetry
         self.cmd     = cmd
@@ -273,6 +273,7 @@ class Job:
         self.name    = name
         self.wdir    = wdir
         self.nproc   = nproc
+        self.nodes   = nodes
 
         
     def wait(self):
@@ -309,6 +310,9 @@ class Job:
             shellCmd += ' -D ' + self.wdir
         if self.nproc:
             shellCmd += ' -n ' + str(self.nproc)
+        if self.nodes:
+            shellCmd += ' -N ' + str(self.nodes)
+                
                 
                 
                 

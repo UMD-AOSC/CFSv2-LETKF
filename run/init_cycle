@@ -119,10 +119,17 @@ for m in range(1,args.mem+1):
         'frazil', 'freesurf', 'neutral', 'temp_salt',
         'velocity', 'velocity_advection', 'sbc','density')]
     files += ('ice_model',)
-    for f in files:
-        shutil.copy(initMOM + cdate.strftime("/%Y/%Y%m/%Y%m%d/ocnanl.gdas.%Y%m%d%H.")+f+'.res.nc',
-                    args.path+'/anal/{0:03d}/{1}.{2}.res.nc'.format(m, args.date, f))
 
+    outPath = args.path+'/anal/{0:03d}/'.format(m)
+    sp.call('tar -xaf {} {}'.format(initMOM+cdate.strftime("/%Y/%Y%m/%Y%m%d/%Y%m%d%H.tgz"),
+                                    "ocnanl.gdas.*.res.nc"),
+            shell=True, cwd=outPath)
+    for f in files:
+        ## extract only the required files from the ocean tgz file,
+        ## then rename them
+
+        filename =  cdate.strftime("ocnanl.gdas.%Y%m%d%H.")+f+'.res.nc'
+        shutil.move(outPath+filename, outPath+'{}.{}.res.nc'.format(args.date,f))
     
     ## increment time
     cdate += initStep

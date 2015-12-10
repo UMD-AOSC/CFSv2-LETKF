@@ -23,9 +23,8 @@ log.info("")
 
 ## directory locations
 tmpDir   = os.getenv("TMP_DIR_LOCAL")+'/cfs/mom-letkf'
-#obsDir   = '/lustre/tsluka/data/obs/ncep_obs'
+obsDir   = os.getenv("CFS_LETKF_ROOT")+'/DATA/obs/PROFS_gerr_TS_deep'
 letkfDir = os.getenv("CFS_LETKF_ROOT")+'/letkf-mom/mom4'
-#cfsrDir   = '/lustre/tsluka/data/CFSR/T62/'
 fixDir = os.getenv("FIX_DIR_OM")
 
 
@@ -76,11 +75,7 @@ log.info("")
 ################################################################################
 ## do the useful stuff...
 
-pdate = cdate - dt.timedelta(hours=6)
-pdateShort = pdate.strftime("%Y%m%d%H")
-cdateShort = cdate.strftime("%Y%m%d%H")
 mems = ['{0:03d}'.format(m+1) for m in range(args.mem)]
-
 
 ## setup local temporary directory
 log.info('Setting up work directory...')
@@ -103,14 +98,48 @@ for mem in mems:
     filebase = args.path+'/gues/{}/{}_{}.'.format(
         mem, pdateShort,'F06')
     for f in ['temp_salt','velocity','sbc']:
+        ## link to the ocean forecast ensemble (gues)
         os.symlink(filebase+'ocean_{}.res.nc'.format(f),
                    tmpDir+'/gs01{}.ocean_{}.res.nc'.format(mem,f))
-        shutil.copy(tmpDir+'/gs01001.ocean_{}.res.nc'.format(f),
+        ## copy those files to the analysis files (since writing
+        ## the analysis requires the netcdf file to already exist)
+        shutil.copy(filebase+'ocean_{}.res.nc'.format(f),
                     tmpDir+'/anal{}.ocean_{}.res.nc'.format(mem,f))
 
+
+## process the observations
+##  right now we only have daily-binned ocean obs, so process these once a day for now
+log.info("copying observations...")
+useObs = cdate.hour == 12
+if useObs:
+    ## copy the observations
+    log.info('Copying daily binned T&S observations for 12Z')
+    obsFile = obsDir+cdate.strftime('/%Y/%Y%m%d.dat')
+    shutil.copy(
+        obsFile,
+        tmpDir+'/obsin.dat')
+
+    ## run the observation operators
+    def func(mem):
+        sp.call('obsop -obsin obsin.dat -gues gs01{0} -obsout obs01{0}.dat'.format(mem),
+                shell=True, cwd=tmpDir)
+    mp.Pool().map(func,mems)
         
+else:
+    log.warn('There are no ocean observations to use')
+
+
+## copy the adaptive inflation file
+inflFile = args.path+'/infl_mul/'+pdate.strftime('%Y/%Y%m/%Y%m%d/%Y%m%d%H/%Y%m%d%H_ocn.grd')
+if os.path.exists(inflFile):
+    log.info("Copying inflation file...")
+    shutil.copy(inflFile, tmpDir+'/infl_mul.grd')
+else:
+    log.warn("No previous inflation file was found")
+    
+
 ## run the LETKF
-log.info("Running GFS-LETKF...")
+log.info("Running MOM-LETKF...")
 ret=sp.call('mpirun letkf', shell=True, cwd=tmpDir)
 if ret != 0:
     sys.exit(1)
@@ -131,15 +160,32 @@ files=[
     ('gues_me.grd','/gues/mean/{}_ocn.grd'),
     ('gues_sp.grd','/gues/sprd/{}_ocn.grd'),
     ('anal_me.grd','/anal/mean/{}_ocn.grd'),
-    ('anal_sp.grd','/anal/sprd/{}_ocn.grd'),]
+    ('anal_sp.grd','/anal/sprd/{}_ocn.grd'),
+    ('infl_out.grd','/infl_mul/{}_ocn.grd'),]
 def cp_func(f):
     dateStr=cdate.strftime('%Y/%Y%m/%Y%m%d/%Y%m%d%H/%Y%m%d%H')
     dst = args.path+f[1].format(dateStr)
+    ## make directory
     try:
         os.makedirs(os.path.dirname(dst))
     except:
         pass
-    shutil.copy(tmpDir+'/'+f[0], dst)
+    ## copy file
+    try:
+        shutil.copy(tmpDir+'/'+f[0], dst)
+    except:
+        if f[0] == 'infl_out.grd':
+            log.warn("no inflation file output to copy")
+            prevFile = args.path+f[1].format(pdate.strftime('%Y/%Y%m/%Y%m%d/%Y%m%d%H/%Y%m%d%H'))
+            if os.path.exists(prevFile):
+                log.warn("Copying the previous infl_mul file")
+                shutil.copy(prevFile, dst)
+            else:
+                log.warn("There are no previous inflation files to use either.")
+        else:
+            log.critical("File {} cannot be copied".format(f[0]))
+            sys.exit(1)
+        
 mp.Pool().map(cp_func,files)
 
 

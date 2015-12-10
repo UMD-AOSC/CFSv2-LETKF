@@ -110,20 +110,18 @@ while cdate <= edate:
 
     if args.ocn:
         sp.call('tar -xaf '+os.path.basename(tarfile)+' ocnanl.gdas.*', shell=True, cwd=tmpdir)
-        outpfx = args.dst+'/'+cdate.strftime('ocn_05/%Y/%Y%m/%Y%m%d/')
+        outpfx = args.dst+'/'+cdate.strftime('ocn_05/%Y/%Y%m/%Y%m%d/%Y%m%d%H.tgz')
+        print outpfx
         if not os.path.exists(os.path.dirname(outpfx)):
             os.makedirs(os.path.dirname(outpfx))
         for h in hours:
-            files = glob(tmpdir+'/ocnanl.gdas.*')
-            print tmpdir
-            for f in files:
-                print f
-                shutil.move(f, outpfx+'/'+os.path.basename(f))
+            files = [os.path.basename(f) for f in glob(tmpdir+'/ocnanl.gdas.*')]
+            sp.call('tar -caf {} {}'.format(outpfx,' '.join(files)), shell=True, cwd=tmpdir)
         
-
     shutil.rmtree(tmpdir)
 
-    if args.high:
-        cdate += dt.timedelta(hours=6)
-    else:
+    if args.daily or not args.high:
         cdate += dt.timedelta(days=1)
+    else:
+        cdate += dt.timedelta(hours=6)
+
