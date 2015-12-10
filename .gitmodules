@@ -1,0 +1,3 @@
+[submodule "letkf-mom"]
+	path = letkf-mom
+	url = git@github.com:travissluka/Ocean-LETKF.git
