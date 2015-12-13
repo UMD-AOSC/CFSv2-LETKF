@@ -1,5 +1,6 @@
 #!/bin/bash
-#SBATCH -n 20
+#SBATCH -n 40
+#SBATCH -N 2
 ################################################################################
 ## basic script to run the 6 hour forecast script in a cylce
 ## to produce a nature run and test the CFS system.
@@ -21,7 +22,7 @@ amres=62                          ## atmospheric resolution
 ## directories
 rootDir=$CFS_LETKF_ROOT
 ssioFile=$CFS_LETKF_ROOT/util/bin/sscycle
-tmpDir=$TMP_DIR_LOCAL/cfs_nature
+tmpDir=$TMP_DIR_SHARED/cfs_nature
 analGFS=$CFSR_DIR/T$amres
 
 ## run the loop

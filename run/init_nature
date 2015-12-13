@@ -3,6 +3,7 @@ import argparse
 import os, shutil
 import datetime as dt
 import sys
+import subprocess as sp
 
 from glob import glob
 
@@ -51,8 +52,19 @@ for ext in ['.sig','.sfc']:
     shutil.copy(fromDirAtm+dateDirIn+args.date+ext,
                 args.path+dateDirOut)
 
-## copy ocean files
-files = glob(args.cfsr+'/ocn_05/'+dateDirIn+'/ocnanl.gdas.'+args.date+'.*.nc')
+## extract ocean files
+files = ['ocean_'+x for x in (
+    'frazil','freesurf','neutral','temp_salt','velocity',
+    'velocity_advection', 'sbc', 'density')]
+files += ('ice_model',)
+outPath = args.path+dateDirOut
+sp.call('tar -xaf {} {}'.format(
+    args.cfsr+'/ocn_05/'+dateDirIn+'/'+args.date+'.tgz',
+    "ocnanl.gdas.*.res.nc"),
+        shell=True, cwd=outPath)
 for f in files:
-    shutil.copy(f, args.path+dateDirOut+'.'.join(f.split('.')[2:]))
-             
+    filename = 'ocnanl.gdas.{}.{}.res.nc'.format(args.date,f)
+    shutil.move(outPath+'/'+filename,
+                outPath+'/{}.{}.res.nc'.format(args.date, f))
+for f in glob(outPath+'/ocnanl*'):
+    shutil.rmtree(f)
