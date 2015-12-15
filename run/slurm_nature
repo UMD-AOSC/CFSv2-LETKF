@@ -31,8 +31,6 @@ log = common.setupLog()
 ##############################
 jobWatchSleep = 2            # in seconds
 timeLimit_CFS = "5:00"
-analGFS = os.getenv("CFSR_DIR")+"/T62"
-
 
 rootDir = os.getenv("CFS_LETKF_ROOT")
 ssioPath = rootDir +'/util/bin/sscycle'
@@ -75,6 +73,7 @@ if args.partition:
 startDate = dt.datetime.strptime(args.start, "%Y%m%d%H")
 endDate   = dt.datetime.strptime(args.end, "%Y%m%d%H")
 slurm.account = args.account
+analGFS = os.getenv("CFSR_DIR")+"/T{}".format(args.ares)
 
 
 ## create the logging directory if not already existing,
@@ -161,7 +160,6 @@ while cdate < endDate:
         )        
         slurm.monitor((job,))
 
-        time.sleep(10)
 
         ## run sscycle on the output of the gfs
         [os.remove(f) for f in  glob(scycle_tmpDir+'/fort.*')]        
@@ -170,6 +168,17 @@ while cdate < endDate:
         shutil.copy(cfsrFiles+'.sfc', scycle_tmpDir+'/fort.22')
         shutil.move(outPath+cdate.strftime("/%Y%m%d%H_F06.sig"), scycle_tmpDir+'/fort.11')
         shutil.move(outPath+cdate.strftime("/%Y%m%d%H_F06.sfc"), scycle_tmpDir+'/fort.12')
+        res={
+            62   : ( '192',   '94'),
+            126  : ( '384',  '190'),
+            190  : ( '576',  '288'),
+            382  : ('1152',  '576'),
+            574  : ('1760',  '880'),
+            1148 : ('2304', '1152')}
+        res = res[args.ares]
+        with open(scycle_tmpDir+'/ssio.nml','w') as f:
+            f.write("&common_gfs\n nlon={}\n nlat={}\n gfs_jcap={}\n nlev=64\n /".format(
+                res[0], res[1], args.ares))
         if sp.call("./sscycle", cwd=scycle_tmpDir, shell=True) != 0:
             print "error with calling sscyle"
             sys.exit(1)

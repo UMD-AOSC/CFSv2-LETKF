@@ -1,11 +1,17 @@
 #!/bin/bash
 #SBATCH -n 40
 #SBATCH -N 2
-################################################################################
-## basic script to run the 6 hour forecast script in a cylce
-## to produce a nature run and test the CFS system.
-## This script might need to be modified to suit your own system
-################################################################################
+###############################################################################
+## Basic script to run the 6 hour forecast script in a cylce
+##  to produce a nature run and test the CFS system.
+## This script might need to be modified to suit your own system.
+## This is not the most efficient way to run a long nature run, as the
+##  system has to restart every 6 hours, but it's a good test to make sure
+##  the 6 hour cycling is working before continuing on to DA experiments.
+## This script runs everything as a single job, if using a computer with
+##  SLURM system, the slurm_nature script instead has been optimized to submit
+##  separate jobs for each 6 hour run, use that script instead.
+###############################################################################
 set -e
 
 
@@ -14,10 +20,13 @@ stime=2010010100                  ## starting date
 etime=2010020100                  ## ending date
 path=$CFS_LETKF_ROOT/DATA/nature  ## path to work in
 amres=62                          ## atmospheric resolution
+    ## ^ valid values are 62, 126, 190, 382, 574, 1148
+    ## must match how the directory was initialized with
+    ## init_nature
 
 
 ## The following shouldn't need to be modified
-##--------------------------------------------
+############################################################
 
 ## directories
 rootDir=$CFS_LETKF_ROOT
@@ -25,11 +34,39 @@ ssioFile=$CFS_LETKF_ROOT/util/bin/sscycle
 tmpDir=$TMP_DIR_SHARED/cfs_nature
 analGFS=$CFSR_DIR/T$amres
 
+## determine the x/y size of grids based on TXX resolution
+if [ "$amres" -eq "62" ]; then
+    AM_RES_X=192
+    AM_RES_Y=94
+elif [ "$amres" -eq "126" ]; then
+    AM_RES_X=384
+    AM_RES_Y=190
+elif [ "$amres" -eq "190" ]; then
+    AM_RES_X=576
+    AM_RES_Y=288
+elif [ "$amres" -eq "382" ]; then
+    AM_RES_X=1152
+    AM_RES_Y=576
+elif [ "$amres" -eq "574" ]; then
+    AM_RES_X=1760
+    AM_RES_Y=880
+elif [ "$amres" -eq "1148" ]; then
+    AM_RES_X=2304
+    AM_RES_Y=1152
+else
+    echo "unsupported atm resloution: $AM_RES"
+    exit 1
+fi
+			       
+
+
 ## run the loop
+##############################
 time=$stime
 while [ "$time" -le "$etime" ]; do
     cd $CFS_LETKF_ROOT/run
-    echo "Forecast from $time"
+    echo ""
+    echo "Starting forecast from $time ..."
 
     ## determine source and destination directories
     ntime=$(date +%Y%m%d%H -d "${time:0:8} ${time:8:2} + 6 hours")
@@ -37,10 +74,10 @@ while [ "$time" -le "$etime" ]; do
     dstDir=$path/${ntime:0:4}/${ntime:0:6}/${ntime:0:8}/${ntime}
 
     ## run the 6 hour forecast, with output at 6 hours
-   logPath=$path/logs/${time:0:4}/${time:0:6}   
-   mkdir -p $logPath
-   $rootDir/run/run_fcst $srcDir $dstDir $time 6 6 $amres $tmpDir > $logPath/$time.log
-
+    logPath=$path/logs/${time:0:4}/${time:0:6}   
+    mkdir -p $logPath
+    echo "Running the 6 hour forecast..."
+    $rootDir/run/run_fcst $srcDir $dstDir $time 6 6 $amres $tmpDir > $logPath/$time.log
 
     ## rename the ocean/ice files
     mv $dstDir/${time}_F06.ice_model.res.nc $dstDir/$ntime.ice_model.res.nc
@@ -54,6 +91,7 @@ while [ "$time" -le "$etime" ]; do
     ## This runs sscycle on the forecast output so that
     ## the sig and sfc file headers are updated, and
     ## various boundary conditions are updated
+    echo "Running boundary update..."
     rm -rf $tmpDir
     mkdir -p $tmpDir
     cd $tmpDir
@@ -63,14 +101,20 @@ while [ "$time" -le "$etime" ]; do
     mv $dstDir/${time}_F06.sig fort.11
     mv $dstDir/${time}_F06.sfc fort.12
     cp $ssioFile .
+    printf "&common_gfs\n nlon=$AM_RES_X\n  nlat=$AM_RES_Y\n  gfs_jcap=$amres\n nlev=64\n /" > ssio.nml
+
     ./sscycle
+    
+    if [ "$?" -ne "0" ]; then
+	echo "Error with sscyle"
+	exit 1
+    fi
+    
     mv fort.21 $dstDir/${ntime}.sig
     mv fort.22 $dstDir/${ntime}.sfc
     rm -rf $tmpDir
-    
 
     ## increment the time 6 hours
     time=$ntime
     
-
 done

@@ -32,12 +32,12 @@ program grd2ss
   type(sigio_data) :: datasigf, datasiga
   type(sfcio_data) :: datasfcf, datasfca
 
-  real(r_sngl) :: f1(nlon*nlat)
-  real(r_sngl) :: g1(nlon*nlat,nlev)
-  real(r_sngl) :: g2(nlon*nlat,nlev)
+  real(r_sngl),allocatable :: f1(:)
+  real(r_sngl),allocatable :: g1(:,:)
+  real(r_sngl),allocatable :: g2(:,:)
 
-  real(r_sngl) :: v3d(nlon,nlat,nlev,nv3d)
-  real(r_sngl) :: v2d(nlon,nlat,nv2d)
+  real(r_sngl),allocatable :: v3d(:,:,:,:)
+  real(r_sngl),allocatable :: v2d(:,:,:)
 
   integer :: j, k, n, iret, iolen
 
@@ -47,7 +47,14 @@ program grd2ss
 !-------------------------------------------------------------------------------
 ! Open and read files
 !-------------------------------------------------------------------------------
+  call set_common_gfs()
+  allocate( f1(nlon*nlat) )
+  allocate( g1(nlon*nlat,nlev) )
+  allocate( g2(nlon*nlat,nlev) )
+  allocate( v3d(nlon,nlat,nlev,nv3d) )
+  allocate( v2d(nlon,nlat,nv2d) )
 
+  
   fsigf = 'fort.00'
   fsfcf = 'fort.00'
   fsiga = 'fort.00'

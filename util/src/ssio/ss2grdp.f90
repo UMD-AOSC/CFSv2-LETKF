@@ -32,32 +32,32 @@ program ss2grdp
   type(sigio_data) :: datasig
   type(sfcio_data) :: datasfc
 
-  real(r_sngl) :: f1(nlon*nlat)
-  real(r_sngl) :: f2(nlon*nlat)
-  real(r_sngl) :: g1(nlon*nlat,nlev)
-  real(r_sngl) :: g2(nlon*nlat,nlev)
-  real(r_sngl) :: tt(nlon*nlat,nlev)
-  real(r_sngl) :: pm(nlon*nlat,nlev)
-  real(r_sngl) :: rh(nlev)
-  real(r_sngl) :: gph(nlon*nlat,nlev+1)
-  real(r_sngl) :: pstag(nlon*nlat,nlev+1)
-  real(r_sngl) :: tsext(nlon*nlat)
-  real(r_sngl) :: tvsext(nlon*nlat)
+  real(r_sngl),allocatable :: f1(:)
+  real(r_sngl),allocatable :: f2(:)
+  real(r_sngl),allocatable :: g1(:,:)
+  real(r_sngl),allocatable :: g2(:,:)
+  real(r_sngl),allocatable :: tt(:,:)
+  real(r_sngl),allocatable :: pm(:,:)
+  real(r_sngl),allocatable :: rh(:)
+  real(r_sngl),allocatable :: gph(:,:)
+  real(r_sngl),allocatable :: pstag(:,:)
+  real(r_sngl),allocatable :: tsext(:)
+  real(r_sngl),allocatable :: tvsext(:)
 
-  real(r_sngl) :: p_u(nlon*nlat,nlevp)
-  real(r_sngl) :: p_v(nlon*nlat,nlevp)
-  real(r_sngl) :: p_t(nlon*nlat,nlevp)
-  real(r_sngl) :: p_q(nlon*nlat,nlevp)
-  real(r_sngl) :: p_rh(nlon*nlat,nlevp)
-  real(r_sngl) :: p_q2(nlon*nlat,nlevp)
-  real(r_sngl) :: p_q3(nlon*nlat,nlevp)
-  real(r_sngl) :: p_gph(nlon*nlat,nlevp)
-  real(r_sngl) :: slp(nlon*nlat)
-  real(r_sngl) :: u10m(nlon*nlat)
-  real(r_sngl) :: v10m(nlon*nlat)
+  real(r_sngl),allocatable :: p_u(:,:)
+  real(r_sngl),allocatable :: p_v(:,:)
+  real(r_sngl),allocatable :: p_t(:,:)
+  real(r_sngl),allocatable :: p_q(:,:)
+  real(r_sngl),allocatable :: p_rh(:,:)
+  real(r_sngl),allocatable :: p_q2(:,:)
+  real(r_sngl),allocatable :: p_q3(:,:)
+  real(r_sngl),allocatable :: p_gph(:,:)
+  real(r_sngl),allocatable :: slp(:)
+  real(r_sngl),allocatable :: u10m(:)
+  real(r_sngl),allocatable :: v10m(:)
   
-  real(r_sngl) :: v3d(nlon,nlat,nlevp,nv3dp)
-  real(r_sngl) :: v2d(nlon,nlat,nv2dp)
+  real(r_sngl),allocatable :: v3d(:,:,:,:)
+  real(r_sngl),allocatable :: v2d(:,:,:)
 
   integer :: i, j, ij, k, n, iret, iolen
 
@@ -67,7 +67,34 @@ program ss2grdp
 !-------------------------------------------------------------------------------
 ! Open and read files
 !-------------------------------------------------------------------------------
+  call set_common_gfs()
+  call set_common_gfs_pres()
+  allocate( f1(nlon*nlat))
+  allocate( f2(nlon*nlat))
+  allocate( g1(nlon*nlat,nlev))
+  allocate( g2(nlon*nlat,nlev))
+  allocate( tt(nlon*nlat,nlev))
+  allocate( pm(nlon*nlat,nlev))
+  allocate( rh(nlev))
+  allocate( gph(nlon*nlat,nlev+1))
+  allocate( pstag(nlon*nlat,nlev+1))
+  allocate( tsext(nlon*nlat))
+  allocate( tvsext(nlon*nlat))
+  allocate( p_u(nlon*nlat,nlevp))
+  allocate( p_v(nlon*nlat,nlevp))
+  allocate( p_t(nlon*nlat,nlevp))
+  allocate( p_q(nlon*nlat,nlevp))
+  allocate( p_rh(nlon*nlat,nlevp))
+  allocate( p_q2(nlon*nlat,nlevp))
+  allocate( p_q3(nlon*nlat,nlevp))
+  allocate( p_gph(nlon*nlat,nlevp))
+  allocate( slp(nlon*nlat))
+  allocate( u10m(nlon*nlat))
+  allocate( v10m(nlon*nlat))
+  allocate( v3d(nlon,nlat,nlevp,nv3dp))
+  allocate( v2d(nlon,nlat,nv2dp) )
 
+  
   fsigf = 'fort.00'
   fsfcf = 'fort.00'
   fgrdf = 'fort.00'

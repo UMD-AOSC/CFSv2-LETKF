@@ -18,9 +18,9 @@ MODULE common_gfs
 !-----------------------------------------------------------------------
 ! General parameters
 !-----------------------------------------------------------------------
-  INTEGER,PARAMETER :: nlon=192
-  INTEGER,PARAMETER :: nlat=94
-  INTEGER,PARAMETER :: nlev=64
+  INTEGER :: nlon=192
+  INTEGER :: nlat=94
+  INTEGER :: nlev=64
   INTEGER,PARAMETER :: idrt=4  ! 4: Gaussian grid
   INTEGER,PARAMETER :: nv3dx=6 ! 3D extended variables: [u,v,t,q,qc],p
   INTEGER,PARAMETER :: nv3d=5  ! 3D state variables
@@ -38,17 +38,58 @@ MODULE common_gfs
   INTEGER,PARAMETER :: iv2d_t2m=4
   INTEGER,PARAMETER :: iv2d_q2m=5
   INTEGER,PARAMETER :: iv2d_tprcp=6
-  INTEGER,PARAMETER :: nij0=nlon*nlat
-  INTEGER,PARAMETER :: nlevallx=nlev*nv3dx+nv2dx
-  INTEGER,PARAMETER :: nlevall=nlev*nv3d+nv2d
-  INTEGER,PARAMETER :: ngpvx=nij0*nlevallx
-  INTEGER,PARAMETER :: ngpv=nij0*nlevall
-  INTEGER,PARAMETER :: gfs_jcap=62
+  INTEGER :: nij0
+  INTEGER :: nlevallx
+  INTEGER :: nlevall
+  INTEGER :: ngpvx
+  INTEGER :: ngpv
+  INTEGER :: gfs_jcap
   INTEGER,PARAMETER :: gfs_ntrac=3
   INTEGER,PARAMETER :: gfs_nvcoord=3
   INTEGER,PARAMETER :: gfs_idsl=2
   INTEGER,PARAMETER :: gfs_idvc=3
-  REAL(r_size),PARAMETER :: gfs_vcoord(nlev+1,gfs_nvcoord)=RESHAPE( &
+  REAL(r_size),allocatable :: gfs_vcoord(:,:)
+  REAL(r_size),SAVE,allocatable :: lon(:)
+  REAL(r_size),SAVE,allocatable :: lat(:)
+  REAL(r_size),SAVE,allocatable :: dx(:)
+  REAL(r_size),SAVE,allocatable :: dy(:)
+  REAL(r_size),SAVE,allocatable :: dy2(:)
+  REAL(r_size),SAVE,allocatable :: fcori(:)
+  REAL(r_size),SAVE,allocatable :: wg(:,:)
+  CHARACTER(4),SAVE :: element(nv3d+nv2d)
+
+CONTAINS
+!-----------------------------------------------------------------------
+! Set the parameters
+!-----------------------------------------------------------------------
+SUBROUTINE set_common_gfs
+  IMPLICIT NONE
+  REAL(r_sngl) :: slat(nlat), wlat(nlat)
+  REAL(r_size) :: totalwg, wgtmp, latm1, latm2
+  INTEGER :: i,j
+
+  namelist /common_gfs/ nlon, nlat, nlev, gfs_jcap
+  open(40, file='ssio.nml')
+  read(40, nml=common_gfs)
+
+  !! allocate stuff
+  nij0=nlon*nlat
+  nlevallx=nlev*nv3dx+nv2dx
+  nlevall=nlev*nv3d+nv2d  
+  ngpvx=nij0*nlevallx
+  ngpv=nij0*nlevall
+
+  
+  allocate( lon(nlon) )
+  allocate( lat(nlat) )
+  allocate( dx(nlat) )
+  allocate( dy(nlat) )
+  allocate( dy2(nlat) )
+  allocate( fcori(nlat) )  
+!  allocate( wg(nlon,nlat) )
+
+  allocate( gfs_vcoord(nlev+1,gfs_nvcoord) )
+  gfs_vcoord = RESHAPE( &
   (/0.000000,0.000000,0.5750000,5.741000,21.51600,55.71200,116.8990,214.0150, &
     356.2230,552.7200,812.4890,1143.988,1554.789,2051.150,2637.553,3316.217, &
     4086.614,4945.029,5884.206,6893.117,7956.908,9057.051,10171.71,11276.35, &
@@ -74,96 +115,81 @@ MODULE common_gfs
     0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000, &
     0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000, &
     0.000000,0.000000,0.000000/),(/nlev+1,gfs_nvcoord/) )
-  REAL(r_size),SAVE :: lon(nlon)
-  REAL(r_size),SAVE :: lat(nlat)
-  REAL(r_size),SAVE :: dx(nlat)
-  REAL(r_size),SAVE :: dy(nlat)
-  REAL(r_size),SAVE :: dy2(nlat)
-  REAL(r_size),SAVE :: fcori(nlat)
-  REAL(r_size),SAVE :: wg(nlon,nlat)
-  CHARACTER(4),SAVE :: element(nv3d+nv2d)
 
-CONTAINS
-!-----------------------------------------------------------------------
-! Set the parameters
-!-----------------------------------------------------------------------
-SUBROUTINE set_common_gfs
-  IMPLICIT NONE
-  REAL(r_sngl) :: slat(nlat), wlat(nlat)
-  REAL(r_size) :: totalwg, wgtmp, latm1, latm2
-  INTEGER :: i,j
 
-!  WRITE(6,'(A)') 'Hello from set_common_gfs'
-  !
-  ! Elements
-  !
-  element(iv3d_u)  = 'U   '
-  element(iv3d_v)  = 'V   '
-  element(iv3d_t)  = 'T   '
-  element(iv3d_q)  = 'Q   '
-  element(iv3d_qc) = 'QC  '
-  element(nv3d+iv2d_ps) = 'PS  '
-  !
-  ! Lon, Lat
-  !
-!$OMP PARALLEL DO PRIVATE(i)
-  DO i=1,nlon
-    lon(i) = 360.d0/nlon*(i-1)
-  END DO
-!$OMP END PARALLEL DO
-  CALL SPLAT(idrt,nlat,slat,wlat)
-  do j=1,nlat
-    lat(j) = 180.d0/pi*asin(slat(nlat-j+1))
-  end do
-  !
-  ! dx and dy
-  !
-!$OMP PARALLEL
-!$OMP WORKSHARE
-  dx(:) = 2.0d0 * pi * re * cos(lat(:) * pi / 180.0d0) / REAL(nlon,r_size)
-!$OMP END WORKSHARE
 
-!$OMP DO
-  DO i=1,nlat-1
-    dy(i) = 2.0d0 * pi * re * (lat(i+1) - lat(i)) / 360.0d0
-  END DO
-!$OMP END DO
-!$OMP END PARALLEL
-  dy(nlat) = 2.0d0 * pi * re * (90.0d0 - lat(nlat)) / 180.0d0
+  
+! !  WRITE(6,'(A)') 'Hello from set_common_gfs'
+!   !
+!   ! Elements
+!   !
+!   element(iv3d_u)  = 'U   '
+!   element(iv3d_v)  = 'V   '
+!   element(iv3d_t)  = 'T   '
+!   element(iv3d_q)  = 'Q   '
+!   element(iv3d_qc) = 'QC  '
+!   element(nv3d+iv2d_ps) = 'PS  '
+!   !
+!   ! Lon, Lat
+!   !
+! !$OMP PARALLEL DO PRIVATE(i)
+!   DO i=1,nlon
+!     lon(i) = 360.d0/nlon*(i-1)
+!   END DO
+! !$OMP END PARALLEL DO
+!   CALL SPLAT(idrt,nlat,slat,wlat)
+!   do j=1,nlat
+!     lat(j) = 180.d0/pi*asin(slat(nlat-j+1))
+!   end do
+!   !
+!   ! dx and dy
+!   !
+! !$OMP PARALLEL
+! !$OMP WORKSHARE
+!   dx(:) = 2.0d0 * pi * re * cos(lat(:) * pi / 180.0d0) / REAL(nlon,r_size)
+! !$OMP END WORKSHARE
 
-!$OMP PARALLEL DO
-  DO i=2,nlat
-    dy2(i) = (dy(i-1) + dy(i)) * 0.5d0
-  END DO
-!$OMP END PARALLEL DO
-  dy2(1) = (dy(nlat) + dy(1)) * 0.5d0
-  !
-  ! Corioris parameter
-  !
-!$OMP PARALLEL WORKSHARE
-  fcori(:) = 2.0d0 * r_omega * sin(lat(:)*pi/180.0d0)
-!$OMP END PARALLEL WORKSHARE
-  !
-  ! Weight for global average
-  !
-  totalwg = 0.0_r_size
-  DO j=1,nlat
-    if (j == 1) then
-      latm1 = -0.5d0*pi !-90 degree
-    else
-      latm1 = 0.5d0*(lat(j-1) + lat(j))*pi/180.0d0
-    end if
-    if (j == nlat) then
-      latm2 = 0.5d0*pi !90 degree
-    else
-      latm2 = 0.5d0*(lat(j) + lat(j+1))*pi/180.0d0
-    end if
-    wgtmp = abs(sin(latm2) - sin(latm1))
-    wg(:,j) = wgtmp
-    totalwg = totalwg + wgtmp * nlon
-  END DO
-  totalwg = 1.0_r_size / totalwg
-  wg(:,:) = sqrt(wg(:,:) * totalwg)
+! !$OMP DO
+!   DO i=1,nlat-1
+!     dy(i) = 2.0d0 * pi * re * (lat(i+1) - lat(i)) / 360.0d0
+!   END DO
+! !$OMP END DO
+! !$OMP END PARALLEL
+!   dy(nlat) = 2.0d0 * pi * re * (90.0d0 - lat(nlat)) / 180.0d0
+
+! !$OMP PARALLEL DO
+!   DO i=2,nlat
+!     dy2(i) = (dy(i-1) + dy(i)) * 0.5d0
+!   END DO
+! !$OMP END PARALLEL DO
+!   dy2(1) = (dy(nlat) + dy(1)) * 0.5d0
+!   !
+!   ! Corioris parameter
+!   !
+! !$OMP PARALLEL WORKSHARE
+!   fcori(:) = 2.0d0 * r_omega * sin(lat(:)*pi/180.0d0)
+! !$OMP END PARALLEL WORKSHARE
+!   !
+!   ! Weight for global average
+!   !
+!   totalwg = 0.0_r_size
+!   DO j=1,nlat
+!     if (j == 1) then
+!       latm1 = -0.5d0*pi !-90 degree
+!     else
+!       latm1 = 0.5d0*(lat(j-1) + lat(j))*pi/180.0d0
+!     end if
+!     if (j == nlat) then
+!       latm2 = 0.5d0*pi !90 degree
+!     else
+!       latm2 = 0.5d0*(lat(j) + lat(j+1))*pi/180.0d0
+!     end if
+!     wgtmp = abs(sin(latm2) - sin(latm1))
+!     wg(:,j) = wgtmp
+!     totalwg = totalwg + wgtmp * nlon
+!   END DO
+!   totalwg = 1.0_r_size / totalwg
+!   wg(:,:) = sqrt(wg(:,:) * totalwg)
   RETURN
 END SUBROUTINE set_common_gfs
 !-----------------------------------------------------------------------

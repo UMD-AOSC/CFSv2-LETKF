@@ -23,7 +23,7 @@ g.add_argument('--path', default=defaultOut, help=(
     "path to the output directory"))
 
 g = parser.add_argument_group('optional arguments')
-g.add_argument('--ares', type=int, choices=[62,126,382], default=62, help=(
+g.add_argument('--ares', type=int, choices=[62,126,190,382,574,1148], default=62, help=(
     "atmospheric resolution"))
 g.add_argument('-f', action='store_true', help=(
     "force overwriting of any existing directory"))

@@ -41,9 +41,17 @@ MODULE common_gfs_pres
   INTEGER,PARAMETER :: iv2dp_q2m=9
   INTEGER,PARAMETER :: iv2dp_tprcp=10
   INTEGER,PARAMETER :: nlevallp=nlevp*nv3dp+nv2dp
-  INTEGER,PARAMETER :: ngpvp=nij0*nlevallp
+  INTEGER :: ngpvp
 
 CONTAINS
+
+SUBROUTINE set_common_gfs_pres
+  IMPLICIT NONE
+  ngpvp=nij0*nlevallp
+  
+END SUBROUTINE SET_COMMON_GFS_PRES
+    
+
 !-----------------------------------------------------------------------
 ! File I/O
 !-----------------------------------------------------------------------

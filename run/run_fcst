@@ -38,23 +38,28 @@ AM_RES=$6
 WORKDIR=$7
 
 
-
-#AM_RES=126         # atmosphere T resolution [62, ...]
-#AM_RES_X=384
-#AM_RES_Y=190
-
-#AM_RES=62
+## determine the x/y size of grids based on TXX resolution
 if [ "$AM_RES" -eq "62" ]; then
     AM_RES_X=192
     AM_RES_Y=94
 elif [ "$AM_RES" -eq "126" ]; then
     AM_RES_X=384
     AM_RES_Y=190
+elif [ "$AM_RES" -eq "190" ]; then
+    AM_RES_X=576
+    AM_RES_Y=288
 elif [ "$AM_RES" -eq "382" ]; then
     AM_RES_X=1152
     AM_RES_Y=576
+elif [ "$AM_RES" -eq "574" ]; then
+    AM_RES_X=1760
+    AM_RES_Y=880
+elif [ "$AM_RES" -eq "1148" ]; then
+    AM_RES_X=2304
+    AM_RES_Y=1152
 else
-    echo "unsupported atm resolution: $AM_RES"	 
+    echo "unsupported atm resloution: $AM_RES"
+    exit 1  
 fi	 
 
 OM_RES=05         # ocean resolution [05 or 1x1]

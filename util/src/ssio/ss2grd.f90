@@ -26,15 +26,14 @@ program ss2grd
   type(sigio_data) :: datasig
   type(sfcio_data) :: datasfc
 
-  real(r_sngl) :: f1(nlon*nlat)
-  real(r_sngl) :: f2(nlon*nlat)
-  real(r_sngl) :: f3(nlon*nlat)
-  real(r_sngl) :: g1(nlon*nlat,nlev)
-  real(r_sngl) :: g2(nlon*nlat,nlev)
-  real(r_sngl) :: pm(nlon*nlat,nlev)
-
-  real(r_sngl) :: v3d(nlon,nlat,nlev,nv3dx)
-  real(r_sngl) :: v2d(nlon,nlat,nv2dx)
+  real(r_sngl),allocatable :: f1(:)
+  real(r_sngl),allocatable :: f2(:)
+  real(r_sngl),allocatable :: f3(:)
+  real(r_sngl),allocatable :: g1(:,:)
+  real(r_sngl),allocatable :: g2(:,:)
+  real(r_sngl),allocatable :: pm(:,:)
+  real(r_sngl),allocatable :: v3d(:,:,:,:)
+  real(r_sngl),allocatable :: v2d(:,:,:)
 
   integer :: j, k, n, iret, iolen
 
@@ -44,7 +43,17 @@ program ss2grd
 !-------------------------------------------------------------------------------
 ! Open and read files
 !-------------------------------------------------------------------------------
+  call set_common_gfs()
+  allocate( f1(nlon*nlat) )
+  allocate( f2(nlon*nlat) )
+  allocate( f3(nlon*nlat) )
+  allocate( g1(nlon*nlat,nlev) )
+  allocate( g2(nlon*nlat,nlev) )
+  allocate( pm(nlon*nlat,nlev) )
+  allocate( v3d(nlon,nlat,nlev,nv3dx) )
+  allocate( v2d(nlon,nlat,nv2dx) )
 
+  
   fsigf = 'fort.00'
   fsfcf = 'fort.00'
   fgrdf = 'fort.00'
