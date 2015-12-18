@@ -78,7 +78,7 @@ while [ "$time" -le "$ETIME" ]; do
   fi
 
   cd $tmprun/download
-  $WGET $OPT "${DATAURL}/${DATAF}"
+  $WGET $OPT "${DATAURL}/$yyyy/${DATAF}"
   tar xzf $DATAF
   rm -f $DATAF
 
