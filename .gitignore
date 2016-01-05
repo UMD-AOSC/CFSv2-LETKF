@@ -1,3 +1,7 @@
 /DATA/
+/support/
 *.pyc
 *~
+*.mod
+*.a
+*.o

@@ -199,9 +199,9 @@ SUBROUTINE print_obsense
   INTEGER,PARAMETER :: nreg = 3
   INTEGER :: regnh=1, regtr=2, regsh=3          ! Indices for the regions
   REAL(r_size),PARAMETER :: latbound=20._r_size ! Boundary latitude of TR
-  INTEGER :: nobs_sense(nid_obs,nobtype+1,nreg)
-  REAL(r_size) :: sumsense(nid_obs,nobtype+1,nreg)
-  REAL(r_size) :: rate(nid_obs,nobtype+1,nreg)
+  INTEGER :: nobs_sense(obsid_num,platform_num+1,nreg)
+  REAL(r_size) :: sumsense(obsid_num,platform_num+1,nreg)
+  REAL(r_size) :: rate(obsid_num,platform_num+1,nreg)
   INTEGER :: nobs_t
   REAL(r_size) :: sumsense_t,rate_t
   INTEGER :: nob,oid,otype,ireg,iterm
@@ -231,11 +231,11 @@ SUBROUTINE print_obsense
   iterm = 1
   DO nob=1,nobs
     ! Select observation elements
-    oid = uid_obs(NINT(obselm(nob)))
-    IF(oid <= 0 .OR. oid > nid_obs) CYCLE
+    oid = obsid_id2idx(NINT(obselm(nob)))-obsid_atm_offset
+    IF(oid <= 0 .OR. oid > obsid_atm_num) CYCLE
     otype = NINT(obstyp(nob))
     ! Select observation types
-    IF(otype <= 0 .OR. otype > nobtype+1) CYCLE
+    IF(otype <= 0 .OR. otype > platform_num+1) CYCLE
     ! Select observation regions
     IF(obslat(nob) > latbound) THEN
       ireg=regnh
@@ -256,9 +256,9 @@ SUBROUTINE print_obsense
   WRITE (6, '(A,I10)') ' TOTAL NUMBER OF OBSERVATIONS:', nobs
   WRITE (6, '(A)') '============================================'
   WRITE (6, '(A)') '              nobs     dJ(KE)       +rate[%]'
-  DO otype = 1,nobtype+1
-    IF(otype <= nobtype) THEN
-      charotype = obtypelist(otype)
+  DO otype = 1,platform_num+1
+    IF(otype <= platform_num) THEN
+      charotype = platform_name(otype)
     ELSE
       charotype = 'OTHERS'
     END IF
@@ -271,12 +271,12 @@ SUBROUTINE print_obsense
            & charotype,' TOTAL',nobs_t,sumsense_t,rate_t
     END IF
     DO ireg = 1,nreg
-      DO oid = 1,nid_obs
+      DO oid = 1,obsid_num
         IF(nobs_sense(oid,otype,ireg) > 0) THEN
           rate_t = rate(oid,otype,ireg) &
                & / REAL(nobs_sense(oid,otype,ireg),r_size) * 100._r_size
           WRITE (6,'(A,1x,A,1x,A,1x,I8,1x,E12.5,1x,F8.2)') &
-               & charotype,charreg(ireg),obelmlist(oid), &
+               & charotype,charreg(ireg), obsid_ids(oid+obsid_atm_offset), &
                & nobs_sense(oid,otype,ireg), &
                & sumsense(oid,otype,ireg),   &
                & rate_t

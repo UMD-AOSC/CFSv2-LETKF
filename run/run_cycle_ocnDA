@@ -1,0 +1,153 @@
+#!/usr/bin/env python
+############################################################
+##
+## TODO, insert description
+##
+############################################################
+
+## load built-int python modules
+import argparse
+import os, sys, shutil
+import subprocess as sp
+from glob import glob
+import datetime as dt
+
+## load our own modules
+import common
+
+## setup the logging system
+log = common.setupLog()
+
+############################################################
+## get the command line / env arguments
+
+parser = argparse.ArgumentParser(description=(
+    "TODO, insert description"))
+
+## required arguments
+parser.add_argument('path', metavar="PATH", help=(
+    "Path to the directory storing the experiment."))
+parser.add_argument('date', metavar="DATE", help=(
+    "Date that the forecasts were started from, in YYYYMMDDHH format."
+    " E.g. for an analysis at 2010010106, 2010010100 would be passed in here."))
+
+## optional arguments
+parser.add_argument('--ares', type=int, choices=common.aresList, default=62, help=(
+    "Horizontal resolution of atmosphere, (Default: 62)"))
+parser.add_argument('--ores', choices=['05','1x1'], default='05', help=(
+    "Horizontal resolution of the ocean, either 1/2 (05) or 1 (1x1) degree. (Default: 05)"))
+
+## parse the arguments
+args = parser.parse_args()
+args.path = os.path.abspath(args.path)
+args.date = dt.datetime.strptime(args.date, "%Y%m%d%H")
+args.wrkdir = os.path.abspath(os.getenv("TMP_DIR_LOCAL")+"/cfs/letkf-ocn")
+args.mem = common.getEnsMem(args.path)
+mems = range(1,args.mem+1)
+dateShort = args.date.strftime("%Y%m%d%H")
+ndate = args.date+dt.timedelta(hours=6)
+ndateShort = ndate.strftime("%Y%m%d%H")
+
+
+
+############################################################
+## print some configuration information
+log.info("MOM-LETKF, originally developed by Steve Penny.")
+log.info("Modified for strongly coupled CFS-LEKTF by")
+log.info("Travis Sluka, University of Maryland, 2016")
+log.info("")
+log.info("Configuration: \n"+str(args)+"\n")
+
+
+
+############################################################
+## setup the working directory
+if (not os.path.exists(args.wrkdir)): os.makedirs(args.wrkdir)
+os.symlink(os.getenv("FIX_DIR_OM")+"/grid_spec_{}.nc.T{}".format(args.ores,args.ares),
+           args.wrkdir+'/grid_spec.nc')
+shutil.copy(os.getenv("CFS_LETKF_ROOT")+'/run/config_files/letkf_mom.nml',
+            args.wrkdir+'/input.nml')
+jobs=[]
+for m in mems:
+    for f in ['temp_salt','velocity','sbc']:
+        ## ocean background
+        os.symlink(args.path+'/gues/{:03d}/{}_F06.ocean_{}.res.nc'.format(m,dateShort,f),
+                   args.wrkdir+'/gs01{:03d}.ocean_{}.res.nc'.format(m,f))
+        ## ocean analysis, copy these files since the LETKF
+        ## requires that the netcdf file already exist
+        cmd = "cp gs01{0:03d}.ocean_{1}.res.nc anal{0:03d}.ocean_{1}.res.nc".format(m,f)
+        jobs.append(sp.Popen(cmd,shell=True, cwd=args.wrkdir))
+    
+        ## atmospheric obs departures
+        #    shutil.copy(args.path+'/obsop/atm/obs{:03d}.dat'.format(m),
+        #                args.wrkdir+'/obs01{:03d}.dat'.format(m))                    
+for j in jobs:
+    j.wait()
+    if (j.returncode >0 ):
+        log.error("error copying background files")
+        sys.exit(1)
+        
+## adaptive inflation
+log.error("Adaptive inflation file is not being copied")
+
+
+
+############################################################
+## LETKF
+log.info("Running MOM-LETKF")
+sp.check_call("mpirun -n $NPROC_LETKF $CFS_LETKF_ROOT/letkf-mom/mom4/letkf/letkf $> letkf.log",
+              shell=True, cwd=args.wrkdir)
+
+
+
+############################################################
+##
+log.info("copying files...")
+jobs=[]
+for m in mems:
+    for f in ['temp_salt','velocity','sbc']:
+        cmd = "cp anal{0:03d}.ocean_{1}.res.nc {2}/anal/{0:03d}/{3}.ocean_{1}.res.nc".format(
+            m, f, args.path, ndateShort)
+        jobs.append(sp.Popen(cmd,shell=True, cwd=args.wrkdir))
+for j in jobs:
+    j.wait()
+    if (j.returncode >0 ):
+        log.error("error copying output files")
+        sys.exit(1)
+files = [
+    ('gues_me.grd', '/gues/mean/{}_ocn.grd'),
+    ('gues_sp.grd', '/gues/sprd/{}_ocn.grd'),
+    ('anal_me.grd', '/anal/mean/{}_ocn.grd'),
+    ('anal_sp.grd', '/anal/sprd/{}_ocn.grd')]
+if (os.path.exists(args.wrkdir+'/infl_out.grd')):
+    files.append( ('infl_out.grd', '/infl_mul/{}_ocn.grd') )
+jobs = []
+dateStr = ndate.strftime('%Y/%Y%m/%Y%m%d/%Y%m%d%H/%Y%m%d%H')
+for f in files:
+    dst = args.path+f[1].format(dateStr)
+    dstDir = os.path.dirname(dst)
+    if (not os.path.exists(dstDir)): os.makedirs(dstDir)
+    cmd = "cp {} {}".format( f[0], dst)
+    jobs.append(sp.Popen(cmd,shell=True, cwd=args.wrkdir))
+for j in jobs:
+    j.wait()
+    if (j.returncode > 0):
+        log.error("Problem copying files.")
+        sys.exit(1)
+    
+## Create links for the restart files that were not changed
+for m in mems:
+    files = ['ocean_{}.res.nc'.format(x) for x in [
+        'density', 'frazil','freesurf','neutral','velocity_advection']]
+    files.append('ice_model.res.nc')
+    for f in files:
+        try:
+            os.symlink(args.path+'/gues/{:03d}/{}_F06.{}'.format(m, dateShort, f),
+                       args.path+'/anal/{:03d}/{}.{}'.format(m, ndateShort, f))
+        except:
+            log.error("Unable to link restart file: {:03d} / {}".format(m,f))
+                      
+        
+############################################################
+log.info("Done!")
+shutil.rmtree(args.wrkdir)

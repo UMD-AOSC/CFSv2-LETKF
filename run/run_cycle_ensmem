@@ -1,0 +1,110 @@
+#!/usr/bin/env python
+############################################################
+##
+## TODO, insert description
+##
+############################################################
+
+## load buil-in python modules
+import argparse
+import os, shutil, sys
+import subprocess as sp
+from glob import glob
+import datetime as dt
+
+## load our own modules
+import common
+
+## setup the logging system
+log = common.setupLog()
+
+
+############################################################
+## get the command line / env arguments
+
+parser = argparse.ArgumentParser(description=(
+    "TODO, insert descriptio"))
+
+## required variables
+parser.add_argument('path', metavar="PATH", help=(
+    "Path to the directory storing the experiment."))
+parser.add_argument('date', metavar="DATE", help=(
+    "Date to start a forecast from, in YYYYMMDDHH format"))
+parser.add_argument('ensNum', metavar="ENS_NUM", type=int, help=(
+    "ensemble member number"))
+
+## parse the arguments
+args = parser.parse_args()
+args.date = dt.datetime.strptime(args.date, "%Y%m%d%H")
+args.path = os.path.abspath(args.path)
+args.ares = 62 ## TODO, make this configurable
+args.ares_x,args.ares_y = common.getAtmRes(args.ares)
+args.wrkdir = os.path.abspath(os.getenv("TMP_DIR_SHARED")+"/CFS_{:03d}".format(args.ensNum))
+assert( args.ensNum > 0 and args.ensNum <= common.getEnsMem(args.path))
+
+aobsDir = os.getenv("CFS_LETKF_ROOT")+'/DATA/obs/atm_prepbufr'
+oobsDir = os.getenv("CFS_LETKF_ROOT")+'/DATA/obs/PROFS_gerr_TS_deep'
+
+## date: the date the forecast was initialized from
+dateShort = args.date.strftime("%Y%m%d%H")
+dateDir   = args.date.strftime("/%Y/%Y%m/%Y%m%d/%Y%m%d%H/")
+## ndate: the next date, the date of the analysis
+ndate      = args.date + dt.timedelta(hours=6)
+ndateShort  = ndate.strftime("%Y%m%d%H")
+ndateDir    = ndate.strftime("/%Y/%Y%m/%Y%m%d/%Y%m%d%H/")
+
+
+############################################################
+## print some basic information
+log.info("CFSv2-LETKF ensemble member step.")
+log.info("Runs the forecast and any other required per member pre LETKF steps")
+log.info("Travis Sluka, University of Maryland, 2016")
+log.info("")
+log.info("Configuration:\n"+str(args)+"\n")
+
+
+############################################################
+## run the CFS forecast
+log.info("Running the CFS forecast...")
+cmd = 'run_fcst {0}/anal/{1:03d} {0}/gues/{1:03d} {2} --wrkdir {3}'.format(
+    args.path, args.ensNum, dateShort, args.wrkdir)
+if (sp.call(cmd, shell=True) > 0):
+   log.error("Problem running CFS forecast.")
+   sys.exit(1)
+
+    
+############################################################
+## convert atmosphere spectral files to gridded
+log.info("Converting atmosphere spectral files to gridded...")
+jobs = []
+fcstHrStart = 3
+fcstHrEnd   = 9
+baseSlot    = 4 ## hour 6
+for hr in range(fcstHrStart, fcstHrEnd+1):
+    tmpDir = args.wrkdir+'/ss2grd_wrk_{0:02d}'.format(hr)
+    if (not os.path.exists(tmpDir)): os.makedirs(tmpDir)
+    os.symlink(args.wrkdir+'/SIG.F{:02d}'.format(hr), tmpDir+'/fort.11')
+    os.symlink(args.wrkdir+'/SFC.F{:02d}'.format(hr), tmpDir+'/fort.12')
+    with open(tmpDir+'/ssio.nml', 'w') as f:
+        f.write('$common_gfs nlon={} nlat={} gfs_jcap={} nlev=64 /'.format(
+            args.ares_x, args.ares_y, args.ares))
+    cmd =('$CFS_LETKF_ROOT/util/bin/ss2grd; '
+          'cp fort.31 {}/gues/{:03d}/{}_F{:02d}.grd'.format(
+              args.path,args.ensNum, dateShort, hr))
+    jobs.append(sp.Popen(cmd, shell=True, cwd=tmpDir))
+for j in jobs:
+    j.wait()
+    if (j.returncode != 0 ):
+        log.error("Problem converting spectral to gridded")
+        sys.exit(1)
+
+
+############################################################
+## run ocean observation operator
+log.error("Running OCN observation operator...Not implemented")
+
+############################################################
+## copy logs/file and cleanup
+log.info("Cleaning up and copying files...")
+shutil.rmtree(args.wrkdir)
+

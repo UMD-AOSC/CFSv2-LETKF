@@ -12,6 +12,7 @@ MODULE letkf_obs
 !=======================================================================
 !$USE OMP_LIB
   USE common
+  use common_obs
   USE common_mpi
   USE common_gfs
   USE common_obs_gfs
@@ -165,7 +166,7 @@ SUBROUTINE set_letkf_obs
 
 
 !###### PRECIP assimilation ######
-    if (tmpelm(n) == id_rain_obs) then
+    if (tmpelm(n) == obsid_atm_rain) then
 
       CALL phys2ij(tmplon(n),tmplat(n),ri,rj)
       ii = CEILING(ri-0.5) ! nearest point
@@ -282,9 +283,9 @@ SUBROUTINE set_letkf_obs
   END DO
   WRITE(6,'(I10,A)') nn,' OBSERVATIONS TO BE ASSIMILATED'
 
-#  do il = 1, pp_ob_nlev                            ! GYL, PRECIP assimilation
-#    write (*, '(A,10I6)') 'STAT:', pp_ntotal(:,il) ! GYL
-#  end do                                           ! GYL
+!  do il = 1, pp_ob_nlev                            ! GYL, PRECIP assimilation
+!    write (*, '(A,10I6)') 'STAT:', pp_ntotal(:,il) ! GYL
+!  end do                                           ! GYL
 
   WRITE(6,'(A)') 'OBSERVATIONAL DEPARTURE STATISTICS:'
   CALL monit_dep(nobs,tmpelm,tmpdep,tmpqc,1)
@@ -614,21 +615,21 @@ SUBROUTINE monit_output(file,im,ohx,oqc)
       rk = REAL(nlev,r_size)
       oqc(n) = 0
     END IF
-    IF(CEILING(rk) < 2 .AND. NINT(obselm(n)) /= id_ps_obs) THEN
+    IF(CEILING(rk) < 2 .AND. NINT(obselm(n)) /= obsid_atm_ps) THEN
       IF(NINT(obselm(n)) > 9999) THEN
         rk = 0.0d0
-      ELSE IF(NINT(obselm(n)) == id_u_obs .OR. NINT(obselm(n)) == id_v_obs) THEN
+      ELSE IF(NINT(obselm(n)) == obsid_atm_u .OR. NINT(obselm(n)) == obsid_atm_v) THEN
         rk = 1.00001d0
       ELSE
         rk = 1.00001d0
         oqc(n) = 0
       END IF
     END IF
-    IF(NINT(obselm(n)) == id_ps_obs) THEN
+    IF(NINT(obselm(n)) == obsid_atm_ps) THEN
       CALL itpl_2d(v2d(:,:,iv2d_orog),ri,rj,rk)
       rk = obslev(n) - rk
     END IF
-    IF(NINT(obselm(n)) == id_rain_obs) THEN ! No way to get the accumulated precipitation value
+    IF(NINT(obselm(n)) == obsid_atm_rain) THEN ! No way to get the accumulated precipitation value
       ohx(n) = obsdat(n)
       oqc(n) = 0
     ELSE

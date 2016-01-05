@@ -532,6 +532,7 @@ SUBROUTINE get_nobs_mpi(obsfile,nrec,nn)
   INTEGER,INTENT(OUT) :: nn
   CHARACTER(LEN=LEN(obsfile)) :: obsfile1
   INTEGER :: ms1,ms2,ierr
+  logical :: ext
 
   IF(myrank == 0) THEN
     ms1 = LEN(obsfile)-6
@@ -539,7 +540,10 @@ SUBROUTINE get_nobs_mpi(obsfile,nrec,nn)
     obsfile1 = obsfile
     WRITE(obsfile1(ms1:ms2),'(I3.3)') 1
     WRITE(6,'(A,I3.3,2A)') 'MYRANK ',myrank,' is reading a file ',obsfile1
-    CALL get_nobs(obsfile1,nrec,nn)
+    ext = .false.
+    if (nrec > 7) ext = .true.
+    nn = obs_getnum(obsfile1, extended=ext)
+
   END IF
   CALL MPI_BARRIER(MPI_COMM_WORLD,ierr)
   CALL MPI_BCAST(nn,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)

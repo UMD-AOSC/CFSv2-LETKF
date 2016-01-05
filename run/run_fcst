@@ -1,228 +1,241 @@
-#!/usr/bin/env bash
-
-################################################################################
-## run_cycle.sh
-## Runs a single x hour forecast for the CFS model.
+#!/usr/bin/env python
+############################################################
 ##
-## Input arguments:
-##  $1   input directory containing the initial conditions of the forecast
-##  $2   output directory to place results
-##  $3   start date, in YYYYMMDDHH format
-##  $4   forecast lenght, in hours, normally is 6 or 9 hours
-##  $5   period, in hours, of atmospheric output (ocean, for now, only saves
-##       output at 6 hours)
-##  $6   atmospheric resolution
-##  $7   temporary work directory
+## Runs a single x hour forecast for the CFS model
 ##
-## Environment variables  required:
-##   NPROC_AM  number of cores to use for the GFS
-##   NPROC_OM  number of cores to use for the MOM
-##             + one additional implicit core for the coupler
-################################################################################
-set -e
+############################################################
 
-echo "CFSv2 LETKF"
-echo "arguments: $@"
-echo "main host: $(hostname)"
+## load the built-in python modules
+import argparse
+import os, shutil, sys
+import subprocess as sp
+import datetime as dt
+from glob import glob
 
+## load our own modules
+import common
 
-## Experiment setup
-## ------------------------------
-
-SRC_DIR=$1
-OUT_DIR=$2
-START_DATE=$3
-FCST_LEN=$4               # forecast length in hours
-OUT_PERIOD=$5             # output file period (hours)
-AM_RES=$6
-WORKDIR=$7
+## setup the logging system
+log = common.setupLog()
 
 
-## determine the x/y size of grids based on TXX resolution
-if [ "$AM_RES" -eq "62" ]; then
-    AM_RES_X=192
-    AM_RES_Y=94
-elif [ "$AM_RES" -eq "126" ]; then
-    AM_RES_X=384
-    AM_RES_Y=190
-elif [ "$AM_RES" -eq "190" ]; then
-    AM_RES_X=576
-    AM_RES_Y=288
-elif [ "$AM_RES" -eq "382" ]; then
-    AM_RES_X=1152
-    AM_RES_Y=576
-elif [ "$AM_RES" -eq "574" ]; then
-    AM_RES_X=1760
-    AM_RES_Y=880
-elif [ "$AM_RES" -eq "1148" ]; then
-    AM_RES_X=2304
-    AM_RES_Y=1152
-else
-    echo "unsupported atm resloution: $AM_RES"
-    exit 1  
-fi	 
+############################################################
+## get the command line / env arguments
+parser = argparse.ArgumentParser(description=(
+    "CFSv2-LETKF forecast. Runs a single x hour forecast for a "
+    "a single ensemble member."))
 
-OM_RES=05         # ocean resolution [05 or 1x1]
+## required arguments
+parser.add_argument("indir", metavar="IN_DIR", help=(
+    "Input directory containing the initial conditions of the model"))
+parser.add_argument("outdir", metavar="OUT_DIR", help=(
+    "Output directory to place the results"))
+parser.add_argument("date", metavar="DATE", help=(
+    "Date of the initial conditions of the forecast, in YYYYMMDDHH format"))
 
-CPL_PERIOD=300    # coulping period (s)
+## optional arguments
+parser.add_argument("--len", metavar="LEN", type=int, default=9, help=(
+    "Forecast length, in hours. (Default: 9)"))
+parser.add_argument("--ares", default=62, type=int, help=(
+    "TODO, finish the description for this"))
+parser.add_argument("--wrkdir", metavar="DIR",
+    default=os.getenv("TMP_DIR_SHARED")+'/cfs_fcst', help=(
+    "Temporary directory in which to do the work. (Default: $TMP_DIR_SHARED/cfs_fcst)"))
+parser.add_argument("--copy", action="store_true", help=(
+    "By default, the executables and files are linked to the working "
+    "directory, this will instead copy the files"))
+parser.add_argument("--period", type=int, default=1, help=(
+    "Period of atmosphere output, in hours. (Default: 1)"))
 
-
-## Computer configuration
-## ------------------------------
-#WORKDIR=/dev/shm/$USER/CFS
-#WORKDIR=/lustre/tsluka/tmp/$MEM
-
-echo "WORKDIR  = $WORKDIR"
-echo $NPROC_OM
-echo $NPROC_AM
-
-#x###############################################################################
-# shouldn't have to modify below here
-################################################################################
+## parse the arguments
+args = parser.parse_args()
+args.date = dt.datetime.strptime(args.date, "%Y%m%d%H")
+args.wrkdir = os.path.abspath(args.wrkdir)
+args.ares_x,args.ares_y = common.getAtmRes(args.ares)
+args.ores = '05' ## TODO, make this configurable (05 or 1x1)
+args.indir=os.path.abspath(args.indir)
+args.outdir=os.path.abspath(args.outdir)
+cl = 'cp' if args.copy else 'ln -s'
+dateShort = args.date.strftime("%Y%m%d%H")
 
 
-# create the working directory
-rm -rf $WORKDIR
-mkdir -p $WORKDIR
-cd $WORKDIR
-
-#copy the main executables over
-echo "Copying executables..."
-cp $CFS_LETKF_ROOT/cfs/bin/* .  &
-
-# create coupled namelist
-echo "creating coupled namelist (cpl_nml)..."
-source $CFS_LETKF_ROOT/run/config_files/cpl_nml > cpl_nml
-
-cl="ln -s"  ## either copy or link files, #TODO depending on where our tmp folder is
-
-# Ocean Init
-########################################
-mkdir RESTART
-mkdir IRESTART
-
-# create config files
-echo "Creating MOM config files..."
-source $CFS_LETKF_ROOT/run/config_files/input.nml > input.nml
-$cl $CFS_LETKF_ROOT/run/config_files/diag_table . &
-$cl $CFS_LETKF_ROOT/run/config_files/data_table . &
-
-# copy fix files, select the correct ones
-# based on the desired resolution
-echo "Copying MOM fix files..."
-$cl $FIX_DIR_OM/MOM4LND${OM_RES}GFSOCNt${AM_RES}.msk MOM4LND_GFSOCN &
-$cl $FIX_DIR_OM/fluxes_init_OM_t${AM_RES} fluxes_init_OM &
-mkdir INPUT
-cd INPUT
-$cl $FIX_DIR_OM/grid_spec_$OM_RES.nc.T$AM_RES grid_spec.nc &
-$cl $FIX_DIR_OM/chl_$OM_RES.nc chl.nc &
-$cl $FIX_DIR_OM/r2ts_clim.nc . &
-$cl $FIX_DIR_OM/sst_ice_clim.nc . &
-$cl $FIX_DIR_OM/runoff_$OM_RES.nc runoff.nc &
-$cl $FIX_DIR_OM/ohf_sice.nc . &
-cd ..
-
-# copy initial conditions
-echo "Copying MOM initial conditions..."
-cd INPUT
-$cl $SRC_DIR/$START_DATE.ice_model.res.nc                ice_model.res.nc &
-$cl $SRC_DIR/$START_DATE.ocean_density.res.nc            ocean_density.res.nc             ## really needed??
-$cl $SRC_DIR/$START_DATE.ocean_sbc.res.nc                ocean_sbc.res.nc                 ## really needed??
-$cl $SRC_DIR/$START_DATE.ocean_velocity.res.nc           ocean_velocity.res.nc &
-$cl $SRC_DIR/$START_DATE.ocean_velocity_advection.res.nc ocean_velocity_advection.res.nc &
-$cl $SRC_DIR/$START_DATE.ocean_freesurf.res.nc           ocean_freesurf.res.nc &
-$cl $SRC_DIR/$START_DATE.ocean_temp_salt.res.nc          ocean_temp_salt.res.nc &
-$cl $SRC_DIR/$START_DATE.ocean_frazil.res.nc             ocean_frazil.res.nc &
-$cl $SRC_DIR/$START_DATE.ocean_neutral.res.nc            ocean_neutral.res.nc &
-
-cd ..
+############################################################
+## print some basic information
+log.info("CFSv2 Forecast")
+log.info("Configuration:\n"+str(args))
 
 
-# Atmosphere init
-########################################
-# copy initial conditions
-echo "Copying GFS initial conditions..."
-$cl $SRC_DIR/$START_DATE.sfc sfc_ini &
-$cl $SRC_DIR/$START_DATE.sig sig_ini &
+############################################################
+## set things up to run the forecast
+############################################################
+
+##############################
+log.info("Creating working directory...")
+for d in [args.wrkdir, args.wrkdir+'/RESTART', args.wrkdir+'/IRESTART',
+          args.wrkdir+'/INPUT', args.wrkdir+'/fix_am']:
+    if not os.path.exists(d):
+        os.makedirs(d)
+    if len(glob(d+'/*')) > 0 :
+        log.warn("Working directory {} is not empty, make"
+                 " sure this is what is intended".format(d))
+
+##############################        
+log.info("copying executables...")
+sp.call(cl+" $CFS_LETKF_ROOT/cfs/bin/* .", shell=True, cwd=args.wrkdir)
 
 
-# create namelists
-echo "Creating GFS config files..."
-source $CFS_LETKF_ROOT/run/config_files/gfs_namelist > gfs_namelist
-source $CFS_LETKF_ROOT/run/config_files/gfs_namelist.rc > gfs_namelist.rc
-
-# copy fix files
-echo "Copying GFS fix files..."
-$cl $FIX_DIR_AM/global_climaeropac_global.txt aerosol.dat &
-$cl $FIX_DIR_AM/global_co2con.l64.f77 fort.15 &
-$cl $FIX_DIR_AM/global_mtnvar.t$AM_RES.f77 fort.24 &
-$cl $FIX_DIR_AM/global_tbthe.f77 fort.27 &
-$cl $FIX_DIR_AM/global_o3prdlos.f77 fort.28 &
-$cl $FIX_DIR_AM/global_cldtune.f77 fort.43 &
-$cl $FIX_DIR_AM/global_o3clim.txt fort.48 &
-$cl $FIX_DIR_AM/global_orography.t$AM_RES.grb orography &
-$cl $FIX_DIR_AM/global_orography_uf.t$AM_RES.$AM_RES_X.$AM_RES_Y.grb orography_uf &
-$cl $FIX_DIR_AM/global_sfc_emissivity_idx.txt sfc_emissivity_idx.txt &
-$cl $FIX_DIR_AM/global_co2historicaldata_2009.txt co2historicaldata_2009.txt &
-$cl $FIX_DIR_AM/global_solarconstantdata.txt solarconstantdata.txt &
-mkdir fix_am
-cd fix_am
-$cl $FIX_DIR_AM/global_glacier.2x2.grb . &
-$cl $FIX_DIR_AM/global_maxice.2x2.grb . &
-$cl $FIX_DIR_AM/cfs_oi2sst1x1monclim19822001.grb . &
-$cl $FIX_DIR_AM/global_snoclim.1.875.grb . &
-$cl $FIX_DIR_AM/global_zorclim.1x1.grb . &
-$cl $FIX_DIR_AM/global_albedo4.1x1.grb . &
-$cl $FIX_DIR_AM/cfs_ice1x1monclim19822001.grb . &
-$cl $FIX_DIR_AM/global_tg3clim.2.6x1.5.grb . &
-$cl $FIX_DIR_AM/global_vegfrac.0.144.decpercent.grb . &
-$cl $FIX_DIR_AM/global_vegtype.1x1.grb . &
-$cl $FIX_DIR_AM/global_soiltype.1x1.grb . &
-$cl $FIX_DIR_AM/global_soilmcpc.1x1.grb . &
-$cl $FIX_DIR_AM/seaice_newland.grb . &
-$cl $FIX_DIR_AM/global_shdmin.0.144x0.144.grb . &
-$cl $FIX_DIR_AM/global_shdmax.0.144x0.144.grb . &
-$cl $FIX_DIR_AM/global_slope.1x1.grb . &
-$cl $FIX_DIR_AM/global_snoalb.1x1.grb . &
-cd ..
-
-wait
-
-## Run the CFS model
-########################################
-echo "Running the CFS model..."
-export OMP_NUM_THREADS=1
-time mpirun -n 1 cfs_mlc_coupler : -n $NPROC_OM cfs_ocean_mom4ice : -n $NPROC_AM global_fcst
-echo "Done running model...."
-
-START_DATE=$(date -u -d"${START_DATE:0:8} ${START_DATE:8:10}")
-mkdir -p $OUT_DIR
-
-## move the GFS output
-echo "Moving GFS output..."
-cdate=$(date -u -d "$START_DATE" +%Y%m%d%H)
-fdate=$(date -u -d "$START_DATE + 6 hours" +%Y%m%d%H)
-
-for i in $(seq -f "%02g" $OUT_PERIOD $OUT_PERIOD $FCST_LEN); do    
-    mv SIG.F$i $OUT_DIR/${cdate}_F$i.sig
-    mv SFC.F$i $OUT_DIR/${cdate}_F$i.sfc
-done
+##############################
+log.info("Creating OCN config files...")
+env = os.environ
+env['START_DATE'] = dateShort
+env["FCST_LEN"] = str(args.len)
+env["CPL_PERIOD"] = str(300) ##TODO, make this configurable ?
+env["OUT_PERIOD"] = str(args.period)
+env["AM_RES"]     = str(args.ares)
+env["AM_RES_X"]   = str(args.ares_x)
+env["AM_RES_Y"]   = str(args.ares_y)
+sp.call("source $CFS_LETKF_ROOT/run/config_files/cpl_nml > cpl_nml",
+        shell=True, cwd=args.wrkdir)
+sp.call("source $CFS_LETKF_ROOT/run/config_files/input.nml > input.nml",
+        shell=True, cwd=args.wrkdir)
+sp.call(cl+" $CFS_LETKF_ROOT/run/config_files/d???_table .",
+        shell=True, cwd=args.wrkdir)
 
 
-## move the MOM output
-echo "Moving MOM output..."
-mv IRESTART/${fdate}ocean_velocity.res.nc           $OUT_DIR/${cdate}_F06.ocean_velocity.res.nc &
-mv IRESTART/${fdate}ocean_velocity_advection.res.nc $OUT_DIR/${cdate}_F06.ocean_velocity_advection.res.nc &
-mv IRESTART/${fdate}ocean_freesurf.res.nc           $OUT_DIR/${cdate}_F06.ocean_freesurf.res.nc &
-mv IRESTART/${fdate}ocean_temp_salt.res.nc          $OUT_DIR/${cdate}_F06.ocean_temp_salt.res.nc &
-mv IRESTART/${fdate}ocean_frazil.res.nc             $OUT_DIR/${cdate}_F06.ocean_frazil.res.nc &
-mv IRESTART/${fdate}ocean_neutral.res.nc            $OUT_DIR/${cdate}_F06.ocean_neutral.res.nc &
-mv IRESTART/${fdate}ice_model.res.nc                $OUT_DIR/${cdate}_F06.ice_model.res.nc &
+##############################
+log.info("Copying OCN fix files...")
+momFiles=[
+    ("MOM4LND{ores}GFSOCNt{ares}.msk", "MOM4LND_GFSOCN"),
+    ("fluxes_init_OM_t{ares}",         "fluxes_init_OM"),
+    ("grid_spec_{ores}.nc.T{ares}",    "INPUT/grid_spec.nc"),
+    ("chl_{ores}.nc",                  "INPUT/chl.nc"),
+    ("r2ts_clim.nc",                   "INPUT/"),
+    ("sst_ice_clim.nc",                "INPUT/"),
+    ("runoff_{ores}.nc",              "INPUT/runoff.nc"),
+    ("ohf_sice.nc",                    "INPUT/")  ]
+for x in momFiles:
+    arg1 = x[0].format(ores=args.ores,ares=str(args.ares))
+    sp.call(cl+" $FIX_DIR_OM/"+arg1+" "+x[1],
+            shell=True, cwd=args.wrkdir)
 
-#are the following really needed?
-mv IRESTART/${fdate}ocean_density.res.nc            $OUT_DIR/${cdate}_F06.ocean_density.res.nc &
-mv IRESTART/${fdate}ocean_sbc.res.nc                $OUT_DIR/${cdate}_F06.ocean_sbc.res.nc &
+    
+##############################
+log.info("Copying OCN initial conditions...")
+files = ['ocean_'+x for x in [
+    'density','sbc','velocity','velocity_advection',
+    'freesurf','temp_salt','frazil','neutral'] ]
+files += ['ice_model',]
+for f in files:
+    sp.call(cl+' {0}/{1}.{2}.res.nc {2}.res.nc'.format(
+        args.indir, dateShort, f),
+            shell=True, cwd=args.wrkdir+'/INPUT')
 
-wait
+    
+##############################
+log.info("Copying ATM initial conditions...")
+for f in ['sfc','sig']:
+    sp.call(cl+' '+args.indir+'/'+dateShort+'.'+f+' '+f+'_ini',
+            shell=True, cwd=args.wrkdir)
 
-echo "Done."
+    
+##############################
+log.info("Creating ATM namelist")
+sp.call("source $CFS_LETKF_ROOT/run/config_files/gfs_namelist "
+        "> gfs_namelist",
+        shell=True, cwd=args.wrkdir)
+sp.call("source $CFS_LETKF_ROOT/run/config_files/gfs_namelist.rc "
+        "> gfs_namelist.rc",
+        shell=True, cwd=args.wrkdir)
+
+
+##############################
+log.info("Copyhing ATM fix files...")
+files = [
+    ("climaeropac_global.txt", "aerosol.dat"),
+    ("co2con.l64.f77",     "fort.15"),
+    ("mtnvar.t{ares}.f77", "fort.24"),
+    ("tbthe.f77",          "fort.27"),
+    ("o3prdlos.f77",       "fort.28"),
+    ("cldtune.f77",        "fort.43"),
+    ("o3clim.txt",         "fort.48"),
+    ("orography.t{ares}.grb", "orography"),
+    ("orography_uf.t{ares}.{ares_x}.{ares_y}.grb", "orography_uf"),
+    ("sfc_emissivity_idx.txt", "sfc_emissivity_idx.txt"),
+    ("co2historicaldata_2009.txt", "co2historicaldata_2009.txt"),
+    ("solarconstantdata.txt", "solarconstantdata.txt")]
+for f in files:
+    cmd = f[0].format(ares=args.ares, ares_x=args.ares_x, ares_y=args.ares_y)
+    sp.call(cl+" $FIX_DIR_AM/global_{} {}".format(cmd,f[1]),
+            shell=True, cwd=args.wrkdir)
+files=[
+    'global_glacier.2x2.grb',
+    'global_maxice.2x2.grb',
+    'cfs_oi2sst1x1monclim19822001.grb',
+    'global_snoclim.1.875.grb',
+    'global_zorclim.1x1.grb',
+    'global_albedo4.1x1.grb',
+    'cfs_ice1x1monclim19822001.grb',
+    'global_tg3clim.2.6x1.5.grb',
+    'global_vegfrac.0.144.decpercent.grb']
+for f in files:
+    sp.call(cl+" $FIX_DIR_AM/{} fix_am/".format(f),
+            shell=True, cwd=args.wrkdir)
+
+    
+############################################################    
+## Run the model
+log.info("Running the CFS model...")
+env['OMP_NUM_THREADS']=str(1)
+stime= dt.datetime.now()
+cmd = ('mpirun -n 1 cfs_mlc_coupler : '
+       '-n $NPROC_OM cfs_ocean_mom4ice : '
+       '-n $NPROC_AM global_fcst &> cfs.log')
+if (sp.call(cmd, shell=True, cwd=args.wrkdir, env=env) > 0):
+    log.error("problem running CFS")
+etime = dt.datetime.now()
+log.info("CFS run finished in {} seconds.".format((etime-stime).seconds))
+
+## TODO, check to make sure the required output files have indeed been created
+
+
+
+############################################################
+## move the output
+
+## ensure output directory exists
+if not os.path.exists(args.outdir):
+    os.makedirs(args.outdir)
+
+    
+## copy ocean files
+log.info("Copying OCN output...")
+jobs=[]
+files = glob(args.wrkdir+"/IRESTART/*.res.nc")
+for f in files:
+    cmd = 'cp {} {}/{}_F06.{}'.format(
+        f, args.outdir, dateShort, os.path.basename(f)[10:])
+    jobs.append( sp.Popen(cmd, shell=True) )
+[j.wait() for j in jobs]
+
+
+## copy atm files
+log.info("Copying ATM output...")
+jobs=[]
+for i in range(1,args.len/args.period+1):
+    f = i*args.period
+    cmd = 'cp {0}/SIG.F{1:02d} {2}/{3}_F{1:02d}.sig'.format(
+        args.wrkdir, f, args.outdir, dateShort)
+    jobs.append( sp.Popen(cmd, shell=True) )
+    cmd = 'cp {0}/SFC.F{1:02d} {2}/{3}_F{1:02d}.sfc'.format(
+        args.wrkdir, f, args.outdir, dateShort)
+    jobs.append( sp.Popen(cmd, shell=True) )
+
+[j.wait() for j in jobs]
+
+## all done
+log.info("Finished!!")
+
+## print out the cfs log file at the end of this log
+log.info("CFS log file: ")
+f = open(args.wrkdir+'/cfs.log','r')
+log.info(f.read())

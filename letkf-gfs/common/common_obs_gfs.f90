@@ -40,42 +40,10 @@ MODULE common_obs_gfs
 !$USE OMP_LIB
   USE common
   USE common_gfs
+  use common_obs
 
   IMPLICIT NONE
   PUBLIC
-
-  INTEGER,PARAMETER :: nid_obs=8
-  INTEGER,PARAMETER :: id_u_obs=2819
-  INTEGER,PARAMETER :: id_v_obs=2820
-  INTEGER,PARAMETER :: id_t_obs=3073
-  INTEGER,PARAMETER :: id_tv_obs=3074
-  INTEGER,PARAMETER :: id_q_obs=3330
-  INTEGER,PARAMETER :: id_rh_obs=3331
-!
-! surface observations codes > 9999
-!
-  INTEGER,PARAMETER :: id_ps_obs=14593
-  INTEGER,PARAMETER :: id_rain_obs=19999
-  INTEGER,PARAMETER :: id_tclon_obs=99991  ! not used
-  INTEGER,PARAMETER :: id_tclat_obs=99992  ! not used
-  INTEGER,PARAMETER :: id_tcmip_obs=99993  ! not used
-
-  INTEGER,PARAMETER :: elem_uid(nid_obs)= &
-     (/id_u_obs, id_v_obs, id_t_obs, id_tv_obs, id_q_obs, id_rh_obs, &
-       id_ps_obs, id_rain_obs/)
-!       id_tclon_obs, id_tclat_obs, id_tcmip_obs/)
-
-  INTEGER,PARAMETER :: nobtype = 21
-  CHARACTER(6),PARAMETER :: obtypelist(nobtype)= &
-     (/'ADPUPA', 'AIRCAR', 'AIRCFT', 'SATWND', 'PROFLR', &
-       'VADWND', 'SATEMP', 'ADPSFC', 'SFCSHP', 'SFCBOG', &
-       'SPSSMI', 'SYNDAT', 'ERS1DA', 'GOESND', 'QKSWND', &
-       'MSONET', 'GPSIPW', 'RASSDA', 'WDSATR', 'ASCATW', &
-       'TMPAPR'/)
-       
-  CHARACTER(3),PARAMETER :: obelmlist(nid_obs)= &
-     (/'  U', '  V', '  T', ' Tv', '  Q', ' RH', ' PS', 'PRC'/)
-!     (/'  U', '  V', '  T', ' Tv', '  Q', ' RH', ' PS', 'PRC', 'TCX', 'TCY', 'TCP'/)
 
 CONTAINS
 !-----------------------------------------------------------------------
@@ -102,26 +70,26 @@ SUBROUTINE Trans_XtoY(elm,ri,rj,rk,v3d,v2d,yobs)
   ks = ke-1
 
   SELECT CASE (NINT(elm))
-  CASE(id_u_obs)  ! U
+  CASE(obsid_atm_u)  ! U
     CALL itpl_3d(v3d(:,:,:,iv3d_u),ri,rj,rk,yobs)
-  CASE(id_v_obs)  ! V
+  CASE(obsid_atm_v)  ! V
     CALL itpl_3d(v3d(:,:,:,iv3d_v),ri,rj,rk,yobs)
-  CASE(id_t_obs)  ! T
+  CASE(obsid_atm_t)  ! T
     CALL itpl_3d(v3d(:,:,:,iv3d_t),ri,rj,rk,yobs)
-  CASE(id_tv_obs)  ! Tv
+  CASE(obsid_atm_tv)  ! Tv
     CALL itpl_3d(v3d(:,:,:,iv3d_t),ri,rj,rk,yobs)
     CALL itpl_3d(v3d(:,:,:,iv3d_q),ri,rj,rk,qq)
     yobs = yobs * (1.0d0 + fvirt * qq)
-  CASE(id_q_obs)  ! Q
+  CASE(obsid_atm_q)  ! Q
     CALL itpl_3d(v3d(:,:,:,iv3d_q),ri,rj,rk,yobs)
-  CASE(id_ps_obs) ! PS
+  CASE(obsid_atm_ps) ! PS
     CALL itpl_2d(v2d(:,:,iv2d_t2m),ri,rj,tg)
     CALL itpl_2d(v2d(:,:,iv2d_q2m),ri,rj,qg)
     CALL itpl_2d(v2d(:,:,iv2d_ps),ri,rj,yobs)
     CALL prsadj(yobs,rk,tg,qg)
-  CASE(id_rain_obs) ! RAIN
+  CASE(obsid_atm_rain) ! RAIN
     CALL itpl_2d(v2d(:,:,iv2d_tprcp),ri,rj,yobs) !########
-  CASE(id_rh_obs) ! RH
+  CASE(obsid_atm_rh) ! RH
     DO k=ks,ke
       DO j=js,je
         IF(ie <= nlon ) THEN
@@ -508,31 +476,31 @@ SUBROUTINE monit_dep(nn,elm,dep,qc,ofmt)
   DO n=1,nn
     IF(qc(n) <= 0) CYCLE
     SELECT CASE(NINT(elm(n)))
-    CASE(id_u_obs)
+    CASE(obsid_atm_u)
       rmse_u = rmse_u + dep(n)**2
       bias_u = bias_u + dep(n)
       iu = iu + 1
-    CASE(id_v_obs)
+    CASE(obsid_atm_v)
       rmse_v = rmse_v + dep(n)**2
       bias_v = bias_v + dep(n)
       iv = iv + 1
-    CASE(id_t_obs,id_tv_obs) ! compute T, Tv together
+    CASE(obsid_atm_t,obsid_atm_tv) ! compute T, Tv together
       rmse_t = rmse_t + dep(n)**2
       bias_t = bias_t + dep(n)
       it = it + 1
-    CASE(id_q_obs)
+    CASE(obsid_atm_q)
       rmse_q = rmse_q + dep(n)**2
       bias_q = bias_q + dep(n)
       iq = iq + 1
-    CASE(id_rh_obs)
+    CASE(obsid_atm_rh)
       rmse_rh = rmse_rh + dep(n)**2
       bias_rh = bias_rh + dep(n)
       irh = irh + 1
-    CASE(id_ps_obs)
+    CASE(obsid_atm_ps)
       rmse_ps = rmse_ps + dep(n)**2
       bias_ps = bias_ps + dep(n)
       ips = ips + 1
-    CASE(id_rain_obs)
+    CASE(obsid_atm_rain)
       rmse_rain = rmse_rain + dep(n)**2
       bias_rain = bias_rain + dep(n)
       irain = irain + 1
@@ -692,26 +660,18 @@ SUBROUTINE read_obs(cfile,nn,elem,rlon,rlat,rlev,odat,oerr,otyp)
   DO n=1,nn
     READ(iunit) wk
     SELECT CASE(NINT(wk(1)))
-    CASE(id_u_obs)
+    CASE(obsid_atm_u, obsid_atm_v, obsid_atm_t, obsid_atm_tv, obsid_atm_q)
       wk(4) = wk(4) * 100.0 ! hPa -> Pa
-    CASE(id_v_obs)
-      wk(4) = wk(4) * 100.0 ! hPa -> Pa
-    CASE(id_t_obs)
-      wk(4) = wk(4) * 100.0 ! hPa -> Pa
-    CASE(id_tv_obs)
-      wk(4) = wk(4) * 100.0 ! hPa -> Pa
-    CASE(id_q_obs)
-      wk(4) = wk(4) * 100.0 ! hPa -> Pa
-    CASE(id_ps_obs)
+    CASE(obsid_atm_ps)
       wk(5) = wk(5) * 100.0 ! hPa -> Pa
       wk(6) = wk(6) * 100.0 ! hPa -> Pa
-    CASE(id_rh_obs)
+    CASE(obsid_atm_rh)
       wk(4) = wk(4) * 100.0 ! hPa -> Pa
       wk(5) = wk(5) * 0.01 ! percent input
       wk(6) = wk(6) * 0.01 ! percent input
-    CASE(id_tcmip_obs)
-      wk(5) = wk(5) * 100.0 ! hPa -> Pa
-      wk(6) = wk(6) * 100.0 ! hPa -> Pa
+!    CASE(id_tcmip_obs)
+!      wk(5) = wk(5) * 100.0 ! hPa -> Pa
+!      wk(6) = wk(6) * 100.0 ! hPa -> Pa
     END SELECT
     elem(n) = REAL(wk(1),r_size)
     rlon(n) = REAL(wk(2),r_size)
@@ -748,26 +708,18 @@ SUBROUTINE read_obs2(cfile,nn,elem,rlon,rlat,rlev,odat,oerr,otyp,tdif,ohx,oqc)
   DO n=1,nn
     READ(iunit) wk
     SELECT CASE(NINT(wk(1)))
-    CASE(id_u_obs)
+    CASE(obsid_atm_u, obsid_atm_v, obsid_atm_t, obsid_atm_tv, obsid_atm_q)
       wk(4) = wk(4) * 100.0 ! hPa -> Pa
-    CASE(id_v_obs)
-      wk(4) = wk(4) * 100.0 ! hPa -> Pa
-    CASE(id_t_obs)
-      wk(4) = wk(4) * 100.0 ! hPa -> Pa
-    CASE(id_tv_obs)
-      wk(4) = wk(4) * 100.0 ! hPa -> Pa
-    CASE(id_q_obs)
-      wk(4) = wk(4) * 100.0 ! hPa -> Pa
-    CASE(id_ps_obs)
+    CASE(obsid_atm_ps)
       wk(5) = wk(5) * 100.0 ! hPa -> Pa
       wk(6) = wk(6) * 100.0 ! hPa -> Pa
-    CASE(id_rh_obs)
+    CASE(obsid_atm_rh)
       wk(4) = wk(4) * 100.0 ! hPa -> Pa
       wk(5) = wk(5) * 0.01 ! percent input
       wk(6) = wk(6) * 0.01 ! percent input
-    CASE(id_tcmip_obs)
-      wk(5) = wk(5) * 100.0 ! hPa -> Pa
-      wk(6) = wk(6) * 100.0 ! hPa -> Pa
+!    CASE(id_tcmip_obs)
+!      wk(5) = wk(5) * 100.0 ! hPa -> Pa
+!      wk(6) = wk(6) * 100.0 ! hPa -> Pa
     END SELECT
     elem(n) = REAL(wk(1),r_size)
     rlon(n) = REAL(wk(2),r_size)
@@ -821,26 +773,18 @@ SUBROUTINE write_obs2(cfile,nn,elem,rlon,rlat,rlev,odat,oerr,otyp,tdif,ohx,oqc,a
     wk(9) = REAL(ohx(n),r_sngl)
     wk(10) = REAL(oqc(n),r_sngl)
     SELECT CASE(NINT(wk(1)))
-    CASE(id_u_obs)
+    CASE(obsid_atm_u, obsid_atm_v, obsid_atm_t, obsid_atm_tv, obsid_atm_q)
       wk(4) = wk(4) * 0.01 ! Pa -> hPa
-    CASE(id_v_obs)
-      wk(4) = wk(4) * 0.01 ! Pa -> hPa
-    CASE(id_t_obs)
-      wk(4) = wk(4) * 0.01 ! Pa -> hPa
-    CASE(id_tv_obs)
-      wk(4) = wk(4) * 0.01 ! Pa -> hPa
-    CASE(id_q_obs)
-      wk(4) = wk(4) * 0.01 ! Pa -> hPa
-    CASE(id_ps_obs)
+    CASE(obsid_atm_ps)
       wk(5) = wk(5) * 0.01 ! Pa -> hPa
       wk(6) = wk(6) * 0.01 ! Pa -> hPa
-    CASE(id_rh_obs)
+    CASE(obsid_atm_rh)
       wk(4) = wk(4) * 0.01 ! Pa -> hPa
       wk(5) = wk(5) * 100.0 ! percent output
       wk(6) = wk(6) * 100.0 ! percent output
-    CASE(id_tcmip_obs)
-      wk(5) = wk(5) * 0.01 ! Pa -> hPa
-      wk(6) = wk(6) * 0.01 ! Pa -> hPa
+!    CASE(id_tcmip_obs)
+!      wk(5) = wk(5) * 0.01 ! Pa -> hPa
+!      wk(6) = wk(6) * 0.01 ! Pa -> hPa
     END SELECT
     WRITE(iunit) wk
   END DO
@@ -979,37 +923,5 @@ END SUBROUTINE write_obs2
 !  RETURN
 !END SUBROUTINE write_monit_obs
 
-FUNCTION uid_obs(id_obs)
-  IMPLICIT NONE
-  INTEGER :: id_obs
-  INTEGER :: uid_obs
-
-  SELECT CASE(id_obs)
-  CASE(id_u_obs)
-    uid_obs = 1
-  CASE(id_v_obs)
-    uid_obs = 2
-  CASE(id_t_obs)
-    uid_obs = 3
-  CASE(id_tv_obs)
-    uid_obs = 4
-  CASE(id_q_obs)
-    uid_obs = 5
-  CASE(id_rh_obs)
-    uid_obs = 6
-  CASE(id_ps_obs)
-    uid_obs = 7
-  CASE(id_rain_obs)
-    uid_obs = 8
-!  CASE(id_tclon_obs)
-!    uid_obs = 9
-!  CASE(id_tclat_obs)
-!    uid_obs = 10
-!  CASE(id_tcmip_obs)
-!    uid_obs = 11
-  CASE DEFAULT
-    uid_obs = -1 ! error
-  END SELECT
-END FUNCTION uid_obs
 
 END MODULE common_obs_gfs

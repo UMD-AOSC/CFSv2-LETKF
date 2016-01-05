@@ -1,0 +1,139 @@
+#!/usr/bin/env python
+############################################################
+##
+## TODO, insert description
+##
+############################################################
+
+## load built-in python modules
+import argparse
+import os, sys, shutil
+import subprocess as sp
+from glob import glob
+import datetime as dt
+
+## load our own modules
+import common
+
+## setup the logging system
+log = common.setupLog()
+
+
+############################################################
+## get the command line / env arguments
+parser = argparse.ArgumentParser(description=(
+    "TODO, insert description"))
+
+parser.add_argument('path', metavar="PATH", help=(
+    "Path to the directory storing the experiment."))
+parser.add_argument('date', metavar="DATE", help=(
+    "Date the the forecasts were started from, in YYYYMMDDHH format."
+    " E.g. for an analysis at 2010010106, 2010010100 would be pass in here."))
+
+## parse the arguments
+args = parser.parse_args()
+args.path = os.path.abspath(args.path)
+args.date = dt.datetime.strptime(args.date, "%Y%m%d%H")
+args.wrkdir = os.path.abspath(os.getenv("TMP_DIR_LOCAL")+"/cfs/letkf-atm")
+args.mem = common.getEnsMem(args.path)
+args.ares = 62
+args.cfsrDir = os.getenv("CFSR_DIR")+'/T{}/'.format(args.ares)
+args.ares_x,args.ares_y = common.getAtmRes(args.ares)
+mems = range(1,args.mem+1)
+dateShort = args.date.strftime("%Y%m%d%H")
+ndate = args.date+dt.timedelta(hours=6)
+ndateShort = ndate.strftime("%Y%m%d%H")
+
+
+############################################################
+## print some configuration information
+log.info("GFS-LETKF, originally developed by Guo-Yuan Lien.")
+log.info("Modified for strongly coupled CFS-LETKF by")
+log.info("Travis Sluka, University of Maryland, 2016")
+log.info("")
+log.info("Configuration: \n"+str(args)+"\n")
+
+
+############################################################
+## setup the working directory
+if (not os.path.exists(args.wrkdir)): os.makedirs(args.wrkdir)
+
+## TODO, add logic for strong coupling
+for m in mems:
+    ## obs
+    os.symlink(args.path+"/obsop/{}_atm{:03d}.dat".format(ndateShort, m),
+               args.wrkdir+"/obs{:03d}.dat".format(m))
+    ## gues
+    os.symlink(args.path+"/gues/{:03d}/{}_F06.grd".format(m,dateShort),
+               args.wrkdir+"/gues{:03d}.grd".format(m))
+
+## adaptive inflation
+log.error("Adaptive inflation file not being copied")
+
+############################################################
+## LETKF
+log.info("Running GFS-LETKF...")
+sp.check_call("mpirun -n $NPROC_LETKF $CFS_LETKF_ROOT/letkf-gfs/letkf/letkf",
+             shell=True, cwd = args.wrkdir)
+
+############################################################
+## gridded to spectral
+log.info("Converting output to spectral...")
+jobs=[]
+for m in mems:
+    tmpdir = args.wrkdir+'/grd2ss_{:03d}'.format(m)
+    os.makedirs(tmpdir)
+    with open(tmpdir+'/ssio.nml','w') as f:
+        f.write('$common_gfs nlon={} nlat={} gfs_jcap={} nlev=64 /'.format(
+            args.ares_x, args.ares_y, args.ares))
+    os.symlink(args.wrkdir+'/anal{:03d}.grd'.format(m),
+               tmpdir+'/fort.41')
+    os.symlink(args.path+'/gues/{:03d}/{}_F06.sig'.format(m,dateShort),
+               tmpdir+'/fort.11')
+    os.symlink(args.path+'/gues/{:03d}/{}_F06.sfc'.format(m,dateShort),
+               tmpdir+'/fort.12')
+    shutil.copy(args.cfsrDir+ndate.strftime("/%Y/%Y%m/%Y%m%d/%Y%m%d%H")+".sig",
+                tmpdir+'/fort.21')
+    shutil.copy(args.cfsrDir+ndate.strftime("/%Y/%Y%m/%Y%m%d/%Y%m%d%H")+".sfc",
+                tmpdir+'/fort.22')
+    cmd = ("$CFS_LETKF_ROOT/util/bin/grd2ss; "
+           "cp fort.21 {0}/anal/{1:03d}/{2}.sig; "
+           "cp fort.22 {0}/anal/{1:03d}/{2}.sfc").format(
+               args.path, m, ndate.strftime("%Y%m%d%H"))
+    jobs.append(sp.Popen(cmd, shell=True, cwd=tmpdir))
+for j in jobs:
+    j.wait()
+    if (j.returncode > 0):
+        log.error("Problem with ATM conversion from gridded to spectral")
+        sys.exit(1)
+
+        
+############################################################
+## move files / logs
+log.info("moving other files...")
+files = [
+    ('gues_me.grd', '/gues/mean/{}_atm.grd'),
+    ('gues_sp.grd', '/gues/sprd/{}_atm.grd'),
+    ('anal_me.grd', '/anal/mean/{}_atm.grd'),
+    ('anal_sp.grd', '/anal/sprd/{}_atm.grd')]
+if (os.path.exists(args.wrkdir+'/infl_mul.grd')):
+    files.append( ('infl_mul.grd','/infl_mul/{}_atm.grd') )
+jobs=[]
+dateStr = ndate.strftime('%Y/%Y%m/%Y%m%d/%Y%m%d%H/%Y%m%d%H')
+for f in files:
+    dst = args.path+f[1].format(dateStr)
+    if (not os.path.exists(os.path.dirname(dst))): os.makedirs(os.path.dirname(dst))
+    cmd = "cp {} {}".format( f[0], dst)
+    jobs.append(sp.Popen(cmd,shell=True,cwd=args.wrkdir))
+for j in jobs:
+    j.wait()
+    if (j.returncode > 0):
+        log.error("Problem copying files.")
+        sys.exit(1)
+    
+    
+
+##################################################
+## -
+log.info("Done!")
+shutil.rmtree(args.wrkdir)

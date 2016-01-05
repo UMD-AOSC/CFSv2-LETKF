@@ -149,7 +149,7 @@ subroutine print_obsnum_cal (naobs, aelm, atyp)
   integer, intent(in) :: aelm(naobs)
   integer, intent(in) :: atyp(naobs)
 
-  integer :: obscount(nid_obs,nobtype+1)
+  integer :: obscount(obsid_num,platform_num+1)
   integer :: obstotal
   integer :: itype, n
 
@@ -177,7 +177,7 @@ subroutine print_obsnum_cal_qc (naobs, aelm, atyp, aqc)
   integer, intent(in) :: atyp(naobs)
   integer, intent(in) :: aqc(naobs)
 
-  integer :: obscount(nid_obs,nobtype+1)
+  integer :: obscount(obsid_num,platform_num+1)
   integer :: obstotal
   integer :: itype, n
 
@@ -212,18 +212,18 @@ subroutine write_obs_den (naobs, aii, ajj, akk, aelm, atype, aqc, filename, qcty
   character (len=*), intent(in) :: filename
   integer, intent(in) :: qctype  ! 1: before superob; 2: after superob
 
-  integer :: nobsden(nlon,nlat,nlev+1,nid_obs+1)
-  integer :: nobsden_sum(nlon,nlat,nlev+1,nid_obs+1)
-  real(r_sngl) :: nobsden_r(nlon,nlat,nlev+1,nid_obs+1)
+  integer :: nobsden(nlon,nlat,nlev+1,obsid_atm_num+1)
+  integer :: nobsden_sum(nlon,nlat,nlev+1,obsid_atm_num+1)
+  real(r_sngl) :: nobsden_r(nlon,nlat,nlev+1,obsid_atm_num+1)
   integer :: iolen, reclen
   integer :: n, j, k, itype
 
   inquire (iolength = iolen) iolen
-  reclen = iolen * nlon * nlat * (nlev+1) * (nid_obs+1)
+  reclen = iolen * nlon * nlat * (nlev+1) * (obsid_atm_num+1)
   open (21, file = trim(filename), form = 'unformatted', access = 'direct', recl = reclen)
 
   nobsden_sum(:,:,:,:) = 0
-  do itype = 1, nobtype
+  do itype = 1, platform_num
     nobsden(:,:,:,:) = 0
     do n = 1, naobs
       if (atype(n) /= itype) cycle
@@ -237,7 +237,7 @@ subroutine write_obs_den (naobs, aii, ajj, akk, aelm, atype, aqc, filename, qcty
         k = 1
       end if
       nobsden(aii(n),ajj(n),k,aelm(n)  ) = nobsden(aii(n),ajj(n),k,aelm(n)  ) + 1
-      nobsden(aii(n),ajj(n),k,nid_obs+1) = nobsden(aii(n),ajj(n),k,nid_obs+1) + 1
+      nobsden(aii(n),ajj(n),k,obsid_atm_num+1) = nobsden(aii(n),ajj(n),k,obsid_atm_num+1) + 1
     end do
     nobsden_r = real(nobsden, 4)
     write (21, rec = itype) nobsden_r
@@ -245,7 +245,7 @@ subroutine write_obs_den (naobs, aii, ajj, akk, aelm, atype, aqc, filename, qcty
   end do
 
   nobsden_r = real(nobsden_sum, 4)
-  write (21, rec = nobtype+1) nobsden_r
+  write (21, rec = platform_num+1) nobsden_r
   close (21)
     
 !-------------------------------------------------------------------------------
@@ -260,10 +260,10 @@ subroutine write_obs_den (naobs, aii, ajj, akk, aelm, atype, aqc, filename, qcty
     write (22, '(F12.6)') lat(j)
   end do
   write (22, '(A,I6,A)') 'zdef', nlev+1, ' linear 1 1'
-  write (22, '(A,I6,A)') 'tdef', nid_obs+1, ' linear 00z01jan2000 1dy'
-  write (22, '(A,I6,A)') 'edef', nobtype+1, ' names'
-  do itype = 1, nobtype
-    write (22, '(A)') obtypelist(itype)
+  write (22, '(A,I6,A)') 'tdef', obsid_atm_num+1, ' linear 00z01jan2000 1dy'
+  write (22, '(A,I6,A)') 'edef', platform_num+1, ' names'
+  do itype = 1, platform_num
+    write (22, '(A)') platform_name(itype)
   end do
   write (22, '(A)') 'TOTAL'
   write (22, '(A)') 'vars     1'

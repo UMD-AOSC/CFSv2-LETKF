@@ -3,8 +3,10 @@ PROGRAM dec_prepbufr
 ! NOTE: output goes to fort.90
 !
   USE common
-  USE common_gfs
-  USE common_obs_gfs
+  use common_obs
+!  USE common_gfs
+!  USE common_obs_gfs
+  
 
   IMPLICIT NONE
 
@@ -23,12 +25,11 @@ PROGRAM dec_prepbufr
 !                                    &   'VOB WQM WPC WRC VFC VAN CAT'/)
   CHARACTER(8) :: obtype
 !  CHARACTER :: var(8) = (/'P','Q','T','Z','U','V'/)
-!  INTEGER,PARAMETER :: nobtype = 20
   INTEGER :: IREADNS
   INTEGER :: idate,idummy,nilev,n
   INTEGER :: ilev,ievn
-  INTEGER :: iobs(nobtype+1),iobs_out(nobtype+1)
-!  CHARACTER(6) :: obtypelist(nobtype)
+  INTEGER :: iobs(platform_num+1),iobs_out(platform_num+1)
+!  CHARACTER(6) :: obtypelist(platform_num)
   REAL(r_dble) :: station(5)
   CHARACTER(8) :: cs
   REAL(r_dble) :: prs(4,maxlev,maxevn)
@@ -65,14 +66,16 @@ PROGRAM dec_prepbufr
     !
     IF(IREADNS(11,obtype,idate) /= 0) EXIT
 !    print *,obtype,idate ! for debugging
-!    READ(*,*)            ! for debugging
-    DO n=1,nobtype+1
-      IF(obtype == obtypelist(n) .OR. n > nobtype) THEN
+    !    READ(*,*)            ! for debugging
+
+    DO n=1,platform_num+1
+      IF(obtype == platform_name(n) .OR. n > platform_num) THEN
         iobs(n) = iobs(n)+1
         EXIT
       END IF
     END DO
     wk(7) = REAL(n)
+    
 !    IF(n /= 15) CYCLE      ! for debugging
     !
     ! station location (lon, lat)
@@ -97,13 +100,13 @@ PROGRAM dec_prepbufr
      & obtype == 'SFCBOG') CALL output_ps ! surface pressure report
     IF(nilev > 0) THEN
       CALL UFBEVN(11,obs,4,maxlev,maxevn,ilev,'QOB QOE QQM QPC')
-      CALL output(id_q_obs)
+      CALL output(obsid_atm_q)
       CALL UFBEVN(11,obs,4,maxlev,maxevn,ilev,'TOB TOE TQM TPC')
-      CALL output(id_t_obs)
+      CALL output(obsid_atm_t)
       CALL UFBEVN(11,obs,4,maxlev,maxevn,ilev,'UOB WOE WQM WPC')
-      CALL output(id_u_obs)
+      CALL output(obsid_atm_u)
       CALL UFBEVN(11,obs,4,maxlev,maxevn,ilev,'VOB WOE WQM WPC')
-      CALL output(id_v_obs)
+      CALL output(obsid_atm_v)
     END IF
   END DO
 
@@ -114,11 +117,11 @@ PROGRAM dec_prepbufr
   PRINT '(A,I10)',' TOTAL NUMBER OF READ-IN RECORDS:',SUM(iobs)
   PRINT '(A,I10,A)',' TOTAL NUMBER OF WRITTEN RECORDS:',SUM(iobs_out),' (levels/variables separately)'
   PRINT '(A)','--------------------------------------------------------------------------------'
-  PRINT '(10(2X,A))',obtypelist(1:10)
+  PRINT '(10(2X,A))',platform_name(1:10)
   PRINT '(10I8)',iobs(1:10)
   PRINT '(10I8)',iobs_out(1:10)
   PRINT '(A)','--------------------------------------------------------------------------------'
-  PRINT '(10(2X,A))',obtypelist(11:20)
+  PRINT '(10(2X,A))',platform_name(11:20)
   PRINT '(10I8)',iobs(11:20)
   PRINT '(10I8)',iobs_out(11:20)
   PRINT '(A)','--------------------------------------------------------------------------------'
@@ -145,11 +148,11 @@ SUBROUTINE output(id)
     iqm = NINT(obs(3,ilev,1))
     wk(5:6) = obs(1:2,ilev,1)
 
-    IF(id == id_q_obs) THEN
+    IF(id == obsid_atm_q) THEN
       wk(5) = wk(5) * 1.E-6 ! mg/kg -> kg/kg
       wk(6) = MAX(wk(5)*wk(6)*0.15,1.0E-7)
     END IF
-    IF(id == id_t_obs) then
+    IF(id == obsid_atm_t) then
       wk(5) = wk(5) + t0c
       do iseq = 1,maxevn-1
         if (obs(4,ilev,iseq) > 9.e10) exit
@@ -174,7 +177,7 @@ END SUBROUTINE output
 SUBROUTINE output_ps
   INTEGER :: iqm
 
-  wk(1) = id_ps_obs
+  wk(1) = obsid_atm_ps
   iqm = NINT(prs(3,1,1))
   IF(iqm < 0 .OR. 2 < iqm) RETURN
   wk(5:6) = prs(1:2,1,1)

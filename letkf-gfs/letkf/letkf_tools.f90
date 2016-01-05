@@ -11,6 +11,7 @@ MODULE letkf_tools
 !
 !=======================================================================
   USE common
+  use common_obs
   USE common_mpi
   USE common_gfs
   USE common_mpi_gfs
@@ -398,37 +399,37 @@ SUBROUTINE das_letkf_obs(v3dinfl,v2dinfl)
     ! Also determine the pressure level will the observation variable be regarded as?
     !
     SELECT CASE(NINT(obselm(nn)))
-    CASE(id_u_obs)
+    CASE(obsid_atm_u)
       n = iv3d_u          ! for variable localization, what grid variable to be regarded as? 
-      inflelem = id_u_obs ! for inflation parameter,   what grid variable to be regarded as?
+      inflelem = obsid_atm_u ! for inflation parameter,   what grid variable to be regarded as?
       rlev = obslev(nn)
-    CASE(id_v_obs)
+    CASE(obsid_atm_v)
       n = iv3d_v
-      inflelem = id_v_obs
+      inflelem = obsid_atm_v
       rlev = obslev(nn)
-    CASE(id_t_obs,id_tv_obs)
+    CASE(obsid_atm_t,obsid_atm_tv)
       n = iv3d_t
-      inflelem = id_t_obs
+      inflelem = obsid_atm_t
       rlev = obslev(nn)
-    CASE(id_q_obs,id_rh_obs)
+    CASE(obsid_atm_q,obsid_atm_rh)
       n = iv3d_q
-      inflelem = id_q_obs
+      inflelem = obsid_atm_q
       rlev = obslev(nn)
-    CASE(id_ps_obs)
+    CASE(obsid_atm_ps)
       n = nv3d+iv2d_ps
-      inflelem = id_ps_obs
+      inflelem = obsid_atm_ps
       rlev = obsdat(nn)   ! for ps variable, use the observed pressure value
-    CASE(id_rain_obs)
+    CASE(obsid_atm_rain)
       n = 0
-      inflelem = id_q_obs
+      inflelem = obsid_atm_q
       rlev = base_obsv_rain ! for precipitation, assigh the level 'base_obsv_rain'
     CASE DEFAULT
       n = 0
       IF(NINT(obselm(nn)) > 9999) THEN
-        inflelem = id_ps_obs
+        inflelem = obsid_atm_ps
         CALL itpl_2d(v3dinflx(:,:,1,iv3d_p),ri,rj,rlev)
       ELSE
-        inflelem = id_u_obs
+        inflelem = obsid_atm_u
         rlev = obslev(nn)
       END IF
     END SELECT
@@ -442,14 +443,14 @@ SUBROUTINE das_letkf_obs(v3dinfl,v2dinfl)
       IF(CEILING(rk) > nlev) THEN
         rk = REAL(nlev,r_size)
       END IF
-      IF(CEILING(rk) < 2 .AND. inflelem /= id_ps_obs) THEN
+      IF(CEILING(rk) < 2 .AND. inflelem /= obsid_atm_ps) THEN
         IF(inflelem > 9999) THEN
           rk = 0.0d0
         ELSE
           rk = 1.00001d0
         END IF
       END IF
-      IF(inflelem == id_ps_obs) THEN
+      IF(inflelem == obsid_atm_ps) THEN
         CALL itpl_2d(v2dinflx(:,:,iv2d_orog),ri,rj,rk)
         rk = obslev(nn) - rk
       END IF
@@ -834,14 +835,14 @@ SUBROUTINE obs_local(rlon,rlat,rlev,nvar,hdxf,rdiag,rloc,dep,nobsl,oindex)
       !
       ! vertical localization
       !
-      IF(NINT(obselm(nobs_use(n))) == id_ps_obs) THEN
+      IF(NINT(obselm(nobs_use(n))) == obsid_atm_ps) THEN
         dlev = ABS(LOG(obsdat(nobs_use(n))) - logrlev)
         IF(dlev > dist_zerov) CYCLE
-      ELSE IF(NINT(obselm(nobs_use(n))) == id_rain_obs) THEN
+      ELSE IF(NINT(obselm(nobs_use(n))) == obsid_atm_rain) THEN
         dlev = ABS(LOG(base_obsv_rain) - logrlev)
         IF(dlev > dist_zerov_rain) CYCLE
-      ELSE IF(NINT(obselm(nobs_use(n))) >= id_tclon_obs) THEN !TC track obs
-        dlev = 0.0d0
+      ! ELSE IF(NINT(obselm(nobs_use(n))) >= id_tclon_obs) THEN !TC track obs
+      !   dlev = 0.0d0
       ELSE !! other (3D) variables
         dlev = ABS(LOG(obslev(nobs_use(n))) - logrlev)
         IF(dlev > dist_zerov) CYCLE
@@ -850,7 +851,7 @@ SUBROUTINE obs_local(rlon,rlat,rlev,nvar,hdxf,rdiag,rloc,dep,nobsl,oindex)
       ! horizontal localization
       !
       CALL com_distll_1(obslon(nobs_use(n)),obslat(nobs_use(n)),rlon,rlat,dist)
-      IF(NINT(obselm(nobs_use(n))) == id_rain_obs) THEN
+      IF(NINT(obselm(nobs_use(n))) == obsid_atm_rain) THEN
         IF(dist > dist_zero_rain) CYCLE
       ELSE
         IF(dist > dist_zero) CYCLE
@@ -860,28 +861,22 @@ SUBROUTINE obs_local(rlon,rlat,rlev,nvar,hdxf,rdiag,rloc,dep,nobsl,oindex)
       !
       IF(nvar > 0) THEN ! use variable localization only when nvar > 0
         SELECT CASE(NINT(obselm(nobs_use(n))))
-        CASE(id_u_obs)
+        CASE(obsid_atm_u, obsid_atm_v)
           iobs=1
-        CASE(id_v_obs)
-          iobs=1
-        CASE(id_t_obs)
+        CASE(obsid_atm_t, obsid_atm_tv)
           iobs=2
-        CASE(id_tv_obs)
-          iobs=2
-        CASE(id_q_obs)
+        CASE(obsid_atm_q, obsid_atm_rh)
           iobs=3
-        CASE(id_rh_obs)
-          iobs=3
-        CASE(id_ps_obs)
+        CASE(obsid_atm_ps)
           iobs=4
-        CASE(id_rain_obs)
+        CASE(obsid_atm_rain)
           iobs=5
-        CASE(id_tclon_obs)
-          iobs=6
-        CASE(id_tclat_obs)
-          iobs=6
-        CASE(id_tcmip_obs)
-          iobs=6
+        ! CASE(id_tclon_obs)
+        !   iobs=6
+        ! CASE(id_tclat_obs)
+        !   iobs=6
+        ! CASE(id_tcmip_obs)
+        !   iobs=6
         END SELECT
         IF(var_local(nvar,iobs) < TINY(var_local)) CYCLE
       END IF
@@ -894,7 +889,7 @@ SUBROUTINE obs_local(rlon,rlat,rlev,nvar,hdxf,rdiag,rloc,dep,nobsl,oindex)
       !
       tmperr=obserr(nobs_use(n))
       rdiag(nobsl) = tmperr * tmperr
-      IF(NINT(obselm(nobs_use(n))) == id_rain_obs) THEN                              ! GYL
+      IF(NINT(obselm(nobs_use(n))) == obsid_atm_rain) THEN                              ! GYL
         rloc(nobsl) =EXP(-0.5d0 * ((dist/sigma_obs_rain)**2 + (dlev/sigma_obsv)**2)) ! GYL
       ELSE                                                                           ! GYL
         rloc(nobsl) =EXP(-0.5d0 * ((dist/sigma_obs)**2 + (dlev/sigma_obsv)**2))      ! GYL

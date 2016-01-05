@@ -1,185 +1,194 @@
 #!/usr/bin/env python
-################################################################################
+############################################################
+##
+## TODO, insert description
+##
+############################################################
 
-## load built in modules
+## load buit-in python modules
 import argparse
-import os,shutil
+import os, shutil, sys
 import subprocess as sp
 from glob import glob
 import datetime as dt
 
-## load 3rd party modules
+## load our own modules
 import common
 import slurm
 
 ## setup the logging system
 log = common.setupLog()
 
-
-## configurables (TODO, make these configurable from outside)
 ##############################
-timeLimit_CFS = "5:00"
-timeLimit_DA  = "15:00"
+## configurable
+## TODO, make this configurable from outside
+timeLimit_CFS = "7:00"
+timeLimit_DA  = "7:00"
+
 rootDir = os.getenv("CFS_LETKF_ROOT")
 tmpDir  = os.getenv("TMP_DIR_SHARED")
 
-################################################################################
-################################################################################
 
 
-## get the command line arguments
-################################################################################
-parser = argparse.ArgumentParser(
-    formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-    description=(
-        "CFS-LETKF 6 hour DA/forecast cycle script. Manages the SLURM "
-        "submission of alternating LETKF and forecast jobs. This script monitors "
-        "the job progress and relaunches any failed jobs. If a job fails due to "
-        "a bad computational node, that node is flagged and will not be used again."))
+############################################################
+## Get the Command line arguments
+
+parser = argparse.ArgumentParser(description=(
+    "CFS-LETKF 6 hour DA/forecast cycle script. Manages the SLURM "
+    "submission of alternating LETKF and forecast jobs. This script "
+    "monitors the job progress and relaunches any failed jobs. If "
+    "a job fails due to a bad computational node, that node is flagged "
+    "and will not be used again."))
 
 ## required variables
-g = parser.add_argument_group(title="required parameters")
-g.add_argument('-s','--start', metavar="date", required=True,
-    help="start date, in format YYYYMMDDHH")
-g.add_argument('-e','--end',  metavar="date",  required=True,
-    help="stop date, in format YYYYMMDDHH")
-g.add_argument('-p','--path', metavar='path', required=True,
-    help="path to the directory storing the experiment")
+parser.add_argument('path', metavar="PATH", help=(
+    "Path to the directory storing the experiment."))
+parser.add_argument('start', metavar="START_DATE", help=(
+    "Start date from which first forecast is launched. Date "
+    "is in format YYYYMMDDHH"))
+parser.add_argument('end', metavar="END_DATE", help=(
+    "Stop date in format YYYYMMDDHH"))
 
 ## optional variables
-g = parser.add_argument_group(title="optional parameters")
-g.add_argument('--mem', metavar='members', type=int,
-    help=("number of ensemble members. By default the script "
-          "will automatically determine the number of ensemble "
-          "members based on the directory structure in the path given"))
-g.add_argument('--period', type=int, default=6,
-    help="the cycle period, in hours")
-g.add_argument('--partition',
-    help=("the SLURM partition to use, only meaningful overrides are "
-          "'debug' and 'scavenger'"))
-g.add_argument('--account', default="aosc-hi",
-    help="The slurm account to run the experiment with")
-g.add_argument('--clear', metavar="hours", default="12", type=int,
-    help=("age (in hours) at which old no longer required individual "
-          "ensemble members are deleted. Setting to 0 disables this and "
-          "leaves all members (which will use a lot of space!)"))
-g.add_argument('--retries', metavar='int', default="3", type=int,
-    help=("number of retry attempts to perform when a forecast or data "
-          "assimilation step fails."))
-
-## parse the variables
+parser.add_argument('--account', default="aosc-hi", help=(
+    "The SLURM account to run the experiment with. (Default: aosc-hi)"))
+parser.add_argument('--ares', default='62', type=int, choices=common.aresList, help=(
+    "Atmospheric resolution, must match the resolution of the initial "
+    " ensemble members in the PATH directory. (Default: 62)"))
+parser.add_argument('--clear', metavar="HOURS", default="12", type=int, help=(
+    "Age (in hours) at which old no longer required individual ensemble "
+    "members are deleted. Setting this to 0 disables this and leaves all "
+    "members, and therefore uses a LOT of space. (Default: 12)"))
+parser.add_argument('--mem', metavar='MEMBERS', type=int, help=(
+    "The number of ensemble members. By default the script will "
+    "automatically determine the number of ensemble members based "
+    "on the directory structure of PATH"))
+parser.add_argument('--partition', help=(
+    "The SLURM partition to use. Only meaningful overrides (on DT2) "
+    " are 'debug' and 'scavenger'."))
+parser.add_argument('--retries', metavar="NUM", default="3", type=int, help=(
+    "Maximum number of times to retry submitting a SLURM job step before "
+    "This script fails out. (Default: 3)"))
+                    
+## parse the variables 
 args=parser.parse_args()
 args.path = os.path.abspath(args.path)
-slurmPartition = ''
 if args.partition:
     slurm.partition = args.partition
-startDate = dt.datetime.strptime(args.start, "%Y%m%d%H")
-endDate   = dt.datetime.strptime(args.end, "%Y%m%d%H")
+args.start = dt.datetime.strptime(args.start, "%Y%m%d%H")
+args.end   = dt.datetime.strptime(args.end, "%Y%m%d%H")
 slurm.account = args.account
-slurm.maxJobRetries = 10
-
-args.ares=62 ## todo, add this to configurables
-analGFS = os.getenv("CFSR_DIR")+"/T{}".format(args.ares)
-
-
-## create the logging directory if not already existing,
-## and setup a log file for this script
-logDir = args.path+'/logs/'
-if not os.path.exists(logDir):
-    os.makedirs(logDir)
-common.addFileLog(log, logDir+'/controller_'+args.start+'.log')
-log.info("CFSv2-LETKF DA cycle script")
-log.info("Travis Sluka, University of Maryland, 2015")
-log.info("")
-
-## other stuff
-log.info(str(args))
-log.info("Start date: "+str(startDate))
-log.info("End date:   "+str(endDate))
-
-## determine the number of ensemble members we are using,
-## if not from the command line then implicitly by
-## looking at the number of folders in the data directory
+slurm.maxJobRetires = args.retries
+#args.analGFS = os.getenv("CFSR_DIR")+"/T{}".format(args.ares)
 if args.mem is None:
     args.mem = common.getEnsMem(args.path)
-    log.info("Using {0} ensemble members".format(args.mem))  
+sdateShort = args.start.strftime("%Y%m%d%H")
 
+############################################################
+## print some basic information
+common.addFileLog(log,args.path+'/logs/controller_'+sdateShort+'.log')
+log.info("CFSv2-LETKF DA cycle script.")
+log.info("Travis Sluka, University of Maryland, 2016")
 log.info("")
+log.info("Configuration:\n"+str(args)+"\n")
 
 
-    
-##################################################################################            
-## Run cycle
-##################################################################################
-nproc_cfs = int(os.getenv("NPROC_OM"))+int(os.getenv("NPROC_AM"))+1
+############################################################
+## run the cycle
+########################################
+## number of cores for a CFS ensemble member run
+nproc_cfs = int(os.getenv("NPROC_AM"))+int(os.getenv("NPROC_OM"))+1
+assert(nproc_cfs >= 3)
+## number of nodes for a CFS ensemble member run
 nnodes_cfs = nproc_cfs / 20
+log.info("Using {:d} cores on {} nodes for each CFS ens member\n".format(
+    nproc_cfs,nnodes_cfs))
 
-log.info("Using {:d} cores for each CFS ens member.".format(nproc_cfs))
-
-cdate = startDate
-while cdate < endDate:
+cdate = args.start  ## current date
+while cdate < args.end:
     log.info("*** Begining "+str(cdate))
-    ndate = cdate + dt.timedelta(hours=6)
     cdateShort = cdate.strftime("%Y%m%d%H")
+    cdateDir = cdate.strftime("%Y/%Y%m/%Y%m%d/%Y%m%d%H")
+    ndate = cdate + dt.timedelta(hours=6)     ## next date
     ndateShort = ndate.strftime("%Y%m%d%H")
+    
 
-    # run the 6 hour forecasts
-    ############################################################
+    ##############################
+    ## run the jobs that can be done completely parallel for each ens member.
+    ## This consists of the forecast, conversion to gridded, and ocean obsop
     jobs = []
-    for m in range(1,args.mem+1):
+    for m in range(1, args.mem+1):
         mem = '{0:03d}'.format(m)
-        inPath  = args.path+'/anal/'+mem+'/'
-        outPath = args.path+'/gues/'+mem+'/'
+        cmd = "run_cycle_ensmem {} {} {}".format(
+            args.path, cdateShort, mem)
         job = slurm.Job(
-            name = 'CFS_'+mem,
-            cmd = "./run_fcst {} {} {} 9 1 {} {}".format(
-                inPath, outPath, cdateShort, args.ares, tmpDir+'/CFS_{:03d}'.format(m)),
+            name    = 'CFS_'+mem,
+            cmd     = cmd,
             runtime = timeLimit_CFS,
             nproc   = nproc_cfs,
             nodes   = nnodes_cfs,
-            output  = logDir+cdate.strftime('/%Y/%Y%m/%Y%m%d/%Y%m%d%H/')+'CFS-'+mem+'_%j.log',
-        )
+            output  = args.path+'/logs/'+cdateDir+'/CFS-'+mem+'_%j.log'
+            )
         jobs.append(job)
-    log.info("    Running forecasts...")
+    log.info("  Running parallel ens mem forecast and other jobs...")
     slurm.monitor(jobs)
 
-    ## run the data assimilation
-    ############################################################
-    jobs = []
+
+    ##############################
+    ## Run the observation operator for the atmosphere
+    ##  This is done separately from the above step because the
+    ##  superob program requires the mean of the atm ensemble
+    cmd = "run_cycle_atmObsop {} {}".format(
+        args.path, cdateShort)
     job = slurm.Job(
-        name = 'CFSDAATM',
-        wdir = rootDir+'/run',
-        cmd = "./run_DA_atm --path {} --date {} --mem {}".format(args.path,ndateShort,args.mem),
+        name     = 'CFS_atmobs',
+        cmd      = cmd,
+        runtime  = "10:00",
+        nproc    = os.getenv("NPROC_LETKF"),
+        output   = args.path+'/logs/'+cdateDir+'/atmObsop_%j.log'
+        )
+    log.info("  Running ATM observation operator...")    
+    slurm.monitor([job,])
+
+
+    ##############################
+    ## Run the Data assimilation in parallel
+    ##  for the two domains
+    jobs = []
+    cmd = "run_cycle_atmDA {} {}".format(
+        args.path, cdateShort)
+    jobs.append(slurm.Job(
+        name = "CFSDAAtm",
+        cmd = cmd,
         runtime = timeLimit_DA,
         nproc = os.getenv("NPROC_LETKF"),
-        output  = logDir+ndate.strftime('/%Y/%Y%m/%Y%m%d/%Y%m%d%H/')+'letkf-atm'+'_%j.log',
-    )
-    jobs.append(job)
-    job = slurm.Job(
-        name = 'CFSDAOCN',
-        wdir = rootDir+'/run',        
-        cmd = "./run_DA_ocn --path {} --date {} --mem {}".format(args.path,ndateShort,args.mem),
+        output = args.path+'/logs/'+cdateDir+'/letkf-atm_%j.log'
+    ))
+    cmd = "run_cycle_ocnDA {} {}".format(
+        args.path, cdateShort)
+    jobs.append(slurm.Job(
+        name = "CFSDAOcn",
+        cmd = cmd,
         runtime = timeLimit_DA,
-        nproc = os.getenv("NPROC_LETKF"),        
-        output  = logDir+ndate.strftime('/%Y/%Y%m/%Y%m%d/%Y%m%d%H/')+'letkf-ocn'+'_%j.log',
-    )
-    jobs.append(job)
-    log.info("    Running LETKF ...")
+        nproc = os.getenv("NPROC_LETKF"),
+        output = args.path+'/logs/'+cdateDir+'/letkf-ocn_%j.log'
+    ))
+    log.info("  Running LETKF...")
     slurm.monitor(jobs)
-##    sys.exit(1)
+    
 
+    
+    ##############################
     ## clean up old files
-    ############################################################
     if args.clear > 0:
         files  = glob(args.path+'/gues/???/??????????_*')
         files += glob(args.path+'/anal/???/??????????.*')
+        files += glob(args.path+'/obsop/??????????_*')
         for f in files:
             date = f.split('/')[-1].split('.')[0].split('_')[0]
             if (cdate - dt.datetime.strptime(date,"%Y%m%d%H")) > dt.timedelta(hours = args.clear):
                 os.remove(f)
-    
-
                 
-    ## increment date
-    ############################################################
+    
+    ## increment the date
     cdate = ndate

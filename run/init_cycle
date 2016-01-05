@@ -16,6 +16,7 @@ import sys
 import subprocess as sp
 from glob import glob
 
+import common
 
 ## parse the command line arguments
 parser = argparse.ArgumentParser( description=(
@@ -43,6 +44,7 @@ g.add_argument('--ares',type=int,choices=[62,126,382],default=62,help=(
     "horizontal resolution of the atmosphere (Default: 62)"))
 args = parser.parse_args()
 
+
 initDate = dt.datetime.strptime(args.source,"%Y%m%d%H")
 initStep = dt.timedelta(hours=args.step)
 
@@ -54,7 +56,6 @@ initMOM = os.getenv("CFSR_DIR")+"/ocn_05"
 rootDir = os.getenv("CFS_LETKF_ROOT")
 ssioDir = rootDir+'/util/bin'
 tmp= os.getenv("TMP_DIR_LOCAL")+"/init/"
-
 
 ## setup temporary directory
 if os.path.exists(tmp):
@@ -84,6 +85,12 @@ shutil.copy(analGFS+anaPfx+'.sig', tmp+'/fort.21')
 shutil.copy(analGFS+anaPfx+'.sfc', tmp+'/fort.22')
 for d in ('anal','gues'):
     [os.makedirs(args.path+'/{0}/{1}'.format(d,d2)) for d2 in ('mean','sprd')]
+
+## write the namelist for the sscyle program
+with open(tmp+'/ssio.nml', 'w') as f:
+    res = common.getAtmRes(args.ares)
+    f.write('$common_gfs nlon={} nlat={} gfs_jcap={} nlev=64 /'.format(
+        res[0], res[1], args.ares))
         
 for m in range(1,args.mem+1):
     for d in ('anal','gues'):
@@ -142,8 +149,8 @@ with open(rootDir+'/letkf-mom/mom4/grads/ocn.ctl','r') as fin:
             line = line.replace("##DATE##", datestr)
             fout.write(line)
 with open(args.path+'/anal/mean/atm.ctl','w') as out:
-    sp.call(ssioDir+'/grdctl "%y4/%y4%m2/%y4%m2%d2/%y4%m2%d2%h2/%y4%m2%d2%h2_atm.grd" "template byteswapped" '+ datestr +' 6hr 10000 s'
-         , shell=True, stdout=out)
+    sp.call(ssioDir+'/grdctl "%y4/%y4%m2/%y4%m2%d2/%y4%m2%d2%h2/%y4%m2%d2%h2_atm.grd" "template" '+ datestr +' 6hr 10000 s'
+            , shell=True, stdout=out, cwd=tmp)
 for f in ('/anal/sprd/','/gues/mean/','/gues/sprd/', '/infl_mul/'):
     shutil.copy(args.path+'/anal/mean/ocn.ctl',args.path+f)
     shutil.copy(args.path+'/anal/mean/atm.ctl',args.path+f)

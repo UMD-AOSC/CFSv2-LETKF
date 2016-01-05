@@ -2,7 +2,7 @@
 
 ################################################################################
 import logging
-import sys
+import os, sys
 from glob import glob
 
 
@@ -11,8 +11,24 @@ if __name__ == '__main__':
     logging.critical("This file should not be run from the command line")
     sys.exit(1)
 
-
+## list of available GFS resolutions
+aresList = [62,126,190,382,574,1148]
     
+## Get the x/y atmosphere grid resolution base on the
+## spectral resolution given
+def getAtmRes(t_res):
+    res={
+        62   : ( '192',   '94'),
+        126  : ( '384',  '190'),
+        190  : ( '576',  '288'),
+        382  : ('1152',  '576'),
+        574  : ('1760',  '880'),
+        1148 : ('2304', '1152')}
+    assert(t_res in res)
+    return res[t_res]
+
+        
+
 ############################################################
 ## determine the number of ensemble members the experiment
 ## is using based on the contents of the experiment folder.
@@ -45,6 +61,8 @@ def setupLog():
     return log
 
 def addFileLog(log, path):
+    if not os.path.exists(os.path.dirname(path)):
+        os.makedirs(os.path.dirname(path))
     logFormat = logging.Formatter('[%(levelname)-5s %(asctime)s]  %(message)s', datefmt='%Y-%m-%d %I:%M:%S')
     logFile = logging.FileHandler(filename=path, mode='w')
     logFile.setLevel(logging.DEBUG)

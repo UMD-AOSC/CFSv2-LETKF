@@ -16,6 +16,7 @@ program superob
 !-------------------------------------------------------------------------------
 
   use common
+  use common_obs
   use common_gfs
   use common_obs_gfs
   use superob_tools
@@ -87,14 +88,14 @@ program superob
   real(r_size) :: tmp3rk (max_platform_reclen)
   real(r_size) :: tmp3k  (max_platform_reclen)
 
-  integer :: nobsgrd(nlon,nlat,0:nlevx,nslots,nid_obs)
-  integer :: nobsgrdac(0:nlon,nlat,0:nlevx,nslots,nid_obs)
-  integer :: iobsgrd(nlon,nlat,0:nlevx,nslots,nid_obs)
+  integer :: nobsgrd(nlon,nlat,0:nlevx,nslots,obsid_atm_num)
+  integer :: nobsgrdac(0:nlon,nlat,0:nlevx,nslots,obsid_atm_num)
+  integer :: iobsgrd(nlon,nlat,0:nlevx,nslots,obsid_atm_num)
 
-  integer :: obmethod_g(nobtype,nid_obs)
-  integer :: obmethod_h(nobtype,nid_obs)
-  integer :: obmethod_v(nobtype,nid_obs)
-  integer :: obmethod_t(nobtype,nid_obs)
+  integer :: obmethod_g(platform_num,obsid_atm_num)
+  integer :: obmethod_h(platform_num,obsid_atm_num)
+  integer :: obmethod_v(platform_num,obsid_atm_num)
+  integer :: obmethod_t(platform_num,obsid_atm_num)
 
   integer :: nobs, nobs_thistype
   integer :: nobslots(nslots)
@@ -200,7 +201,7 @@ program superob
 
   do islot=1,nslots
     write (obsfile(4:5), '(I2.2)') islot
-    call get_nobs(obsfile, 7, nobslots(islot))
+    nobslots(islot) = obs_getnum(obsfile, extended=.false.)
   end do
   nobs = sum(nobslots)
 
@@ -265,7 +266,7 @@ timeslots: do islot = 1, nslots
                   tmptyp(nn+1:nn+nobslots(islot)))
     tmploti(nn+1:nn+nobslots(islot)) = islot
     do nnn = nn+1, nn+nobslots(islot)
-      tmpelmi(nnn) = uid_obs(nint(tmpelm(nnn)))
+      tmpelmi(nnn) = obsid_id2idx(nint(tmpelm(nnn)))-obsid_atm_offset
       tmptypi(nnn) = nint(tmptyp(nnn))
     end do
 
@@ -299,7 +300,7 @@ timeslots: do islot = 1, nslots
           nobsrdc_bd = nobsrdc_bd + 1
           if (print_log) then
             write (82, '(A,A6,A,A3,A,I3,3(A,F7.2),A,F7.2)') &
-              '[', obtypelist(tmptypi(nn+n)), ':', obelmlist(tmpelmi(nn+n)), &
+              '[', platform_name(tmptypi(nn+n)), ':', obsid_names(tmpelmi(nn+n)), &
               '] slot=', islot, ' lon=', tmplon(nn+n), ' lat=', tmplat(nn+n), ' lev=', tmplev(nn+n)/100., &
               ' | obs removed because too high'
           end if
@@ -312,12 +313,12 @@ timeslots: do islot = 1, nslots
         if (print_log) then
           if (tmpk(nn+n) == 0) then
             write (82, '(A,A6,A,A3,A,I3,3(A,F7.2),A,F7.2)') &
-              '[', obtypelist(tmptypi(nn+n)), ':', obelmlist(tmpelmi(nn+n)), &
+              '[', platform_name(tmptypi(nn+n)), ':', obsid_names(tmpelmi(nn+n)), &
               '] slot=', islot, ' lon=', tmplon(nn+n), ' lat=', tmplat(nn+n), ' alt=', tmplev(nn+n), &
               ' | obs removed because lat <', lat(1)
           else
             write (82, '(A,A6,A,A3,A,I3,3(A,F7.2),A,F7.2)') &
-              '[', obtypelist(tmptypi(nn+n)), ':', obelmlist(tmpelmi(nn+n)), &
+              '[', platform_name(tmptypi(nn+n)), ':', obsid_names(tmpelmi(nn+n)), &
               '] slot=', islot, ' lon=', tmplon(nn+n), ' lat=', tmplat(nn+n), ' lev=', tmplev(nn+n)/100., &
               ' | obs removed because lat <', lat(1)
           end if
@@ -329,12 +330,12 @@ timeslots: do islot = 1, nslots
         if (print_log) then
           if (tmpk(nn+n) == 0) then
             write (82, '(A,A6,A,A3,A,I3,3(A,F7.2),A,F7.2)') &
-              '[', obtypelist(tmptypi(nn+n)), ':', obelmlist(tmpelmi(nn+n)), &
+              '[', platform_name(tmptypi(nn+n)), ':', obsid_names(tmpelmi(nn+n)), &
               '] slot=', islot, ' lon=', tmplon(nn+n), ' lat=', tmplat(nn+n), ' alt=', tmplev(nn+n), &
               ' | obs removed because lat >', lat(nlat)
           else
             write (82, '(A,A6,A,A3,A,I3,3(A,F7.2),A,F7.2)') &
-              '[', obtypelist(tmptypi(nn+n)), ':', obelmlist(tmpelmi(nn+n)), &
+              '[', platform_name(tmptypi(nn+n)), ':', obsid_names(tmpelmi(nn+n)), &
               '] slot=', islot, ' lon=', tmplon(nn+n), ' lat=', tmplat(nn+n), ' lev=', tmplev(nn+n)/100., &
               ' | obs removed because lat >', lat(nlat)
           end if
@@ -347,20 +348,20 @@ timeslots: do islot = 1, nslots
         if (print_log) then
           if (tmpk(nn+n) == 0) then
             write (81, '(A,A6,A,A3,A,I3,3(A,F7.2),A,F7.2)') &
-              '[', obtypelist(tmptypi(nn+n)), ':', obelmlist(tmpelmi(nn+n)), &
+              '[', platform_name(tmptypi(nn+n)), ':', obsid_ids(tmpelmi(nn+n)+obsid_atm_offset), &
               '] slot=', islot, ' lon=', tmplon(nn+n), ' lat=', tmplat(nn+n), ' alt=', tmplev(nn+n), &
               ' | obs removed because not to use this type/variables'
           else
             write (81, '(A,A6,A,A3,A,I3,3(A,F7.2),A,F7.2)') &
-              '[', obtypelist(tmptypi(nn+n)), ':', obelmlist(tmpelmi(nn+n)), &
+              '[', platform_name(tmptypi(nn+n)), ':', obsid_ids(tmpelmi(nn+n)+obsid_atm_offset), &
               '] slot=', islot, ' lon=', tmplon(nn+n), ' lat=', tmplat(nn+n), ' lev=', tmplev(nn+n)/100., &
               ' | obs removed because not to use this type/variables'
           end if
         end if
       end if
 
-      if ((tmpelmi(nn+n) < 1 .or. tmpelmi(nn+n) > nid_obs .or. &
-           tmptypi(nn+n) < 1 .or. tmptypi(nn+n) > nobtype) .and. tmpqc(nn+n) == 0) then
+      if ((tmpelmi(nn+n) < 1 .or. tmpelmi(nn+n) > obsid_atm_num .or. &
+           tmptypi(nn+n) < 1 .or. tmptypi(nn+n) > platform_num) .and. tmpqc(nn+n) == 0) then
         tmpqc(nn+n) = 5
         nobsrdc_tp = nobsrdc_tp + 1
         if (print_log) then
@@ -442,7 +443,7 @@ timeslots: do islot = 1, nslots
               nobsrdc_v = nobsrdc_v + recend-recstart+1 - mm
               if (print_log) then
                 write (83, '(A,A6,A,A3,A,I3,4(A,F7.2),2(A,I4))') &
-                  '[', obtypelist(tmptypi(nnn)), ':', obelmlist(tmpelmi(nnn)), &
+                  '[', platform_name(tmptypi(nnn)), ':', obsid_names(tmpelmi(nnn)), &
                   '] slot=', islot, ' lon=', tmplon(recstart), ' lat=', tmplat(recstart), &
                   ' lev=', maxval(tmplev(recstart:recend))/100., '~', minval(tmplev(recstart:recend))/100., &
                   ' | obs # reduced from', recend-recstart+1, ' ->', mm
@@ -514,7 +515,7 @@ timeslots: do islot = 1, nslots
         nobsrdc_v = nobsrdc_v + recend-recstart+1 - mm
         if (print_log) then
           write (83, '(A,A6,A,A3,A,I3,4(A,F7.2),2(A,I4))') &
-            '[', obtypelist(tmptypi(nnn)), ':', obelmlist(tmpelmi(nnn)), &
+            '[', platform_name(tmptypi(nnn)), ':', obsid_names(tmpelmi(nnn)), &
             '] slot=', islot, ' lon=', tmplon(recstart), ' lat=', tmplat(recstart), &
             ' lev=', maxval(tmplev(recstart:recend))/100., '~', minval(tmplev(recstart:recend))/100., &
             ' | obs # reduced from', recend-recstart+1, ' ->', mm
@@ -572,10 +573,10 @@ timeslots: do islot = 1, nslots
   nnn = 0
 
   !--------------------
-  do itype = 1, nobtype
+  do itype = 1, platform_num
   !--------------------
 
-    write (*, '(2A)') 'processing ', obtypelist(itype)
+    write (*, '(2A)') 'processing ', platform_name(itype)
 
     nobsgrd(:,:,:,:,:) = 0
     nobsgrdac(:,:,:,:,:) = 0
@@ -590,7 +591,7 @@ timeslots: do islot = 1, nslots
     end do
 
     accu = 0
-    do ielm = 1, nid_obs
+    do ielm = 1, obsid_atm_num
       do islot = 1, nslots
         do k = 0, nlevx
           do j = 1, nlat
@@ -639,7 +640,7 @@ timeslots: do islot = 1, nslots
 
       nn = 0
 
-      do ielm = 1, nid_obs
+      do ielm = 1, obsid_atm_num
 
         if (obmethod_t(itype,ielm) > 0) then
           do k = 0, nlevx
@@ -661,12 +662,12 @@ timeslots: do islot = 1, nslots
                       if (print_log) then
                         if (k == 0) then ! surface observations
                           write (84, '(A,A6,A,A3,A,I3,3(A,F7.2),A)') &
-                            '[', obtypelist(itype), ':', obelmlist(ielm), &
+                            '[', platform_name(itype), ':', obsid_names(ielm), &
                             '] slot=', islot, ' lon=', tmp2lon(n1), ' lat=', tmp2lat(n1), ' alt=', tmp2lev(n1), &
                             ' | obs removed because it is off the base time'
                         else
                           write (84, '(A,A6,A,A3,A,I3,3(A,F7.2),A)') &
-                            '[', obtypelist(itype), ':', obelmlist(ielm), &
+                            '[', platform_name(itype), ':', obsid_names(ielm), &
                             '] slot=', islot, ' lon=', tmp2lon(n1), ' lat=', tmp2lat(n1), ' lev=', tmp2lev(n1)/100., &
                             ' | obs removed because it is off the base time'
                         end if
@@ -692,12 +693,12 @@ timeslots: do islot = 1, nslots
                             if (print_log) then
                               if (k == 0) then ! surface observations
                                 write (84, '(A,A6,A,A3,A,I3,3(A,F7.2),A,I3)') &
-                                  '[', obtypelist(itype), ':', obelmlist(ielm), &
+                                  '[', platform_name(itype), ':', obsid_names(ielm), &
                                   '] slot=', islot, ' lon=', tmp2lon(n1), ' lat=', tmp2lat(n1), ' alt=', tmp2lev(n1), &
                                   ' | obs removed because it also exists in slot', islot2
                               else
                                 write (84, '(A,A6,A,A3,A,I3,3(A,F7.2),A,I3)') &
-                                  '[', obtypelist(itype), ':', obelmlist(ielm), &
+                                  '[', platform_name(itype), ':', obsid_names(ielm), &
                                   '] slot=', islot, ' lon=', tmp2lon(n1), ' lat=', tmp2lat(n1), ' lev=', tmp2lev(n1)/100., &
                                   ' | obs removed because it also exists in slot', islot2
                               end if
@@ -721,14 +722,14 @@ timeslots: do islot = 1, nslots
           end do     ! [ k = 0, nlevx ]
         end if
 
-      end do ! [ ielm = 1, nid_obs ]
+      end do ! [ ielm = 1, obsid_atm_num ]
 
       nnn = nnn + nobs_thistype
 
     end if ! [ nobs_thistype > 0 ]
 
   !-----
-  end do ! [ itype = 1, nobtype ]
+  end do ! [ itype = 1, platform_num ]
   !-----
 
 ! tmpqc:
@@ -771,10 +772,10 @@ timeslots: do islot = 1, nslots
   nnn_after = 0
 
   !--------------------
-  do itype = 1, nobtype
+  do itype = 1, platform_num
   !--------------------
 
-    write (*, '(2A)') 'processing ', obtypelist(itype)
+    write (*, '(2A)') 'processing ', platform_name(itype)
 
     nobsgrd(:,:,:,:,:) = 0
     nobsgrdac(:,:,:,:,:) = 0
@@ -789,7 +790,7 @@ timeslots: do islot = 1, nslots
     end do
 
     accu = 0
-    do ielm = 1, nid_obs
+    do ielm = 1, obsid_atm_num
       do islot = 1, nslots
         do k = 0, nlevx
           do j = 1, nlat
@@ -838,7 +839,7 @@ timeslots: do islot = 1, nslots
 
       nn = 0
 
-      do ielm = 1, nid_obs
+      do ielm = 1, obsid_atm_num
         do islot = 1, nslots
 
           if (obmethod_h(itype,ielm) > 0) then
@@ -886,12 +887,12 @@ timeslots: do islot = 1, nslots
                   if (print_log .and. m < nobsgrd(i,j,k,islot,ielm)) then
                     if (k == 0) then ! surface observations
                       write (85, '(A,A6,A,A3,A,I3,2(A,F7.2),12x,2(A,I4))') &
-                        '[', obtypelist(itype), ':', obelmlist(ielm), &
+                        '[', platform_name(itype), ':', obsid_names(ielm), &
                         '] slot=', islot, ' lon=', lon(i), ' lat=', lat(j), &
                         ' | obs # reduced from', nobsgrd(i,j,k,islot,ielm), ' ->', m
                     else
                       write (85, '(A,A6,A,A3,A,I3,3(A,F7.2),2(A,I4))') &
-                        '[', obtypelist(itype), ':', obelmlist(ielm), &
+                        '[', platform_name(itype), ':', obsid_names(ielm), &
                         '] slot=', islot, ' lon=', lon(i), ' lat=', lat(j), ' lev=', refpres(i,j,k)/100., &
                         ' | obs # reduced from', nobsgrd(i,j,k,islot,ielm), ' ->', m
                     end if
@@ -933,7 +934,7 @@ timeslots: do islot = 1, nslots
           end if ! [ obmethod_h(itype,ielm) > 0 ]
 
         end do ! [ islot = 1, nslots ]
-      end do   ! [ ielm = 1, nid_obs ]
+      end do   ! [ ielm = 1, obsid_atm_num ]
 
       nnn_before = nnn_before + nobs_thistype
       nnn_after  = nnn_after  + nn
@@ -942,7 +943,7 @@ timeslots: do islot = 1, nslots
     end if ! [ nobs_thistype > 0 ]
 
   !-----
-  end do ! [ itype = 1, nobtype ]
+  end do ! [ itype = 1, platform_num ]
   !-----
 
   nobs = nnn_after
@@ -966,30 +967,30 @@ timeslots: do islot = 1, nslots
         levout = tmp2lev(n)
         datout = tmp2dat(n)
         errout = tmp2err(n)
-        select case (elem_uid(tmp2elmi(n)))
-        case (id_u_obs)
+        select case (obsid_ids(tmp2elmi(n)))
+        case (obsid_atm_u)
           levout = levout * 0.01 ! Pa -> hPa
-        case (id_v_obs)
+        case (obsid_atm_v)
           levout = levout * 0.01 ! Pa -> hPa
-        case (id_t_obs)
+        case (obsid_atm_t)
           levout = levout * 0.01 ! Pa -> hPa
-        case (id_tv_obs)
+        case (obsid_atm_tv)
           levout = levout * 0.01 ! Pa -> hPa
-        case (id_q_obs)
+        case (obsid_atm_q)
           levout = levout * 0.01 ! Pa -> hPa
-        case (id_ps_obs)
+        case (obsid_atm_ps)
           datout = datout * 0.01 ! Pa -> hPa
           errout = errout * 0.01 ! Pa -> hPa
-        case (id_rh_obs)
+        case (obsid_atm_rh)
           levout = levout * 0.01 ! Pa -> hPa
           datout = datout * 100.0 ! percent output
           errout = errout * 100.0 ! percent output
-        case (id_tcmip_obs)
-          datout = datout * 0.01 ! Pa -> hPa
-          errout = errout * 0.01 ! Pa -> hPa
+!        case (id_tcmip_obs)
+!          datout = datout * 0.01 ! Pa -> hPa
+!          errout = errout * 0.01 ! Pa -> hPa
         end select
 
-        write (92) real(elem_uid(tmp2elmi(n)), r_sngl), &
+        write (92) real(obsid_ids(tmp2elmi(n)), r_sngl), &
                    real(tmp2lon(n), r_sngl), &
                    real(tmp2lat(n), r_sngl), &
                    real(levout, r_sngl), &

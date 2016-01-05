@@ -87,6 +87,7 @@ PROGRAM obsope
     oqc=0
     DO n=1,nobslots(islot)
       CALL phys2ijk(v3d(:,:,:,iv3d_p),elem(n),rlon(n),rlat(n),rlev(n),ri,rj,rk)
+
       IF(CEILING(ri) < 2 .OR. nlon+1 < CEILING(ri)) THEN
 !        WRITE(6,'(A)') '* X-coordinate out of range'
 !        WRITE(6,'(A,F6.2,A,F6.2)') '*   ri=',ri,', rlon=',rlon(n)
@@ -105,24 +106,20 @@ PROGRAM obsope
 !         & ', (lon,lat)=(',rlon(n),',',rlat(n),'), phi0=',dz
         CYCLE
       END IF
-      IF(CEILING(rk) < 2 .AND. NINT(elem(n)) /= id_ps_obs) THEN
-        IF(NINT(elem(n)) > 9999) THEN
-          rk = 0.0d0
-        ELSE IF(NINT(elem(n)) == id_u_obs .OR. NINT(elem(n)) == id_v_obs) THEN
-          rk = 1.00001d0
-        ELSE
-!          CALL itpl_2d(v2d(:,:,iv2d_orog),ri,rj,dz)
-!          WRITE(6,'(A)') '* Z-coordinate out of range'
-!          WRITE(6,'(A,F6.2,A,F10.2,A,F6.2,A,F6.2,A,F10.2)') &
-!           & '*   rk=',rk,', rlev=',rlev(n),&
-!           & ', (lon,lat)=(',rlon(n),',',rlat(n),'), phi0=',dz
-          CYCLE
-        END IF
+      IF(CEILING(rk) < 2 .AND. NINT(elem(n)) /= obsid_atm_ps) THEN
+         select case (nint(elem(n)))
+         case (obsid_atm_u, obsid_atm_v)
+            rk = 1.00001d0
+         case(obsid_atm_rain)
+            rk = 0.0d0
+         case default
+            CYCLE
+         end select
       END IF
-      IF(NINT(elem(n)) == id_ps_obs .AND. odat(n) < -100.0d0) THEN
+      IF(NINT(elem(n)) == obsid_atm_ps .AND. odat(n) < -100.0d0) THEN
         CYCLE
       END IF
-      IF(NINT(elem(n)) == id_ps_obs) THEN
+      IF(NINT(elem(n)) == obsid_atm_ps) THEN
         CALL itpl_2d(v2d(:,:,iv2d_orog),ri,rj,dz)
         rk = rlev(n) - dz
         IF(ABS(rk) > threshold_dz) THEN ! pressure adjustment threshold
@@ -167,7 +164,7 @@ PROGRAM obsope
     ohx=0.0d0
     oqc=0
     DO n=1,nobslots(nslots+1)
-      IF(elem(n) /= id_rain_obs) CYCLE
+      IF(elem(n) /= obsid_atm_rain) CYCLE
       CALL phys2ij(rlon(n),rlat(n),ri,rj)
       IF(CEILING(ri) < 2 .OR. nlon+1 < CEILING(ri)) THEN
 !        WRITE(6,'(A)') '* X-coordinate out of range'

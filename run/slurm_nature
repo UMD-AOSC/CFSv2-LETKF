@@ -30,7 +30,7 @@ log = common.setupLog()
 ## TODO, make these configurable from the command line
 ##############################
 jobWatchSleep = 2            # in seconds
-timeLimit_CFS = "5:00"
+timeLimit_CFS = "10:00"
 
 rootDir = os.getenv("CFS_LETKF_ROOT")
 ssioPath = rootDir +'/util/bin/sscycle'
