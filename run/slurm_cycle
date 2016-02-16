@@ -186,7 +186,7 @@ while cdate < args.end:
         files += glob(args.path+'/obsop/??????????_*')
         for f in files:
             date = f.split('/')[-1].split('.')[0].split('_')[0]
-            if (cdate - dt.datetime.strptime(date,"%Y%m%d%H")) > dt.timedelta(hours = args.clear):
+            if (cdate - dt.datetime.strptime(date,"%Y%m%d%H")) >= dt.timedelta(hours = args.clear):
                 os.remove(f)
                 
     

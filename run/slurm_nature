@@ -49,13 +49,20 @@ for d in (tmpDir, scycle_tmpDir):
 ## get the command line arguments
 parser = argparse.ArgumentParser(
     formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-    description="")
+    description=(
+        "Runs a series of 6 hour forecast cycles, useful to "
+        "ensure that the CFS is working correctly, and somewhat "
+        "useful in generating a nature run. A more efficient nature "
+        "run script could be made (e.g. script should be changed "
+        "so that CFSR boundary conditions every 6 hours are not needed "
+        "and so that the run is longer than 6 hours, but it's "
+        "good enough for now)"  ))
 parser.add_argument('--start', metavar="date", required=True,
-  help="")
+  help="start date to begin forecast from in YYYYMMDDHH format")
 parser.add_argument('--end',  metavar="date",  required=True,
-  help="")
+  help="date at which to end, in YYYYMMDDHH format")
 parser.add_argument('--path', metavar='path', required=True,
-  help="")
+  help="path to store the nature run in")
 parser.add_argument('--ares', type=int, choices=[62,126,190,382,574,1148], default=62,help=(
     "horizontal resolution of the atmosphere (Default:T62)"))
 parser.add_argument('--partition',
@@ -67,6 +74,7 @@ args=parser.parse_args()
 
 ## extra command line argument processing...
 args.path = os.path.abspath(args.path)
+args.ares_x,args.ares_y = common.getAtmRes(args.ares)
 if args.partition:
     slurm.partition =args.partition
     
@@ -89,7 +97,7 @@ log.info("")
 
 
 ## Log stuff...
-log.debug(str(args))
+log.info("Configuration:\n "+str(args))
 log.info("Start date: "+str(startDate))
 log.info("End date:   "+str(endDate))
 log.info("")
@@ -150,17 +158,15 @@ while cdate < endDate:
         # run the 6 hour step
         job = slurm.Job(
             name = 'CFS_nature',
-            cmd = rootDir+"/run/run_fcst {} {} {} 6 6 {} {}".format(
+            cmd = rootDir+"/run/run_fcst {} {} {} --ares {} --wrkdir {} --len 6 --period 6".format(
                 inPath, outPath, cdateShort, args.ares, tmpDir),
             runtime = timeLimit_CFS,
             output  = logDir+'/cfs/cfs_'+cdateShort+'_%j.log',
-            nproc   = nproc_cfs,
-            fnCheck = lambda x: checkJob(x, outPath),
-            fnRetry = lambda x: resetJob(x, outPath),            
+            nproc   = nproc_cfs
         )        
         slurm.monitor((job,))
 
-
+        
         ## run sscycle on the output of the gfs
         [os.remove(f) for f in  glob(scycle_tmpDir+'/fort.*')]        
         cfsrFiles = analGFS+ndate.strftime("/%Y/%Y%m/%Y%m%d/%Y%m%d%H")
@@ -168,17 +174,9 @@ while cdate < endDate:
         shutil.copy(cfsrFiles+'.sfc', scycle_tmpDir+'/fort.22')
         shutil.move(outPath+cdate.strftime("/%Y%m%d%H_F06.sig"), scycle_tmpDir+'/fort.11')
         shutil.move(outPath+cdate.strftime("/%Y%m%d%H_F06.sfc"), scycle_tmpDir+'/fort.12')
-        res={
-            62   : ( '192',   '94'),
-            126  : ( '384',  '190'),
-            190  : ( '576',  '288'),
-            382  : ('1152',  '576'),
-            574  : ('1760',  '880'),
-            1148 : ('2304', '1152')}
-        res = res[args.ares]
         with open(scycle_tmpDir+'/ssio.nml','w') as f:
             f.write("&common_gfs\n nlon={}\n nlat={}\n gfs_jcap={}\n nlev=64\n /".format(
-                res[0], res[1], args.ares))
+                args.ares_x, args.ares_y, args.ares))
         if sp.call("./sscycle", cwd=scycle_tmpDir, shell=True) != 0:
             print "error with calling sscyle"
             sys.exit(1)

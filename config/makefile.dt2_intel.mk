@@ -26,7 +26,7 @@ NETCDF_FORTRAN_LIBS = -L$(NETCDF_FORTRAN_LIBDIR) -L$(NETCDF_LIBDIR) -L$(HDFLIB) 
 NETCDF_LIBS = -lnetcdf
 
 ## fortan compiler options dependant on compiler used
-F_CNVTBE  = -convert big_endian  # big endian bit format
+#F_CNVTBE  = -convert big_endian  # big endian bit format
 F_FREE    = -FR  # freeform fortran 90
 F_STRICT  = -fp-model strict
 F_R8 = -r8

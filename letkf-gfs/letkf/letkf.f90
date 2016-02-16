@@ -7,7 +7,8 @@ PROGRAM letkf
 !   01/16/2009 Takemasa Miyoshi  created
 !
 !=======================================================================
-!$USE OMP_LIB
+  !$USE OMP_LIB
+  use letkf_params
   USE common
   USE common_mpi
   USE common_gfs
@@ -29,12 +30,14 @@ PROGRAM letkf
 !-----------------------------------------------------------------------
   CALL CPU_TIME(rtimer00)
   CALL initialize_mpi
-!
+
   WRITE(stdoutf(6:8), '(I3.3)') myrank
 !  WRITE(6,'(3A,I3.3)') 'STDOUT goes to ',stdoutf,' for MYRANK ', myrank
   OPEN(6,FILE=stdoutf)
   WRITE(6,'(A,I3.3,2A)') 'MYRANK=',myrank,', STDOUTF=',stdoutf
-!
+  !
+
+  
   WRITE(6,'(A)') '============================================='
   WRITE(6,'(A)') '  LOCAL ENSEMBLE TRANSFORM KALMAN FILTERING  '
   WRITE(6,'(A)') '                                             '
@@ -52,10 +55,7 @@ PROGRAM letkf
   WRITE(6,'(A)') '============================================='
   WRITE(6,'(A)') '              LETKF PARAMETERS               '
   WRITE(6,'(A)') ' ------------------------------------------- '
-  WRITE(6,'(A,I15)')   '  nbv          :',nbv
-  WRITE(6,'(A,F15.2)') '  sigma_obs    :',sigma_obs
-  WRITE(6,'(A,F15.2)') '  sigma_obsv   :',sigma_obsv
-  WRITE(6,'(A,F15.2)') '  sigma_obst   :',sigma_obst
+  call params_init()
   WRITE(6,'(A)') '============================================='
   CALL set_common_gfs
   CALL set_common_mpi_gfs

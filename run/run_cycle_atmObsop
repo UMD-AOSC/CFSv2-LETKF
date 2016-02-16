@@ -40,6 +40,7 @@ args.wrkdir = os.path.abspath(os.getenv("TMP_DIR_LOCAL")+"/cfs/atm_obsop")
 args.adate = args.date + dt.timedelta(hours=6)
 args.aobsDir = os.path.abspath(os.getenv("CFS_LETKF_ROOT")+'/DATA/obs/atm_prepbufr')
 args.mem  = common.getEnsMem(args.path)
+args.thinning = False
 
 adateDir = args.adate.strftime("%Y/%Y%m/%Y%m%d/%Y%m%d%H")
 dateShort = args.date.strftime("%Y%m%d%H")
@@ -57,6 +58,7 @@ log.info("Configuration: \n"+str(args)+"\n")
 ############################################################
 log.info("Preparing observations and files...")
 if (not os.path.exists(args.wrkdir)): os.makedirs(args.wrkdir)
+shutil.copy(os.getenv("CFS_LETKF_ROOT")+'/run/config_files/letkf_mom.nml', args.wrkdir+'/letkf.nml')
 
 ## get the observations linked
 window = 3
@@ -86,14 +88,15 @@ os.symlink(args.wrkdir+'/gues_me.grd', args.wrkdir+'/refpres.dat')
 
 
 ## -
-log.info("Performing obs thinning...")
-cmd = '$CFS_LETKF_ROOT/letkf-gfs/util/superob &> superob.log'
-sp.check_call(cmd, shell=True, cwd=args.wrkdir)
-sp.check_call("rm obs??.dat", shell=True, cwd=args.wrkdir)
-for i in range(1,window*2+2):
-    shutil.move(args.wrkdir+'/sup{:02d}.dat'.format(i),
-                args.wrkdir+'/obs{:02d}.dat'.format(i))
+if args.thinning:
+    log.info("Performing obs thinning...")
+    cmd = '$CFS_LETKF_ROOT/letkf-gfs/util/superob &> superob.log'
+    sp.check_call(cmd, shell=True, cwd=args.wrkdir)
+    sp.check_call("rm obs??.dat", shell=True, cwd=args.wrkdir)
 
+    for i in range(1,window*2+2):
+        shutil.move(args.wrkdir+'/sup{:02d}.dat'.format(i),
+                    args.wrkdir+'/obs{:02d}.dat'.format(i))
 
                 
 ## -
@@ -107,6 +110,7 @@ for m in range(1,args.mem+1):
     ## and link in the obs and gues
     tmpdir = args.wrkdir+'/obsop_{:03d}'.format(m)
     os.makedirs(tmpdir)
+    os.symlink(args.wrkdir+'/letkf.nml', tmpdir+'/letkf.nml')    
     for i in range(1,fcstHrEnd-fcstHrStart+2):
         os.symlink(args.wrkdir+'/obs{:02d}.dat'.format(i),
                    tmpdir +'/obsin{:02d}.dat'.format(i))
@@ -122,8 +126,13 @@ for j in jobs:
         sys.exit(1)
 if (not os.path.exists(args.path+'/obsop')): os.makedirs(args.path+'/obsop')
 for m in range(1,args.mem+1):
-    shutil.copy(args.wrkdir+'/obsop_{:03d}/obsout.dat'.format(m),
-                args.path+'/obsop/{}_atm{:03d}.dat'.format(adateShort,m))
+    f = args.wrkdir+'/obsop_{:03d}/obsout.dat'.format(m)
+    d = args.path+'/obsop/{}_atm{:03d}.dat'.format(adateShort,m)
+    if os.path.exists(f):
+        shutil.copy(f, d)
+    else:
+        sp.check_call('touch '+d, shell=True)
+        
 
 ## -
 log.info("Done, cleaning up...")

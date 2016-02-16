@@ -49,9 +49,11 @@ contains
   !!------------------------------------------------------------
   subroutine kd_init(root, lons, lats)
     type(KD_ROOT), intent(out) :: root       !! the root node of our kd-tree
-    real(r_size), target :: lons(:), lats(:)
+    real(r_size), intent(in), target :: lats(:)
+    real(r_size), intent(in)         :: lons(:)
 
     !! variables for kd-tree creation loop
+    real(r_size), target ::lons2(size(lons))
     integer :: kk, np, ntmp, n, m, nboxes, nowtask, ptlo, pthi
     integer :: tmom, tdim, jbox
     real(r_size), pointer :: cp(:)
@@ -67,9 +69,15 @@ contains
        root%ptindx(n) = n
     end do
 
+    !! TODO make sure lon is within 0 to 360
+    ! do n=1,size(lons)
+    !    lons2(n)=lons(n)
+    ! end do
+    lons2 = lons
+
     !! save the longitude bounds, we'll need those in the future
-    root%lon_bounds(1) = minval(lons)
-    root%lon_bounds(2) = maxval(lons)
+    root%lon_bounds(1) = minval(lons2)
+    root%lon_bounds(2) = maxval(lons2)
     if (root%lon_bounds(2)-root%lon_bounds(1) > 360) then
        write (*,*) "ERROR: kd_init(), the range of longitudes of the observations is too great (",&
             root%lon_bounds(1), root%lon_bounds(2),") kd_init doesn't care what the values are, just as long ",&
@@ -109,7 +117,7 @@ contains
 
        !! alternate between dividing by latitude and longitude
        if (tdim == 0) then
-          cp => lons
+          cp => lons2
        else
           cp => lats
        end if
@@ -170,38 +178,44 @@ contains
        write (*,*) "ERROR: kd_search(), r_points and r_distance must be allocated with same size"
        stop 1
     end if
+    s_pt = s_point
+    do while (s_pt(1) < 0)
+       s_pt(1) = s_pt(1) + 360.0d0
+    end do
+    do while (s_pt(1) > 360)
+       s_pt(1) = s_pt(1) - 360.0d0
+    end do
 
     !! determine the rough lat/lon bounding box for the search radius
     r = s_radius / re
     !! the min/max lat is easy...
-    s_box_min(2) = s_point(2) - (r * 180.0 / pi)
-    s_box_max(2) = s_point(2) + (r * 180.0 / pi)
+    s_box_min(2) = s_pt(2) - (r * 180.0 / pi)
+    s_box_max(2) = s_pt(2) + (r * 180.0 / pi)
     if (s_box_min(2) < -90) s_box_min(2) = -90
     if (s_box_max(2) >  90) s_box_max(2) = 90
     !! the min/max lon is more annoying
     if (s_box_max(2) == 90.0 .or. s_box_min(2) == -90.0) then
-       s_box_min(1) = s_point(1) - 180.0
-       s_box_max(1) = s_point(1) + 180.0
+       s_box_min(1) = s_pt(1) - 180.0
+       s_box_max(1) = s_pt(1) + 180.0
     else
-       dl = asin(sin(r) / cos(s_point(2)*pi/180.0)) * 180.0 / pi
-       s_box_min(1) = s_point(1) - dl
-       s_box_max(1) = s_point(1) + dl
+       dl = asin(sin(r) / cos(s_pt(2)*pi/180.0)) * 180.0 / pi
+       s_box_min(1) = s_pt(1) - dl
+       s_box_max(1) = s_pt(1) + dl
     end if
 
     !! find points given the supplied lat/lon
     r_num=0
-    call kd_search_inner(root,lons,lats,s_point,s_radius,r_points,r_distance,r_num)
+    call kd_search_inner(root,lons,lats,s_pt,s_radius,r_points,r_distance,r_num)
 
     !! check to see if our search area extends past the longitude of the given obs,
     !! if so we need to run the search again with the search area shifted by 360 degrees
     r_num2 = 0
     mid = (root%lon_bounds(1)+root%lon_bounds(2)) * 0.5 !! middle longitude of the observations
-    s_pt = s_point
-    if (s_point(1) < mid .and. s_box_min(1) < root%lon_bounds(1)) then
+    if (s_pt(1) < mid .and. s_box_min(1) < root%lon_bounds(1)) then
        !! search area overlaps past the left of the map
        s_pt(1) = s_pt(1)+360
        call kd_search_inner(root,lons,lats,s_pt,s_radius,r_points(r_num+1:),r_distance(r_num+1:),r_num2)
-    else if (s_point(1) > mid .and. s_box_max(1) > root%lon_bounds(2)) then
+    else if (s_pt(1) > mid .and. s_box_max(1) > root%lon_bounds(2)) then
        !! search area overlaps past the right of the map
        s_pt(1) = s_pt(1)-360
        call kd_search_inner(root,lons,lats,s_pt,s_radius,r_points(r_num+1:),r_distance(r_num+1:),r_num2)
@@ -209,7 +223,7 @@ contains
 
     !! if we ran 2 search, and there is the possibility of duplicates (longitudes wrap around and touch)...
     r_num = r_num+r_num2
-    write (*,*) s_box_min, s_box_max
+!    write (*,*) s_box_min, s_box_max
     if (r_num2 > 0 )then !.and. (360+s_box_min(1) - s_box_max(1) < 1)) then
        !! sort the list and remove duplicates
        call qsort(r_points(1:r_num))

@@ -10,7 +10,10 @@ MODULE common
 !   01/23/2009 Takemasa MIYOSHI  modified for SFMT
 !
 !=======================================================================
+  use SFMT
+
   IMPLICIT NONE
+
   PUBLIC
 !-----------------------------------------------------------------------
 ! Variable size definitions
@@ -230,7 +233,7 @@ SUBROUTINE com_rand(ndim,var)
 
   INTEGER,INTENT(IN) :: ndim
   REAL(r_size),INTENT(OUT) :: var(1:ndim)
-  REAL(r_dble) :: genrand_res53
+!  REAL(r_dble) :: genrand_res53
   INTEGER :: idate(8)
   INTEGER :: i,iseed
   LOGICAL,SAVE :: first=.true.
@@ -257,7 +260,7 @@ SUBROUTINE com_randn(ndim,var)
   INTEGER,INTENT(IN) :: ndim
   REAL(r_size),INTENT(OUT) :: var(1:ndim)
   REAL(r_size) :: rnd(2)
-  REAL(r_dble) :: genrand_res53
+!  REAL(r_dble) :: genrand_res53
   INTEGER :: idate(8)
   INTEGER :: i,iseed
   LOGICAL,SAVE :: first=.true.

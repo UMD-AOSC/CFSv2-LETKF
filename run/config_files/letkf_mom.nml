@@ -1,24 +1,42 @@
-&params_model_nml
- gridfile  = 'grid_spec.nc', 
- SSHclm_file = 'aEtaCds9399.nc'
+! ------------------------------------------------------------
+! Parameters common to LETKF for all domains
+! ------------------------------------------------------------
+&letkf
+  nbv = 10		! Number of ensemble members
 /
 
-&params_obs_nml
- obs1nrec = 7,
- obs2nrec = 10,
-/
 
-&params_letkf_nml
- nslots = 1,
- nbslot = 1,
- sigma_obs = 720.0d3,
- sigma_obs0 = 200.0d3,
- gross_error = 3.0d0
+! ------------------------------------------------------------
+! MOM-LETKF parameters
+! ------------------------------------------------------------
+&letkf_ocn
+ nslots = 1		! Number of timeslots for 4DLETKF
+ nbslot = 1		! index of analysis time 
+
+ ! horizontal localization for ocean, and atm obs,
+ !  first number is radius at EQ, second is at pole
+ sigma_ocn_h = 720.0d3, 200.0d3,
+ sigma_atm_h = 1000.0d3, 200.0d3,
+
+
+ gross_error = 30.0d0
  DO_DRIFTERS = F,
  DO_ALTIMETRY = F,
  DO_NO_VERT_LOC = T,
  localization_method = 1
  cov_infl_mul = -1.0d0,
- sp_infl_add = 0.d0,
+ sp_infl_add = 0.d0
 /
 
+
+! ------------------------------------------------------------
+$letkf_atm
+! ------------------------------------------------------------
+  sigma_atm_h   = 1000.0d3, 1000.0d3
+  sigma_atm_v   = 0.4
+  sigma_atm_t   = 3.0
+
+  sigma_ocn_h   = 500.0d3, 200.0d3
+  sigma_ocn_v   = 0.1  
+  sigma_ocn_t   = 3.0
+/

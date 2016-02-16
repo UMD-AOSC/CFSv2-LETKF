@@ -18,6 +18,18 @@ import common
 ## setup the logging system
 log = common.setupLog()
 
+## directory locations
+fixDir = os.getenv("FIX_DIR_OM")
+letkfDir = os.getenv("CFS_LETKF_ROOT") + '/letkf-mom/mom4'
+obsDir = os.getenv("CFS_LETKF_ROOT") + '/DATA/obs/single_obs/ocn'
+
+## determine which parts of the script to run, mainly for debugging,
+## For normal operations these should all be True
+do_cfs      = True
+do_atmcnvt  = True
+do_ocnobsop = True
+do_cleanup  = True
+
 
 ############################################################
 ## get the command line / env arguments
@@ -42,8 +54,8 @@ args.ares_x,args.ares_y = common.getAtmRes(args.ares)
 args.wrkdir = os.path.abspath(os.getenv("TMP_DIR_SHARED")+"/CFS_{:03d}".format(args.ensNum))
 assert( args.ensNum > 0 and args.ensNum <= common.getEnsMem(args.path))
 
-aobsDir = os.getenv("CFS_LETKF_ROOT")+'/DATA/obs/atm_prepbufr'
-oobsDir = os.getenv("CFS_LETKF_ROOT")+'/DATA/obs/PROFS_gerr_TS_deep'
+#aobsDir = os.getenv("CFS_LETKF_ROOT")+'/DATA/obs/atm_prepbufr'
+#oobsDir = os.getenv("CFS_LETKF_ROOT")+'/DATA/obs/PROFS_gerr_TS_deep'
 
 ## date: the date the forecast was initialized from
 dateShort = args.date.strftime("%Y%m%d%H")
@@ -65,46 +77,71 @@ log.info("Configuration:\n"+str(args)+"\n")
 
 ############################################################
 ## run the CFS forecast
-log.info("Running the CFS forecast...")
-cmd = 'run_fcst {0}/anal/{1:03d} {0}/gues/{1:03d} {2} --wrkdir {3}'.format(
-    args.path, args.ensNum, dateShort, args.wrkdir)
-if (sp.call(cmd, shell=True) > 0):
-   log.error("Problem running CFS forecast.")
-   sys.exit(1)
+if do_cfs:
+   log.info("Running the CFS forecast...")
+   cmd = 'run_fcst {0}/anal/{1:03d} {0}/gues/{1:03d} {2} --wrkdir {3}'.format(
+      args.path, args.ensNum, dateShort, args.wrkdir)
+   if (sp.call(cmd, shell=True) > 0):
+      log.error("Problem running CFS forecast.")
+      sys.exit(1)
 
     
 ############################################################
 ## convert atmosphere spectral files to gridded
-log.info("Converting atmosphere spectral files to gridded...")
-jobs = []
-fcstHrStart = 3
-fcstHrEnd   = 9
-baseSlot    = 4 ## hour 6
-for hr in range(fcstHrStart, fcstHrEnd+1):
-    tmpDir = args.wrkdir+'/ss2grd_wrk_{0:02d}'.format(hr)
-    if (not os.path.exists(tmpDir)): os.makedirs(tmpDir)
-    os.symlink(args.wrkdir+'/SIG.F{:02d}'.format(hr), tmpDir+'/fort.11')
-    os.symlink(args.wrkdir+'/SFC.F{:02d}'.format(hr), tmpDir+'/fort.12')
-    with open(tmpDir+'/ssio.nml', 'w') as f:
-        f.write('$common_gfs nlon={} nlat={} gfs_jcap={} nlev=64 /'.format(
+if do_atmcnvt:
+   log.info("Converting atmosphere spectral files to gridded...")
+   jobs = []
+   fcstHrStart = 3
+   fcstHrEnd   = 9
+   baseSlot    = 4 ## hour 6
+   for hr in range(fcstHrStart, fcstHrEnd+1):
+      tmpDir = args.wrkdir+'/ss2grd_wrk_{0:02d}'.format(hr)
+      if (not os.path.exists(tmpDir)): os.makedirs(tmpDir)
+      os.symlink(args.wrkdir+'/SIG.F{:02d}'.format(hr), tmpDir+'/fort.11')
+      os.symlink(args.wrkdir+'/SFC.F{:02d}'.format(hr), tmpDir+'/fort.12')
+      with open(tmpDir+'/ssio.nml', 'w') as f:
+         f.write('$common_gfs nlon={} nlat={} gfs_jcap={} nlev=64 /'.format(
             args.ares_x, args.ares_y, args.ares))
-    cmd =('$CFS_LETKF_ROOT/util/bin/ss2grd; '
-          'cp fort.31 {}/gues/{:03d}/{}_F{:02d}.grd'.format(
-              args.path,args.ensNum, dateShort, hr))
-    jobs.append(sp.Popen(cmd, shell=True, cwd=tmpDir))
-for j in jobs:
-    j.wait()
-    if (j.returncode != 0 ):
-        log.error("Problem converting spectral to gridded")
-        sys.exit(1)
+      cmd =('$CFS_LETKF_ROOT/util/bin/ss2grd; '
+            'cp fort.31 {}/gues/{:03d}/{}_F{:02d}.grd'.format(
+               args.path,args.ensNum, dateShort, hr))
+      jobs.append(sp.Popen(cmd, shell=True, cwd=tmpDir))
+   for j in jobs:
+      j.wait()
+      if (j.returncode != 0 ):
+         log.error("Problem converting spectral to gridded")
+         sys.exit(1)
 
 
 ############################################################
 ## run ocean observation operator
-log.error("Running OCN observation operator...Not implemented")
+
+if do_ocnobsop:
+   log.info("Running OCN observation operator...")   
+   ## get the required files ready
+   obsFile = obsDir+ndate.strftime('/%Y/%Y%m/%Y%m%d.dat')
+   log.info("Using obs file: "+obsFile)
+   tmpDir = args.wrkdir+'/ocnObsop'
+   if (not os.path.exists(tmpDir)): os.makedirs(tmpDir)
+   os.symlink(letkfDir +'/obs/obsop', tmpDir+'/obsop')
+   os.symlink(tmpDir+'/../INPUT/grid_spec.nc', tmpDir+'/grid_spec.nc')
+   for f in glob(args.wrkdir+'/IRESTART/*ocean_*.res.nc'):
+      f2 = os.path.basename(f)
+      os.symlink(f, tmpDir+'/gs01.'+f2[10:])
+   shutil.copy(obsFile, tmpDir+'/obsin.dat')
+
+   ## Run the observation operator
+   ret = sp.call('obsop -obsin obsin.dat -gues gs01 -obsout {}_ocn{:03d}.dat'.format(
+      args.path+'/obsop/'+ndate.strftime('%Y%m%d%H'), args.ensNum),
+           shell=True, cwd=tmpDir)
+   if ret != 0:
+      log.critical('error running ocean observation operator')
+      sys.exit(1)
+
 
 ############################################################
 ## copy logs/file and cleanup
-log.info("Cleaning up and copying files...")
-shutil.rmtree(args.wrkdir)
+if do_cleanup:
+   log.info("Cleaning up and copying files...")
+   shutil.rmtree(args.wrkdir)
 

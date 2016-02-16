@@ -11,8 +11,11 @@ module load python/2.7.8
 
 export HDFLIB=/cell_root/software/hdf/1.8.13/intel/2013.1.039/intel/shared/sys/lib
 export LD_LIBRARY_PATH=$NETCDF_LIBDIR:$NETCDF_FORTRAN_LIBDIR:$HDFLIB:$LD_LIBRARY_PATH
+export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:/usr/local/ofed/lib64"
 ulimit -s unlimited
 
+## need python's netcdf library, not on DT2, have to use my own version
+export PYTHONPATH=/lustre/tsluka/software/python-netCDF4/lib:$PYTHONPATH
 
 ################################################################################
 ## determine the root directory of the CFS-LETKF,
@@ -26,8 +29,8 @@ export CFS_LETKF_ROOT="$( cd -P "$( dirname "$SOURCE" )/.." && pwd )"
 export TMP_DIR_LOCAL=/dev/shm/$USER
 export TMP_DIR_SHARED=/lustre/tsluka/tmp/cfs/
 
-export FIX_DIR_AM=/lustre/tsluka/CFSv2/support/fix/fix_am
-export FIX_DIR_OM=/lustre/tsluka/CFSv2/support/fix/fix_om
+export FIX_DIR_AM=/lustre/tsluka/CFSv2-LETKF/support/fix/fix_am
+export FIX_DIR_OM=/lustre/tsluka/CFSv2-LETKF/support/fix/fix_om
 export CFSR_DIR=$CFS_LETKF_ROOT/DATA/CFSR
 export OBS_ATM=$CFS_LETKF_ROOT/DATA/obs/atm_prepbufr
 export OBSNCEP=$CFS_LETKF_ROOT/DATA

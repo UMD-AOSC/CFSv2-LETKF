@@ -71,13 +71,13 @@ log.info("Configuration:\n"+str(args))
 
 ##############################
 log.info("Creating working directory...")
+if os.path.exists(args.wrkdir):
+    shutil.rmtree(args.wrkdir)
+    log.warn("The old working directory {} was deleted".format(args.wrkdir))
 for d in [args.wrkdir, args.wrkdir+'/RESTART', args.wrkdir+'/IRESTART',
           args.wrkdir+'/INPUT', args.wrkdir+'/fix_am']:
     if not os.path.exists(d):
         os.makedirs(d)
-    if len(glob(d+'/*')) > 0 :
-        log.warn("Working directory {} is not empty, make"
-                 " sure this is what is intended".format(d))
 
 ##############################        
 log.info("copying executables...")
@@ -239,3 +239,6 @@ log.info("Finished!!")
 log.info("CFS log file: ")
 f = open(args.wrkdir+'/cfs.log','r')
 log.info(f.read())
+
+## clear out the temporary directory
+shutil.rmtree(args.wrkdir)

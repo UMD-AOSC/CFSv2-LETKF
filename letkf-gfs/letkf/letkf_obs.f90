@@ -10,7 +10,8 @@ MODULE letkf_obs
 !   01/01/2014 Guo-Yuan Lien     add EFSO, following changes by Daisuke HOTTA
 !
 !=======================================================================
-!$USE OMP_LIB
+ !$USE OMP_LIB
+  use letkf_params
   USE common
   use common_obs
   USE common_mpi
@@ -29,16 +30,16 @@ MODULE letkf_obs
   LOGICAL,PARAMETER :: oma_output=.TRUE.
   LOGICAL,PARAMETER :: obsgues_output=.FALSE.
   LOGICAL,PARAMETER :: obsanal_output=.FALSE.
-  REAL(r_size),PARAMETER :: sigma_obs=500.0d3
-  REAL(r_size),PARAMETER :: sigma_obs_rain=350.0d3   ! GYL
-  REAL(r_size),PARAMETER :: sigma_obsv=0.4d0
-  REAL(r_size),PARAMETER :: sigma_obsv_rain=0.4d0    ! GYL
-  REAL(r_size),PARAMETER :: base_obsv_rain=85000.0d0 ! GYL
-  REAL(r_size),PARAMETER :: sigma_obst=3.0d0
-  REAL(r_size),SAVE :: dist_zero
-  REAL(r_size),SAVE :: dist_zero_rain
-  REAL(r_size),SAVE :: dist_zerov
-  REAL(r_size),SAVE :: dist_zerov_rain
+!  REAL(r_size),PARAMETER :: sigma_obs=500.0d3
+!  REAL(r_size),PARAMETER :: sigma_obs_rain=350.0d3   ! GYL
+!  REAL(r_size),PARAMETER :: sigma_obsv=0.4d0
+!  REAL(r_size),PARAMETER :: sigma_obsv_rain=0.4d0    ! GYL
+!  REAL(r_size),PARAMETER :: base_obsv_rain=85000.0d0 ! GYL
+!  REAL(r_size),PARAMETER :: sigma_obst=3.0d0
+  ! REAL(r_size),SAVE :: dist_zero
+  ! REAL(r_size),SAVE :: dist_zero_rain
+  ! REAL(r_size),SAVE :: dist_zerov
+  ! REAL(r_size),SAVE :: dist_zerov_rain
   REAL(r_size),ALLOCATABLE,SAVE :: obselm(:)
   REAL(r_size),ALLOCATABLE,SAVE :: obslon(:)
   REAL(r_size),ALLOCATABLE,SAVE :: obslat(:)
@@ -116,10 +117,6 @@ SUBROUTINE set_letkf_obs
 
   WRITE(6,'(A)') 'Hello from set_letkf_obs'
 
-  dist_zero = sigma_obs * SQRT(10.0d0/3.0d0) * 2.0d0
-  dist_zero_rain = sigma_obs_rain * SQRT(10.0d0/3.0d0) * 2.0d0
-  dist_zerov = sigma_obsv * SQRT(10.0d0/3.0d0) * 2.0d0
-  dist_zerov_rain = sigma_obsv_rain * SQRT(10.0d0/3.0d0) * 2.0d0
 
   CALL get_nobs_mpi(obsfile,10,nobs)
   WRITE(6,'(I10,A)') nobs,' TOTAL OBSERVATIONS INPUT'
@@ -146,7 +143,7 @@ SUBROUTINE set_letkf_obs
 ! reading observation data
 !
   CALL read_obs2_mpi(obsfile,nobs,nbv,tmpelm,tmplon,tmplat,tmplev, &
-                     tmpdat,tmperr,tmptyp,tmpdif,tmphdxf,tmpqc0)
+       tmpdat,tmperr,tmptyp,tmpdif,tmphdxf,tmpqc0)
 !                                                                               ! GYL, PRECIP assimilation
 ! reading precipitation transformation definition and mask                      ! GYL
 !                                                                               ! GYL
@@ -657,10 +654,10 @@ SUBROUTINE set_efso_obs
 
   WRITE(6,'(A)') 'Hello from set_efso_obs'
 
-  dist_zero = sigma_obs * SQRT(10.0d0/3.0d0) * 2.0d0
-  dist_zero_rain = sigma_obs_rain * SQRT(10.0d0/3.0d0) * 2.0d0
-  dist_zerov = sigma_obsv * SQRT(10.0d0/3.0d0) * 2.0d0
-  dist_zerov_rain = sigma_obsv_rain * SQRT(10.0d0/3.0d0) * 2.0d0
+  ! dist_zero = sigma_obs * SQRT(10.0d0/3.0d0) * 2.0d0
+  ! dist_zero_rain = sigma_obs_rain * SQRT(10.0d0/3.0d0) * 2.0d0
+  ! dist_zerov = sigma_obsv * SQRT(10.0d0/3.0d0) * 2.0d0
+  ! dist_zerov_rain = sigma_obsv_rain * SQRT(10.0d0/3.0d0) * 2.0d0
 
   CALL get_nobs_mpi(obsanalfile,10,nobs)
   WRITE(6,'(I10,A)') nobs,' TOTAL OBSERVATIONS INPUT'

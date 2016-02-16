@@ -12,6 +12,7 @@ PROGRAM obsope
   USE common
   USE common_gfs
   USE common_obs_gfs
+  use letkf_params
 
   IMPLICIT NONE
   INTEGER,PARAMETER :: nslots=7 ! number of time slots for 4D-LETKF
@@ -42,6 +43,8 @@ PROGRAM obsope
   INTEGER :: n,islot
   LOGICAL :: firstwrite
 
+  call params_init()
+  
   CALL set_common_gfs
 
   DO islot=1,nslots

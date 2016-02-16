@@ -57,6 +57,8 @@ log.info("Configuration: \n"+str(args)+"\n")
 ############################################################
 ## setup the working directory
 if (not os.path.exists(args.wrkdir)): os.makedirs(args.wrkdir)
+shutil.copy(os.getenv("CFS_LETKF_ROOT")+'/run/config_files/letkf_mom.nml',
+            args.wrkdir+'/letkf.nml')
 
 ## TODO, add logic for strong coupling
 for m in mems:
@@ -75,6 +77,8 @@ log.error("Adaptive inflation file not being copied")
 log.info("Running GFS-LETKF...")
 sp.check_call("mpirun -n $NPROC_LETKF $CFS_LETKF_ROOT/letkf-gfs/letkf/letkf",
              shell=True, cwd = args.wrkdir)
+with open(args.wrkdir+"/NOUT-000",'r') as f:
+    log.info(f.read())
 
 ############################################################
 ## gridded to spectral

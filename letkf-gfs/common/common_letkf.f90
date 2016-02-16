@@ -18,14 +18,13 @@ MODULE common_letkf
 !$USE OMP_LIB
   USE common
   USE common_mtx
-
+  use letkf_params, only : nbv
   IMPLICIT NONE
 
   PUBLIC
 !=======================================================================
 !  LEKF Model Independent Parameters
 !=======================================================================
-  INTEGER,PARAMETER :: nbv=30    ! ensemble size
   REAL(r_size),PARAMETER :: relax_alpha = 0.0d0  ! relaxation parameter     !GYL
   REAL(r_size),PARAMETER :: min_infl = 0.0d0     ! minimum inlfation factor !GYL
 

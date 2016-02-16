@@ -43,6 +43,8 @@ args.path = os.path.abspath(args.path)
 args.date = dt.datetime.strptime(args.date, "%Y%m%d%H")
 args.wrkdir = os.path.abspath(os.getenv("TMP_DIR_LOCAL")+"/cfs/letkf-ocn")
 args.mem = common.getEnsMem(args.path)
+args.useAObs = True
+args.useOObs = False
 mems = range(1,args.mem+1)
 dateShort = args.date.strftime("%Y%m%d%H")
 ndate = args.date+dt.timedelta(hours=6)
@@ -79,8 +81,16 @@ for m in mems:
         jobs.append(sp.Popen(cmd,shell=True, cwd=args.wrkdir))
     
         ## atmospheric obs departures
-        #    shutil.copy(args.path+'/obsop/atm/obs{:03d}.dat'.format(m),
-        #                args.wrkdir+'/obs01{:03d}.dat'.format(m))                    
+        if (args.useAObs):
+            shutil.copy(args.path+'/obsop/{}_atm{:03d}.dat'.format(ndateShort,m),
+                    args.wrkdir+'/obs01{:03d}.dat'.format(m))
+        if (args.useOObs):
+            shutil.copy(args.path+'/obsop/{}_ocn{:03d}.dat'.format(ndateShort,m),
+                    args.wrkdir+'/obs01{:03d}.dat'.format(m))
+        if (args.useOObs and args.useAObs):
+            log.critical('using both atmospheric and ocean obs at the same time not yet supported');
+            sys.exit(1)
+            
 for j in jobs:
     j.wait()
     if (j.returncode >0 ):
@@ -95,8 +105,10 @@ log.error("Adaptive inflation file is not being copied")
 ############################################################
 ## LETKF
 log.info("Running MOM-LETKF")
-sp.check_call("mpirun -n $NPROC_LETKF $CFS_LETKF_ROOT/letkf-mom/mom4/letkf/letkf $> letkf.log",
+ret = sp.call("mpirun -n $NPROC_LETKF $CFS_LETKF_ROOT/letkf-mom/mom4/letkf/letkf $> letkf.log",
               shell=True, cwd=args.wrkdir)
+with open(args.wrkdir+"/NOUT-0000",'r') as f:
+    log.info(f.read())
 
 
 

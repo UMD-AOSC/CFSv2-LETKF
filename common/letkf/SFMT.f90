@@ -20,8 +20,11 @@
 
 
 
-module MOD_SFMT
-    implicit none
+module SFMT
+  implicit none
+  private
+  public :: genrand_res53, init_gen_rand
+  
 !/*-----------------
 !  BASIC DEFINITIONS
 !  -----------------*/
@@ -77,8 +80,8 @@ module MOD_SFMT
     
     integer*4:: parity(0:3)= (/PARITY1, PARITY2, PARITY3, PARITY4/)
 
-end module
 
+contains
 !#include <string.h>
 !#include <assert.h>
 !#include "SFMT.h"
@@ -284,7 +287,6 @@ end subroutine
 !inline static void do_recursion(w128_t *r, w128_t *a, w128_t *b, w128_t *c,
 !               w128_t *d) {
 subroutine do_recursion(rTop, rBtm, aTop, aBtm, bTop, bBtm, cTop, cBtm, dTop, dBtm)
-    use MOD_SFMT
     implicit none
     
     integer*8,intent(out):: rTop, rBtm
@@ -315,7 +317,6 @@ end subroutine
 ! * integers.
 ! */
 subroutine gen_rand_all()
-    use MOD_SFMT
     implicit none
     
     integer:: i
@@ -429,7 +430,6 @@ end subroutine
 ! */
 !static void period_certification(void) {
 subroutine period_certification()
-    use MOD_SFMT
     implicit none
     
     integer:: inner = 0
@@ -498,7 +498,6 @@ end subroutine
 ! * @return 32-bit pseudorandom number
 ! */
 integer*4 function gen_rand32()
-    use MOD_SFMT
     implicit none
 
     if(initialized==0)stop
@@ -523,7 +522,6 @@ end function
 ! * @return 64-bit pseudorandom number
 ! */
 integer*8 function gen_rand64()
-    use MOD_SFMT
     implicit none
     integer::i
 
@@ -624,7 +622,6 @@ end function
 ! */
 !void init_gen_rand(uint32_t seed) {
 subroutine init_gen_rand(seed)
-    use MOD_SFMT
     implicit none
     
     integer*4:: seed
@@ -727,10 +724,11 @@ end subroutine
 
 !/** generates a random number on [0,1) with 53-bit resolution*/
 real*8 function genrand_res53() 
-    integer*8:: gen_rand64
+!    integer*8:: gen_rand64
     integer*8:: i
     i = gen_rand64()
     i = ishft(i, -1)
     genrand_res53 = dble(i) * (1d0/9223372036854775808d0)
 end function
 
+end module SFMT

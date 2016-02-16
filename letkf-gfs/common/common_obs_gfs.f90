@@ -721,6 +721,12 @@ SUBROUTINE read_obs2(cfile,nn,elem,rlon,rlat,rlev,odat,oerr,otyp,tdif,ohx,oqc)
 !      wk(5) = wk(5) * 100.0 ! hPa -> Pa
 !      wk(6) = wk(6) * 100.0 ! hPa -> Pa
     END SELECT
+
+    do while( wk(2) < 0 )
+       wk(2) = wk(2) + 360.0
+    end do
+
+
     elem(n) = REAL(wk(1),r_size)
     rlon(n) = REAL(wk(2),r_size)
     rlat(n) = REAL(wk(3),r_size)

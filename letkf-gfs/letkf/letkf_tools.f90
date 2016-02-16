@@ -17,6 +17,7 @@ MODULE letkf_tools
   USE common_mpi_gfs
   USE common_letkf
   USE letkf_obs
+  use letkf_local
   USE efso_nml
   USE efso_tools
   USE sigio_module
@@ -26,9 +27,10 @@ MODULE letkf_tools
   PRIVATE
   PUBLIC ::  das_letkf, das_efso
 
-  INTEGER,SAVE :: nobstotal
+!  INTEGER,SAVE :: nobstotal
 
-  REAL(r_size),PARAMETER :: cov_infl_mul = -1.03d0
+  real(r_size),parameter :: infl_rtps = 0.85
+  REAL(r_size),PARAMETER :: cov_infl_mul = 1.00d0
 ! > 0: globally constant covariance inflation
 ! < 0: 3D inflation values input from a GPV file "infl_mul.grd"
   REAL(r_size),PARAMETER :: sp_infl_add = 0.0d0 !additive inflation
@@ -76,6 +78,13 @@ SUBROUTINE das_letkf(gues3d,gues2d,anal3d,anal2d)
   REAL(r_size) :: q_anal(nbv)    ! GYL
   LOGICAL :: ex
   INTEGER :: ij,ilev,n,m,i,j,k,nobsl,ierr,iret
+
+  real(r_size), allocatable :: sprdg3d(:,:,:)
+  real(r_size), allocatable :: sprdg2d(:,:)
+  real(r_size), allocatable :: sprda3d(:,:,:)
+  real(r_size), allocatable :: sprda2d(:,:)
+  real(r_size), allocatable :: meana3d(:,:,:)
+  real(r_size), allocatable :: meana2d(:,:)  
 
   WRITE(6,'(A)') 'Hello from das_letkf'
   WRITE(6,'(A,F15.2)') '  cov_infl_mul = ',cov_infl_mul
@@ -270,6 +279,7 @@ SUBROUTINE das_letkf(gues3d,gues2d,anal3d,anal2d)
       END DO
     END DO
 
+    !! additive inflation
     DEALLOCATE(work3d,work2d)
     WRITE(6,'(A)') '===== Additive covariance inflation ====='
     WRITE(6,'(A,F10.4)') '  parameter:',sp_infl_add
@@ -299,6 +309,53 @@ SUBROUTINE das_letkf(gues3d,gues2d,anal3d,anal2d)
     END DO
   END IF
 
+  !! RTPS
+  !! ------------------------------------------------------------
+  if (infl_rtps > 0.0d0) then
+     write (6,*) "RTPS", infl_rtps
+     ALLOCATE( meana3d(nij1,nlev,nv3d) )
+     ALLOCATE( meana2d(nij1,nv2d) )
+     ALLOCATE( sprdg3d(nij1,nlev,nv3d) )
+     ALLOCATE( sprdg2d(nij1,nv2d) )
+     ALLOCATE( sprda3d(nij1,nlev,nv3d) )
+     ALLOCATE( sprda2d(nij1,nv2d) )
+
+     !calculate the analysis mean
+     CALL ensmean_grd(nbv,nij1,anal3d,anal2d,meana3d,meana2d)
+
+     sprdg3d = 0
+     sprdg2d = 0
+     sprda3d = 0
+     sprda2d = 0
+     do m=1,nbv
+        ! gues3d and gues2d have already had the mean removed earlier
+        sprdg3d = sprdg3d + (gues3d(:,:,m,:))**2
+        sprdg2d = sprdg2d + (gues2d(:,m,:))**2
+        sprda3d = sprda3d + (anal3d(:,:,m,:)-meana3d)**2
+        sprda2d = sprda2d + (anal2d(:,m,:)-meana2d)**2
+     end do
+     sprdg3d  = sqrt(sprdg3d / (nbv-1))
+     sprdg2d  = sqrt(sprdg2d / (nbv-1))
+     sprda3d = sqrt(sprda3d / (nbv-1))
+     sprda2d = sqrt(sprda2d / (nbv-1))
+     !expand the perturbations back toward the guess spread
+     do m=1,nbv
+        where (sprda3d > 0.0)
+           anal3d(:,:,m,:) = (anal3d(:,:,m,:) - meana3d) * &
+                (infl_rtps*(sprdg3d-sprda3d)/sprda3d   + 1)&
+                + meana3d
+        end where
+        where (sprda2d > 0.0)
+           anal2d(:,m,:)   = (anal2d(:,m,:)   - meana2d) * &
+                (infl_rtps*(sprdg2d-sprda2d)/sprda2d   + 1)&
+                + meana2d
+        end where
+     end do
+
+     ! cleanup
+     deallocate(sprdg3d, sprdg2d, sprda3d, sprda2d, meana3d, meana2d) 
+  end if
+  
   DEALLOCATE(mean3d,mean2d)
   DEALLOCATE(pfull)
   RETURN
@@ -419,10 +476,10 @@ SUBROUTINE das_letkf_obs(v3dinfl,v2dinfl)
       n = nv3d+iv2d_ps
       inflelem = obsid_atm_ps
       rlev = obsdat(nn)   ! for ps variable, use the observed pressure value
-    CASE(obsid_atm_rain)
-      n = 0
-      inflelem = obsid_atm_q
-      rlev = base_obsv_rain ! for precipitation, assigh the level 'base_obsv_rain'
+    ! CASE(obsid_atm_rain)
+    !   n = 0
+    !   inflelem = obsid_atm_q
+    !   rlev = base_obsv_rain ! for precipitation, assigh the level 'base_obsv_rain'
     CASE DEFAULT
       n = 0
       IF(NINT(obselm(nn)) > 9999) THEN
@@ -673,275 +730,4 @@ SUBROUTINE das_efso(gues3d,gues2d,fcst3d,fcst2d,fcer3d,fcer2d)
   DEALLOCATE(pfull)
   RETURN
 END SUBROUTINE das_efso
-!-----------------------------------------------------------------------
-! Project global observations to local
-!     (hdxf_g,dep_g,rdiag_g) -> (hdxf,dep,rdiag)
-! -- modified, using (rlon,rlat,rlev) instead of (ij,ilev), Guo-Yuan Lien
-! -- optional oindex output, followed by D.Hotta
-!-----------------------------------------------------------------------
-SUBROUTINE obs_local(rlon,rlat,rlev,nvar,hdxf,rdiag,rloc,dep,nobsl,oindex)
-  IMPLICIT NONE
-  REAL(r_size),INTENT(IN) :: rlon,rlat,rlev
-  INTEGER,INTENT(IN) :: nvar
-  REAL(r_size),INTENT(OUT) :: hdxf(nobstotal,nbv)
-  REAL(r_size),INTENT(OUT) :: rdiag(nobstotal)
-  REAL(r_size),INTENT(OUT) :: rloc(nobstotal)
-  REAL(r_size),INTENT(OUT) :: dep(nobstotal)
-  INTEGER,INTENT(OUT) :: nobsl
-  INTEGER,INTENT(OUT),OPTIONAL :: oindex(nobstotal)      ! DH
-  REAL(r_size) :: dlon_zero,dlat_zero                    ! GYL
-  REAL(r_size) :: minlon,maxlon,minlat,maxlat,dist,dlev
-  REAL(r_size) :: tmplon,tmplat,tmperr,tmpwgt(nlev)
-  REAL(r_size) :: logrlev
-  INTEGER,ALLOCATABLE:: nobs_use(:)
-  INTEGER :: imin,imax,jmin,jmax,im,ichan
-  INTEGER :: n,nn,iobs
-!
-! INITIALIZE
-!
-  IF( nobs > 0 ) THEN
-    ALLOCATE(nobs_use(nobs))
-  END IF
-!
-! data search
-!
-  dlat_zero = MAX(dist_zero,dist_zero_rain) / pi / re * 180.0d0 ! GYL
-  dlon_zero = dlat_zero / COS(rlat*pi/180.0d0)                  ! GYL
-  minlon = rlon - dlon_zero
-  maxlon = rlon + dlon_zero
-  minlat = rlat - dlat_zero
-  maxlat = rlat + dlat_zero
-  IF(maxlon - minlon >= 360.0d0) THEN
-    minlon = 0.0d0
-    maxlon = 360.0d0
-  END IF
-
-  DO jmin=1,nlat-2
-    IF(minlat < lat(jmin+1)) EXIT
-  END DO
-  DO jmax=1,nlat-2
-    IF(maxlat < lat(jmax+1)) EXIT
-  END DO
-  nn = 1
-  IF(minlon >= 0 .AND. maxlon <= 360.0) THEN
-    DO imin=1,nlon-1
-      IF(minlon < lon(imin+1)) EXIT
-    END DO
-    DO imax=1,nlon-1
-      IF(maxlon < lon(imax+1)) EXIT
-    END DO
-    IF( nobs > 0 ) &
-    & CALL obs_local_sub(imin,imax,jmin,jmax,nn,nobs_use)
-  ELSE IF(minlon >= 0 .AND. maxlon > 360.0) THEN
-    DO imin=1,nlon-1
-      IF(minlon < lon(imin+1)) EXIT
-    END DO
-    maxlon = maxlon - 360.0d0
-    IF(maxlon > 360.0d0) THEN
-      imin = 1
-      imax = nlon
-      IF( nobs > 0 ) &
-      & CALL obs_local_sub(imin,imax,jmin,jmax,nn,nobs_use)
-    ELSE
-      DO imax=1,nlon-1
-        IF(maxlon < lon(imax+1)) EXIT
-      END DO
-      IF(imax > imin) THEN
-        imin = 1
-        imax = nlon
-        IF( nobs > 0 ) &
-        & CALL obs_local_sub(imin,imax,jmin,jmax,nn,nobs_use)
-      ELSE
-        imin = 1
-        IF( nobs > 0 ) &
-        & CALL obs_local_sub(imin,imax,jmin,jmax,nn,nobs_use)
-        DO imin=1,nlon-1
-          IF(minlon < lon(imin+1)) EXIT
-        END DO
-        imax = nlon
-        IF( nobs > 0 ) &
-        & CALL obs_local_sub(imin,imax,jmin,jmax,nn,nobs_use)
-      END IF
-    END IF
-  ELSE IF(minlon < 0 .AND. maxlon <= 360.0d0) THEN
-    DO imax=1,nlon-1
-      IF(maxlon < lon(imax+1)) EXIT
-    END DO
-    minlon = minlon + 360.0d0
-    IF(minlon < 0) THEN
-      imin = 1
-      imax = nlon
-      IF( nobs > 0 ) &
-      & CALL obs_local_sub(imin,imax,jmin,jmax,nn,nobs_use)
-    ELSE
-      DO imin=1,nlon-1
-        IF(minlon < lon(imin+1)) EXIT
-      END DO
-      IF(imin < imax) THEN
-        imin = 1
-        imax = nlon
-        IF( nobs > 0 ) &
-        & CALL obs_local_sub(imin,imax,jmin,jmax,nn,nobs_use)
-      ELSE
-        imin = 1
-        IF( nobs > 0 ) &
-        & CALL obs_local_sub(imin,imax,jmin,jmax,nn,nobs_use)
-        DO imin=1,nlon-1
-          IF(minlon < lon(imin+1)) EXIT
-        END DO
-        imax = nlon
-        IF( nobs > 0 ) &
-        & CALL obs_local_sub(imin,imax,jmin,jmax,nn,nobs_use)
-      END IF
-    END IF
-  ELSE
-    maxlon = maxlon - 360.0d0
-    minlon = minlon + 360.0d0
-    IF(maxlon > 360.0 .OR. minlon < 0) THEN
-      imin = 1
-      imax = nlon
-      IF( nobs > 0 ) &
-      & CALL obs_local_sub(imin,imax,jmin,jmax,nn,nobs_use)
-    ELSE
-      DO imin=1,nlon-1
-        IF(minlon < lon(imin+1)) EXIT
-      END DO
-      DO imax=1,nlon-1
-        IF(maxlon < lon(imax+1)) EXIT
-      END DO
-      IF(imin > imax) THEN
-        imin = 1
-        imax = nlon
-        IF( nobs > 0 ) &
-        & CALL obs_local_sub(imin,imax,jmin,jmax,nn,nobs_use)
-      ELSE
-        IF( nobs > 0 ) &
-        & CALL obs_local_sub(imin,imax,jmin,jmax,nn,nobs_use)
-      END IF
-    END IF
-  END IF
-  nn = nn-1
-  IF(nn < 1) THEN
-    nobsl = 0
-    RETURN
-  END IF
-!
-! CONVENTIONAL
-!
-  logrlev = LOG(rlev)
-  nobsl = 0
-  IF(nn > 0) THEN
-    DO n=1,nn
-      !
-      ! vertical localization
-      !
-      IF(NINT(obselm(nobs_use(n))) == obsid_atm_ps) THEN
-        dlev = ABS(LOG(obsdat(nobs_use(n))) - logrlev)
-        IF(dlev > dist_zerov) CYCLE
-      ELSE IF(NINT(obselm(nobs_use(n))) == obsid_atm_rain) THEN
-        dlev = ABS(LOG(base_obsv_rain) - logrlev)
-        IF(dlev > dist_zerov_rain) CYCLE
-      ! ELSE IF(NINT(obselm(nobs_use(n))) >= id_tclon_obs) THEN !TC track obs
-      !   dlev = 0.0d0
-      ELSE !! other (3D) variables
-        dlev = ABS(LOG(obslev(nobs_use(n))) - logrlev)
-        IF(dlev > dist_zerov) CYCLE
-      END IF
-      !
-      ! horizontal localization
-      !
-      CALL com_distll_1(obslon(nobs_use(n)),obslat(nobs_use(n)),rlon,rlat,dist)
-      IF(NINT(obselm(nobs_use(n))) == obsid_atm_rain) THEN
-        IF(dist > dist_zero_rain) CYCLE
-      ELSE
-        IF(dist > dist_zero) CYCLE
-      END IF
-      !
-      ! variable localization
-      !
-      IF(nvar > 0) THEN ! use variable localization only when nvar > 0
-        SELECT CASE(NINT(obselm(nobs_use(n))))
-        CASE(obsid_atm_u, obsid_atm_v)
-          iobs=1
-        CASE(obsid_atm_t, obsid_atm_tv)
-          iobs=2
-        CASE(obsid_atm_q, obsid_atm_rh)
-          iobs=3
-        CASE(obsid_atm_ps)
-          iobs=4
-        CASE(obsid_atm_rain)
-          iobs=5
-        ! CASE(id_tclon_obs)
-        !   iobs=6
-        ! CASE(id_tclat_obs)
-        !   iobs=6
-        ! CASE(id_tcmip_obs)
-        !   iobs=6
-        END SELECT
-        IF(var_local(nvar,iobs) < TINY(var_local)) CYCLE
-      END IF
-
-      nobsl = nobsl + 1
-      hdxf(nobsl,:) = obshdxf(nobs_use(n),:)
-      dep(nobsl)    = obsdep(nobs_use(n))
-      !
-      ! Observational localization
-      !
-      tmperr=obserr(nobs_use(n))
-      rdiag(nobsl) = tmperr * tmperr
-      IF(NINT(obselm(nobs_use(n))) == obsid_atm_rain) THEN                              ! GYL
-        rloc(nobsl) =EXP(-0.5d0 * ((dist/sigma_obs_rain)**2 + (dlev/sigma_obsv)**2)) ! GYL
-      ELSE                                                                           ! GYL
-        rloc(nobsl) =EXP(-0.5d0 * ((dist/sigma_obs)**2 + (dlev/sigma_obsv)**2))      ! GYL
-      END IF                                                                         ! GYL
-      IF(nvar > 0) THEN ! use variable localization only when nvar > 0
-        rloc(nobsl) = rloc(nobsl) * var_local(nvar,iobs)
-      END IF
-      IF(PRESENT(oindex)) oindex(nobsl) = nobs_use(n)      ! DH
-    END DO
-  END IF
-!
-  IF( nobsl > nobstotal ) THEN
-    WRITE(6,'(A,I5,A,I5)') 'FATAL ERROR, NOBSL=',nobsl,' > NOBSTOTAL=',nobstotal
-    WRITE(6,*) 'LON,LAT,LEV,NN=', rlon,rlat,rlev,nn
-    STOP 99
-  END IF
-!
-  IF( nobs > 0 ) THEN
-    DEALLOCATE(nobs_use)
-  END IF
-!
-  RETURN
-END SUBROUTINE obs_local
-
-SUBROUTINE obs_local_sub(imin,imax,jmin,jmax,nn,nobs_use)
-  INTEGER,INTENT(IN) :: imin,imax,jmin,jmax
-  INTEGER,INTENT(INOUT) :: nn, nobs_use(nobs)
-  INTEGER :: j,n,ib,ie,ip
-
-  DO j=jmin,jmax
-    IF(imin > 1) THEN
-      ib = nobsgrd(imin-1,j)+1
-    ELSE
-      IF(j > 1) THEN
-        ib = nobsgrd(nlon,j-1)+1
-      ELSE
-        ib = 1
-      END IF
-    END IF
-    ie = nobsgrd(imax,j)
-    n = ie - ib + 1
-    IF(n == 0) CYCLE
-    DO ip=ib,ie
-      IF(nn > nobs) THEN
-        WRITE(6,*) 'FATALERROR, NN > NOBS', NN, NOBS
-      END IF
-      nobs_use(nn) = ip
-      nn = nn + 1
-    END DO
-  END DO
-
-  RETURN
-END SUBROUTINE obs_local_sub
-
 END MODULE letkf_tools

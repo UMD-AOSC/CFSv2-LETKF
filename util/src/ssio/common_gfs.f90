@@ -18,8 +18,8 @@ MODULE common_gfs
 !-----------------------------------------------------------------------
 ! General parameters
 !-----------------------------------------------------------------------
-  INTEGER :: nlon=192
-  INTEGER :: nlat=94
+  INTEGER :: nlon=0
+  INTEGER :: nlat=0
   INTEGER :: nlev=64
   INTEGER,PARAMETER :: idrt=4  ! 4: Gaussian grid
   INTEGER,PARAMETER :: nv3dx=6 ! 3D extended variables: [u,v,t,q,qc],p
@@ -55,7 +55,7 @@ MODULE common_gfs
   REAL(r_size),SAVE,allocatable :: dy(:)
   REAL(r_size),SAVE,allocatable :: dy2(:)
   REAL(r_size),SAVE,allocatable :: fcori(:)
-  REAL(r_size),SAVE,allocatable :: wg(:,:)
+!  REAL(r_size),SAVE,allocatable :: wg(:,:)
   CHARACTER(4),SAVE :: element(nv3d+nv2d)
 
 CONTAINS
@@ -64,7 +64,7 @@ CONTAINS
 !-----------------------------------------------------------------------
 SUBROUTINE set_common_gfs
   IMPLICIT NONE
-  REAL(r_sngl) :: slat(nlat), wlat(nlat)
+  REAL(r_sngl),allocatable :: slat(:), wlat(:)
   REAL(r_size) :: totalwg, wgtmp, latm1, latm2
   INTEGER :: i,j
 
@@ -85,7 +85,9 @@ SUBROUTINE set_common_gfs
   allocate( dx(nlat) )
   allocate( dy(nlat) )
   allocate( dy2(nlat) )
-  allocate( fcori(nlat) )  
+  allocate( fcori(nlat) )
+  allocate( slat(nlat) )
+  allocate( wlat(nlat) )
 !  allocate( wg(nlon,nlat) )
 
   allocate( gfs_vcoord(nlev+1,gfs_nvcoord) )
@@ -129,46 +131,47 @@ SUBROUTINE set_common_gfs
 !   element(iv3d_q)  = 'Q   '
 !   element(iv3d_qc) = 'QC  '
 !   element(nv3d+iv2d_ps) = 'PS  '
-!   !
-!   ! Lon, Lat
-!   !
-! !$OMP PARALLEL DO PRIVATE(i)
-!   DO i=1,nlon
-!     lon(i) = 360.d0/nlon*(i-1)
-!   END DO
-! !$OMP END PARALLEL DO
-!   CALL SPLAT(idrt,nlat,slat,wlat)
-!   do j=1,nlat
-!     lat(j) = 180.d0/pi*asin(slat(nlat-j+1))
-!   end do
-!   !
-!   ! dx and dy
-!   !
-! !$OMP PARALLEL
-! !$OMP WORKSHARE
-!   dx(:) = 2.0d0 * pi * re * cos(lat(:) * pi / 180.0d0) / REAL(nlon,r_size)
-! !$OMP END WORKSHARE
+  !
+  ! Lon, Lat
+  !
+!$OMP PARALLEL DO PRIVATE(i)
+  DO i=1,nlon
+    lon(i) = 360.d0/nlon*(i-1)
+  END DO
+!$OMP END PARALLEL DO
+  CALL SPLAT(idrt,nlat,slat,wlat)
+  do j=1,nlat
+    lat(j) = 180.d0/pi*asin(slat(nlat-j+1))
+  end do
+  !
+  ! dx and dy
+  !
+!$OMP PARALLEL
+!$OMP WORKSHARE
+  dx(:) = 2.0d0 * pi * re * cos(lat(:) * pi / 180.0d0) / REAL(nlon,r_size)
+!$OMP END WORKSHARE
 
-! !$OMP DO
-!   DO i=1,nlat-1
-!     dy(i) = 2.0d0 * pi * re * (lat(i+1) - lat(i)) / 360.0d0
-!   END DO
-! !$OMP END DO
-! !$OMP END PARALLEL
-!   dy(nlat) = 2.0d0 * pi * re * (90.0d0 - lat(nlat)) / 180.0d0
+!$OMP DO
+  DO i=1,nlat-1
+    dy(i) = 2.0d0 * pi * re * (lat(i+1) - lat(i)) / 360.0d0
+  END DO
+!$OMP END DO
+!$OMP END PARALLEL
+  dy(nlat) = 2.0d0 * pi * re * (90.0d0 - lat(nlat)) / 180.0d0
 
-! !$OMP PARALLEL DO
-!   DO i=2,nlat
-!     dy2(i) = (dy(i-1) + dy(i)) * 0.5d0
-!   END DO
-! !$OMP END PARALLEL DO
-!   dy2(1) = (dy(nlat) + dy(1)) * 0.5d0
-!   !
-!   ! Corioris parameter
-!   !
-! !$OMP PARALLEL WORKSHARE
-!   fcori(:) = 2.0d0 * r_omega * sin(lat(:)*pi/180.0d0)
-! !$OMP END PARALLEL WORKSHARE
+!$OMP PARALLEL DO
+  DO i=2,nlat
+    dy2(i) = (dy(i-1) + dy(i)) * 0.5d0
+  END DO
+!$OMP END PARALLEL DO
+  dy2(1) = (dy(nlat) + dy(1)) * 0.5d0
+  !
+  ! Corioris parameter
+  !
+!$OMP PARALLEL WORKSHARE
+  fcori(:) = 2.0d0 * r_omega * sin(lat(:)*pi/180.0d0)
+
+  ! !$OMP END PARALLEL WORKSHARE
 !   !
 !   ! Weight for global average
 !   !

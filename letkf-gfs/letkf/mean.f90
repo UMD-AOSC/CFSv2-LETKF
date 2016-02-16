@@ -12,7 +12,8 @@ PROGRAM mean
   USE common_mpi
   USE common_gfs
   USE common_mpi_gfs
-  USE common_letkf, only: nbv
+  USE common_letkf
+  use letkf_params
 !  USE letkf_tools
 
   IMPLICIT NONE
@@ -49,7 +50,7 @@ PROGRAM mean
   WRITE(6,'(A)') '============================================='
   WRITE(6,'(A)') '              LETKF PARAMETERS               '
   WRITE(6,'(A)') ' ------------------------------------------- '
-  WRITE(6,'(A,I15)')   '  nbv          :',nbv
+  call params_init()
   WRITE(6,'(A)') '============================================='
   CALL set_common_gfs
   CALL set_common_mpi_gfs
