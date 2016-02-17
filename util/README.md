@@ -1,9 +1,9 @@
-This folder contains utility programs required by the CFS. 
+This folder contains additional utility programs and scripts that are either required by the LETKF or CFS, or allow the user to setup / process things.
 
 
 ####CFSR files
-* `get_cfsr` - Downloads CFSR initial conditions from the internet, run `get_cfsr -h` to get details on how to run the script.
-* `chgres_cfsr` - Changes spectral resolution of CFSR atmospheric files. Run `chgres_cfsr -h` to get details on how to run the script.
+* `scripts/cfsr_get` - Downloads CFSR initial conditions from the internet, run `get_cfsr -h` to get details on how to run the script.
+* `scripts/cfsr_chgres` - Changes spectral resolution of CFSR atmospheric files. Run `chgres_cfsr -h` to get details on how to run the script.
 
 ####Grid / scpectral conversion
 The following programs are created by running `make`
