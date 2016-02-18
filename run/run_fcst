@@ -57,6 +57,7 @@ args.indir=os.path.abspath(args.indir)
 args.outdir=os.path.abspath(args.outdir)
 cl = 'cp' if args.copy else 'ln -s'
 dateShort = args.date.strftime("%Y%m%d%H")
+ndate = args.date + dt.timedelta(hours=6)
 
 
 ############################################################
@@ -79,16 +80,31 @@ for d in [args.wrkdir, args.wrkdir+'/RESTART', args.wrkdir+'/IRESTART',
     if not os.path.exists(d):
         os.makedirs(d)
 
+        
 ##############################        
 log.info("copying executables...")
 sp.call(cl+" $CFS_LETKF_ROOT/cfs/bin/* .", shell=True, cwd=args.wrkdir)
 
 
 ##############################
+## Check to see if the coupler restart file exists
+## copy restart file if it exists
+flx_file = glob("{}/{}.fluxes_restart".format(args.indir,dateShort))
+cpl_restart = len(flx_file) == 1
+if cpl_restart:
+    sp.call(cl+" {} {}/fluxes_for_OM".format(flx_file[0], args.wrkdir), shell=True)
+else:
+    log.warn("No coupler flux restart file was found, this is normal for the first run only")
+    sp.call(cl+" $FIX_DIR_OM/fluxes_init_OM_t{} {}/fluxes_init_OM".format(
+        args.ares, args.wrkdir), shell=True)    
+
+
+##############################
 log.info("Creating OCN config files...")
 env = os.environ
+env['restart']    = "T" if cpl_restart else "F"
 env['START_DATE'] = dateShort
-env["FCST_LEN"] = str(args.len)
+env["FCST_LEN"]   = str(args.len)
 env["CPL_PERIOD"] = str(300) ##TODO, make this configurable ?
 env["OUT_PERIOD"] = str(args.period)
 env["AM_RES"]     = str(args.ares)
@@ -106,7 +122,6 @@ sp.call(cl+" $CFS_LETKF_ROOT/run/config_files/d???_table .",
 log.info("Copying OCN fix files...")
 momFiles=[
     ("MOM4LND{ores}GFSOCNt{ares}.msk", "MOM4LND_GFSOCN"),
-    ("fluxes_init_OM_t{ares}",         "fluxes_init_OM"),
     ("grid_spec_{ores}.nc.T{ares}",    "INPUT/grid_spec.nc"),
     ("chl_{ores}.nc",                  "INPUT/chl.nc"),
     ("r2ts_clim.nc",                   "INPUT/"),
@@ -229,8 +244,17 @@ for i in range(1,args.len/args.period+1):
     cmd = 'cp {0}/SFC.F{1:02d} {2}/{3}_F{1:02d}.sfc'.format(
         args.wrkdir, f, args.outdir, dateShort)
     jobs.append( sp.Popen(cmd, shell=True) )
-
 [j.wait() for j in jobs]
+
+## copy the flux restart file
+log.info("Copying flux restart file for coupler")
+files = glob("{}/fluxes_for_OM_*".format(args.wrkdir))
+if len(files) != 1:
+    log.critical("Cannot find the flux restart file")
+    sys.exit(1)
+shutil.copy(files[0], "{}/{}.fluxes_restart".format(
+    args.outdir, ndate.strftime("%Y%m%d%H")))
+    
 
 ## all done
 log.info("Finished!!")

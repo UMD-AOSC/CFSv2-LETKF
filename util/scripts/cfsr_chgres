@@ -6,7 +6,7 @@ import datetime as dt
 import tempfile
 
 rootDir=os.getenv('CFS_LETKF_ROOT')
-chgres_bin = rootDir+'/util/global_chgres.sh'
+chgres_bin = rootDir+'/util/scripts/global_chgres.sh'
 
 
 ## Get the command line arguments

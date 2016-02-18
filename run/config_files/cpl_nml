@@ -8,7 +8,7 @@ cstepres=$((3600*6/$CPL_PERIOD))        # 6 hours
 cat <<EOF
 
 &CPL_SETTINGS
-restart=F,
+restart=${restart},
 cstepbeg=1,
 cstepmax=${cstepmax},
 cstepres=${cstepres},
