@@ -1,5 +1,5 @@
 
-PROGS   = ss2grd grd2ss sscycle ss2grdp grdctl
+PROGS   = ss2grd grd2ss sscycle ss2grdp grdctl sscycle2
 
 OBJS    = ssio_tools.o physcons.o
 
@@ -16,6 +16,7 @@ FOPTS2 = -O2
 all:	$(PROGS)
 
 commonlibs= common_gfs_pres.o common_gfs.o ssio_tools.o
+sscycle2.o :
 ss2grd.o : common_gfs.o ssio_tools.o
 grd2ss.o : common_gfs.o ssio_tools.o
 ss2grdp.o : common_gfs.o ssio_tools.o

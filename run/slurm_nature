@@ -33,7 +33,7 @@ jobWatchSleep = 2            # in seconds
 timeLimit_CFS = "10:00"
 
 rootDir = os.getenv("CFS_LETKF_ROOT")
-ssioPath = rootDir +'/util/bin/sscycle'
+ssioPath = rootDir +'/util/bin/sscycle2'
 tmpDir = os.getenv("TMP_DIR_SHARED")+'/cfs_nature'
 scycle_tmpDir = os.getenv("TMP_DIR_LOCAL")+'/cfs_nature/sscycle'
 
@@ -108,31 +108,8 @@ log.info("")
 
 
 ## copy required files
-shutil.copy(ssioPath, scycle_tmpDir+'/sscycle')
+shutil.copy(ssioPath, scycle_tmpDir+'/sscycle2')
 
-
-################################################################################
-## functions needed for the slurm module
-################################################################################
-def checkJob(job, path):
-    """ Function to be run after the completion of a 6 hour forecast,
-    Checks to make sure that the job finished correctly by inspecting
-    some of the key file outputs"""
-    
-    ## make sure there are the right number of files:
-    found = (len(glob(path+'/??????????_F06.*')) > 5)                  
-    if not found:
-        log.warn('checkJob: not enough files, waiting to see if lusture is just slow')
-    return found
-
-
-def resetJob(job, path):
-    """Function to be run before a job is resubmitted after failure.
-    Deletes the bad files that might have been created
-    """
-    log.debug('calling resetJob for '+job.name)
-    if os.path.exists(path):
-        shutil.rmtree(path)
 
 
     
@@ -146,6 +123,7 @@ while cdate < endDate:
     log.info("*** Begining "+str(cdate))
     cdateShort = cdate.strftime("%Y%m%d%H")
     ndate = cdate + dt.timedelta(hours=6)
+    ndateShort = ndate.strftime("%Y%m%d%H")
 
     ## create the forecast from the given time
     ############################################################
@@ -169,15 +147,13 @@ while cdate < endDate:
         
         ## run sscycle on the output of the gfs
         [os.remove(f) for f in  glob(scycle_tmpDir+'/fort.*')]        
-        cfsrFiles = analGFS+ndate.strftime("/%Y/%Y%m/%Y%m%d/%Y%m%d%H")
-        shutil.copy(cfsrFiles+'.sig', scycle_tmpDir+'/fort.21')
-        shutil.copy(cfsrFiles+'.sfc', scycle_tmpDir+'/fort.22')
+        # cfsrFiles = analGFS+ndate.strftime("/%Y/%Y%m/%Y%m%d/%Y%m%d%H")
         shutil.move(outPath+cdate.strftime("/%Y%m%d%H_F06.sig"), scycle_tmpDir+'/fort.11')
         shutil.move(outPath+cdate.strftime("/%Y%m%d%H_F06.sfc"), scycle_tmpDir+'/fort.12')
-        with open(scycle_tmpDir+'/ssio.nml','w') as f:
-            f.write("&common_gfs\n nlon={}\n nlat={}\n gfs_jcap={}\n nlev=64\n /".format(
-                args.ares_x, args.ares_y, args.ares))
-        if sp.call("./sscycle", cwd=scycle_tmpDir, shell=True) != 0:
+        # with open(scycle_tmpDir+'/ssio.nml','w') as f:
+        #     f.write("&common_gfs\n nlon={}\n nlat={}\n gfs_jcap={}\n nlev=64\n /".format(
+        #         args.ares_x, args.ares_y, args.ares))
+        if sp.call("./sscycle2 {}".format(ndateShort), cwd=scycle_tmpDir, shell=True) != 0:
             print "error with calling sscyle"
             sys.exit(1)
         shutil.move(scycle_tmpDir+'/fort.21', outPath+ndate.strftime("/%Y%m%d%H.sig"))
@@ -186,7 +162,7 @@ while cdate < endDate:
 
         ## rename the ocean/ice files
         for f in glob(outPath+"/*F06.ocean*.nc")+glob(outPath+"/*F06.ice*.nc"):
-            shutil.move(f, outPath+ndate.strftime('/%Y%m%d%H')+os.path.basename(f)[14:])
+            shutil.move(f, outPath+'/'+ndateShort+os.path.basename(f)[14:])
         
     ## incremment the date
     cdate += dt.timedelta(hours=6)

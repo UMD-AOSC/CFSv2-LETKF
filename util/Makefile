@@ -16,6 +16,7 @@ ssio : dirs
 	cp src/ssio/ss2grd bin/
 	cp src/ssio/ss2grdp bin/
 	cp src/ssio/sscycle bin/
+	cp src/ssio/sscycle2 bin/
 
 clean :
 	rm -rf bin
