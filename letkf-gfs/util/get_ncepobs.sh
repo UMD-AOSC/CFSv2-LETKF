@@ -38,7 +38,15 @@ fi
 EMAIL="$1"
 PASSWD="$2"
 STIME=$3
+if [ "${#STIME}" -ne "8" ]; then
+    echo "STIME needs to be in YYYYMMDD format"
+    exit 1
+fi
 ETIME=${4:-$STIME}
+if [ "${#ETIME}" -ne "8" ]; then
+    echo "ETIME needs to be in YYYYMMDD format"
+    exit 1
+fi
 IF_DECODE=${5:-1}
 
 BUFRBIN=$CFS_LETKF_ROOT/letkf-gfs/util
