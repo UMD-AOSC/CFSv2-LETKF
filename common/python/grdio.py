@@ -1,20 +1,9 @@
 import  numpy as np
+import os
+import re
 
 
-def _procdim(string):
-    dim = []
-    if (string[2].lower() == "linear"):
-        start = float(string[3])
-        step = float(string[4])
-        num = int(string[1])
-        stop = step*num+start
-        dim = np.arange(start,stop,step)
-    elif (string[2].lower() == 'levels'):
-        dim=np.zeros(int(string[1]))
-#        for i in string[3:]:
-#            dim.append(float(i.replace(',','')))
-#        dim=np.array(dim)
-    return dim
+_NUMBER = '[-+]?[0-9]*\.?[0-9]+(?:[eE][-+]?[0-9]+)?'
 
 
 class GrdDataDescrip:
@@ -25,56 +14,101 @@ class GrdDataDescrip:
 
 
 class GradsCtl:
-    filename=''
-    undef = 9.99e33
-    endian='little'
-
-
+   
     def __init__(self, filename):
+        self.undef = 9.99e33
+        self.big_endian = False
+
         self.data = {}
         self.dataidx=[]
-        self.x=[]
-        self.y=[]
-        self.z=[]       
+        self.x=None
+        self.y=None
+        self.z=None     
         self.filename = filename
+
+        ## read in the file
         with open(filename,'r') as f:
-            ctlstr = f.read()
-            lines = ctlstr.split('\n')
-            nvars = 0
-            varoffset=0
-            for l in lines:
-                ws = filter(None, l.split(' '))
-                if len(ws) == 0:
-                    continue
-                w0 = ws[0].lower()
-                if nvars > 0:
-                    nvars = nvars-1
-                    d=GrdDataDescrip()
-                    d.name = ws[0].lower()
-                    d.levels = int(ws[1])
-                    if (d.levels == 0):
-                        d.levels = 1
-                    d.offset=varoffset
-                    d.ctl=self
-                    self.data[w0]=d
-                    self.dataidx.append(d)
-                    varoffset=varoffset+len(self.x)*len(self.y)*d.levels
-                elif w0 == 'options':
-                    for option in ws[1:]:
-                        if option.lower() == 'big_endian':
-                            self.endian = 'big'
-                elif w0 == 'undef':
-                    self.undef = float(ws[1])
-                elif w0 == 'xdef':
-                    self.x = _procdim(ws)
-                elif w0 == 'ydef':
-                    self.y = _procdim(ws)
-                elif w0 == 'zdef':
-                    self.z = _procdim(ws)
-                elif w0 == 'vars':
-                    nvars = int(ws[1])
-                elif w0 == 'endvars':
-                    nvars = 0
+            self.ctl = f.read()
+        self.ctlU = self.ctl.upper()
+
+        ## process options
+        if "UNDEF" in self.ctlU:
+            self.undef = eval(re.search("UNDEF (%s)" % _NUMBER, self.ctlU).group(1))
+        self.big_endian = bool(re.search("OPTIONS.*BIG_ENDIAN", self.ctlU))
+        self.yrev = bool(re.search("OPTIONS.*YREV", self.ctlU))
+        self.dset = re.search("DSET (.*)", self.ctlU).group(1)
+        if self.dset.startswith('^'):
+            self.dset = os.path.join(os.path.dirname(self.filename), self.dset[1:])
+
+            
+        ## process x & y dimensions
+        if "XDEF" in self.ctlU:
+            self.x = self._procdim("XDEF")
+        if "YDEF" in self.ctlU:
+            self.y = self._procdim("YDEF")
+        if "ZDEF" in self.ctlU:
+            self.z = self._procdim("ZDEF")
+        # if "TDEF" in self.ctlU:
+        #     self.t = self._procdim("TDEF")
+
+        ## process variables
+        self._procvars()
+
+            
+    ## ------------------------------
+    def _procdim(self, dim):
+        print "processing "+dim
+
+        ## if linear array is defined
+        p = re.compile("%s\s+(\d+)\s+LINEAR\s+(%s)\s+(%s)" % (dim, _NUMBER, _NUMBER))
+        m = p.search(self.ctlU)
+        if m:
+            length = int(m.group(1))
+            start = float(m.group(2))
+            increment = float(m.group(3))
+            return np.arange(start, start+length*increment, increment)   
+
+        ## levels are defined
+        p = re.compile("%s\s+\d+\s+LEVELS((\s+%s)+)" % (dim, _NUMBER))
+        m = p.search(self.ctlU)
+        if m:
+            return np.fromstring(m.group(1), sep=' ')
+
+        ## and, whatever this one if for
+        p = re.compile("%s\s+(\d+)\s+LINEAR\s+([:\w]+)\s+(\d{1,2})(\w{2})" % dim)
+        m = p.search(self.ctlU)
+        if m:
+            length = int(m.group(1))
+            start = parse_date(m.group(2))
+            increment = parse_delta(m.group(3), m.group(4))
+            return np.array([ start+i*increment for i in range(length)]) 
+
+    def _procvars(self):
+        print "whee"
+        lines = self.ctl.split('\n')
+        nvars = 0
+        varoffset=0
+        for l in lines:
+            ws = filter(None, l.split(' '))
+            if len(ws) == 0:
+                continue
+            w0 = ws[0].lower()
+            if nvars > 0:
+                nvars = nvars-1
+                d=GrdDataDescrip()
+                d.name = ws[0].lower()
+                d.levels = int(ws[1])
+                if (d.levels == 0):
+                    d.levels = 1
+                d.offset=varoffset
+                d.ctl=self
+                self.data[w0]=d
+                self.dataidx.append(d)
+                varoffset=varoffset+len(self.x)*len(self.y)*d.levels
+            elif w0 == 'vars':
+                nvars = int(ws[1])
+            elif w0 == 'endvars':
+                nvars = 0
     
 def readGrd(ctl, filename):
     grd = {}
