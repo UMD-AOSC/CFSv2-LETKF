@@ -191,7 +191,17 @@ files=[
     'global_albedo4.1x1.grb',
     'cfs_ice1x1monclim19822001.grb',
     'global_tg3clim.2.6x1.5.grb',
-    'global_vegfrac.0.144.decpercent.grb']
+    'global_vegfrac.0.144.decpercent.grb',
+    'seaice_newland.grb',
+    'global_vegtype.1x1.grb',
+    'global_vegfrac.1x1.grb',
+    'global_soiltype.1x1.grb',
+    'global_shdmin.0.144x0.144.grb',
+    'global_shdmax.0.144x0.144.grb',
+    'global_slope.1x1.grb',
+    'global_snoalb.1x1.grb',
+    'global_soilmcpc.1x1.grb',
+]
 for f in files:
     sp.call(cl+" $FIX_DIR_AM/{} fix_am/".format(f),
             shell=True, cwd=args.wrkdir)
