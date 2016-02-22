@@ -237,8 +237,10 @@ log.info("Copying OCN output...")
 jobs=[]
 files = glob(args.wrkdir+"/IRESTART/*.res.nc")
 for f in files:
-    cmd = 'cp {} {}/{}_F06.{}'.format(
-        f, args.outdir, dateShort, os.path.basename(f)[10:])
+    fdate = dt.datetime.strptime(f.split('/')[-1][0:10],"%Y%m%d%H")
+    fhr = int((fdate-args.date).total_seconds()/3600)
+    cmd = 'mv {} {}/{}_F{:02d}.{}'.format(
+        f, args.outdir, dateShort, fhr, os.path.basename(f)[10:])
     jobs.append( sp.Popen(cmd, shell=True) )
 [j.wait() for j in jobs]
 
@@ -248,10 +250,10 @@ log.info("Copying ATM output...")
 jobs=[]
 for i in range(1,args.len/args.period+1):
     f = i*args.period
-    cmd = 'cp {0}/SIG.F{1:02d} {2}/{3}_F{1:02d}.sig'.format(
+    cmd = 'mv {0}/SIG.F{1:02d} {2}/{3}_F{1:02d}.sig'.format(
         args.wrkdir, f, args.outdir, dateShort)
     jobs.append( sp.Popen(cmd, shell=True) )
-    cmd = 'cp {0}/SFC.F{1:02d} {2}/{3}_F{1:02d}.sfc'.format(
+    cmd = 'mv {0}/SFC.F{1:02d} {2}/{3}_F{1:02d}.sfc'.format(
         args.wrkdir, f, args.outdir, dateShort)
     jobs.append( sp.Popen(cmd, shell=True) )
 [j.wait() for j in jobs]
@@ -259,11 +261,13 @@ for i in range(1,args.len/args.period+1):
 ## copy the flux restart file
 log.info("Copying flux restart file for coupler")
 files = glob("{}/fluxes_for_OM_*".format(args.wrkdir))
-if len(files) != 1:
+if len(files) == 0:
     log.critical("Cannot find the flux restart file")
     sys.exit(1)
-shutil.copy(files[0], "{}/{}.fluxes_restart".format(
-    args.outdir, ndate.strftime("%Y%m%d%H")))
+for f in files:
+    fh = int(f.split('_')[-1])/12
+    shutil.copy(f, "{}/{}_F{:02d}.fluxes_restart".format(
+        args.outdir, dateShort, fh))
     
 
 ## all done

@@ -30,9 +30,8 @@ amres=62                          ## atmospheric resolution
 
 ## directories
 rootDir=$CFS_LETKF_ROOT
-ssioFile=$CFS_LETKF_ROOT/util/bin/sscycle
+ssioFile=$CFS_LETKF_ROOT/util/bin/sscycle2
 tmpDir=$TMP_DIR_SHARED/cfs_nature
-analGFS=$CFSR_DIR/T$amres
 
 ## determine the x/y size of grids based on TXX resolution
 if [ "$amres" -eq "62" ]; then
@@ -77,7 +76,7 @@ while [ "$time" -le "$etime" ]; do
     logPath=$path/logs/${time:0:4}/${time:0:6}   
     mkdir -p $logPath
     echo "Running the 6 hour forecast..."
-    $rootDir/run/run_fcst $srcDir $dstDir $time 6 6 $amres $tmpDir > $logPath/$time.log
+    $rootDir/run/run_fcst $srcDir $dstDir $time --ares 6 --period 6 --ares $amres --wrkdir $tmpDir --len 6 > $logPath/$time.log
 
     ## rename the ocean/ice files
     mv $dstDir/${time}_F06.ice_model.res.nc $dstDir/$ntime.ice_model.res.nc
@@ -86,24 +85,21 @@ while [ "$time" -le "$etime" ]; do
     	mv $dstDir/${time}_F06.ocean_$f.res.nc $dstDir/${ntime}.ocean_$f.res.nc
     done
 
+    ## rename the flux restart file
+    mv $dstDir/${time}_F06.fluxes_restart $dstDir/$ntime.fluxes_restart
     
     ## change the atmosphere forecast to an analysis.
-    ## This runs sscycle on the forecast output so that
-    ## the sig and sfc file headers are updated, and
-    ## various boundary conditions are updated
+    ## This runs sscycle2 on the forecast output so that
+    ## the sig and sfc file headers are updated.
     echo "Running boundary update..."
     rm -rf $tmpDir
     mkdir -p $tmpDir
     cd $tmpDir
-    cfsrFile=${analGFS}/${ntime:0:4}/${ntime:0:6}/${ntime:0:8}/${ntime}
-    cp $cfsrFile.sig fort.21
-    cp $cfsrFile.sfc fort.22
     mv $dstDir/${time}_F06.sig fort.11
     mv $dstDir/${time}_F06.sfc fort.12
     cp $ssioFile .
     printf "&common_gfs\n nlon=$AM_RES_X\n  nlat=$AM_RES_Y\n  gfs_jcap=$amres\n nlev=64\n /" > ssio.nml
-
-    ./sscycle
+    ./sscycle2 ${ntime}
     
     if [ "$?" -ne "0" ]; then
 	echo "Error with sscyle"

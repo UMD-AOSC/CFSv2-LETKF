@@ -18,6 +18,7 @@ from glob import glob
 import datetime as dt
 import time
 import numpy as np
+import hashlib
 
 ## load 3rd party modules
 import common
@@ -34,23 +35,16 @@ timeLimit_CFS = "10:00"
 
 rootDir = os.getenv("CFS_LETKF_ROOT")
 ssioPath = rootDir +'/util/bin/sscycle2'
-tmpDir = os.getenv("TMP_DIR_SHARED")+'/cfs_nature'
-scycle_tmpDir = os.getenv("TMP_DIR_LOCAL")+'/cfs_nature/sscycle'
 
 ################################################################################
 ################################################################################
 
-## make a local temporary work directory
-for d in (tmpDir, scycle_tmpDir):
-    if os.path.exists(d):
-        shutil.rmtree(d)
-    os.makedirs(d)
     
 ## get the command line arguments
 parser = argparse.ArgumentParser(
     formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     description=(
-        "Runs a series of 6 hour forecast cycles, useful to "
+        "Runs a series of 1 Day forecast cycles, useful to "
         "ensure that the CFS is working correctly, and somewhat "
         "useful in generating a nature run. A more efficient nature "
         "run script could be made (e.g. script should be changed "
@@ -65,6 +59,9 @@ parser.add_argument('--path', metavar='path', required=True,
   help="path to store the nature run in")
 parser.add_argument('--ares', type=int, choices=[62,126,190,382,574,1148], default=62,help=(
     "horizontal resolution of the atmosphere (Default:T62)"))
+parser.add_argument('--int', type=int, default=24, help=(
+    "Interval of forecast segments in hours. The model will run for this amount of time, process the output, and then "
+    "start again until the end date is reached. Needs to be a multiple of 6. (Default:24)"))
 parser.add_argument('--partition',
   help="the SLURM partition to use, only meaningful overrides are 'debug' and 'scavenger'")
 parser.add_argument('--account', default="aosc-hi",
@@ -75,6 +72,10 @@ args=parser.parse_args()
 ## extra command line argument processing...
 args.path = os.path.abspath(args.path)
 args.ares_x,args.ares_y = common.getAtmRes(args.ares)
+if (args.int % 6 ) != 0:
+    log.critical("--int X needs to be a multiple of 6, you entered {}"+format(args.int))
+    sys.exit(1)
+    
 if args.partition:
     slurm.partition =args.partition
     
@@ -103,9 +104,22 @@ log.info("End date:   "+str(endDate))
 log.info("")
 
 
-################################################################################
-################################################################################
 
+################################################################################
+################################################################################
+## determine the tmp directory, as a hash of the output directory, so that
+## the tmp directory is "random", though the same for the same experiments
+dirhash = hashlib.md5(args.path).hexdigest()[0:6]
+tmpDir = os.getenv("TMP_DIR_SHARED")+'/cfs_nature_'+dirhash
+scycle_tmpDir = os.getenv("TMP_DIR_LOCAL")+'/cfs_nature_{}/sscycle'.format(dirhash)
+log.info("Shared tmp directory: "+tmpDir)
+log.info("Local tmp directory : "+scycle_tmpDir)
+
+## make a local temporary work directory
+for d in (tmpDir, scycle_tmpDir):
+    if os.path.exists(d):
+        shutil.rmtree(d)
+    os.makedirs(d)
 
 ## copy required files
 shutil.copy(ssioPath, scycle_tmpDir+'/sscycle2')
@@ -122,7 +136,7 @@ cdate = startDate
 while cdate < endDate:
     log.info("*** Begining "+str(cdate))
     cdateShort = cdate.strftime("%Y%m%d%H")
-    ndate = cdate + dt.timedelta(hours=6)
+    ndate = cdate + dt.timedelta(hours=args.int)
     ndateShort = ndate.strftime("%Y%m%d%H")
 
     ## create the forecast from the given time
@@ -131,13 +145,13 @@ while cdate < endDate:
     while run:
         run = False
         inPath  = args.path+cdate.strftime("/%Y/%Y%m/%Y%m%d/%Y%m%d%H/")
-        outPath = args.path+ndate.strftime("/%Y/%Y%m/%Y%m%d/%Y%m%d%H/")
+        #args.path+ndate.strftime("/%Y/%Y%m/%Y%m%d/%Y%m%d%H/")
 
-        # run the 6 hour step
+        # run the forecast
         job = slurm.Job(
             name = 'CFS_nature',
-            cmd = rootDir+"/run/run_fcst {} {} {} --ares {} --wrkdir {} --len 6 --period 6".format(
-                inPath, outPath, cdateShort, args.ares, tmpDir),
+            cmd = rootDir+"/run/run_fcst {} {} {} --ares {} --wrkdir {} --len {} --period 6".format(
+                inPath, inPath, cdateShort, args.ares, tmpDir, args.int),
             runtime = timeLimit_CFS,
             output  = logDir+'/cfs/cfs_'+cdateShort+'_%j.log',
             nproc   = nproc_cfs
@@ -145,26 +159,33 @@ while cdate < endDate:
         slurm.monitor((job,))
 
         
-        ## run sscycle on the output of the gfs
-        [os.remove(f) for f in  glob(scycle_tmpDir+'/fort.*')]        
-        # cfsrFiles = analGFS+ndate.strftime("/%Y/%Y%m/%Y%m%d/%Y%m%d%H")
-        shutil.move(outPath+cdate.strftime("/%Y%m%d%H_F06.sig"), scycle_tmpDir+'/fort.11')
-        shutil.move(outPath+cdate.strftime("/%Y%m%d%H_F06.sfc"), scycle_tmpDir+'/fort.12')
-        # with open(scycle_tmpDir+'/ssio.nml','w') as f:
-        #     f.write("&common_gfs\n nlon={}\n nlat={}\n gfs_jcap={}\n nlev=64\n /".format(
-        #         args.ares_x, args.ares_y, args.ares))
-        if sp.call("./sscycle2 {}".format(ndateShort), cwd=scycle_tmpDir, shell=True) != 0:
-            print "error with calling sscyle"
-            sys.exit(1)
-        shutil.move(scycle_tmpDir+'/fort.21', outPath+ndate.strftime("/%Y%m%d%H.sig"))
-        shutil.move(scycle_tmpDir+'/fort.22', outPath+ndate.strftime("/%Y%m%d%H.sfc"))
+        ## run sscycle on the output of the gfs, move forecasts to analysis 
         [os.remove(f) for f in  glob(scycle_tmpDir+'/fort.*')]
+        for h in range(6,args.int+1,6):
+            hdate = cdate+dt.timedelta(hours=h)
+            hdateShort = hdate.strftime("%Y%m%d%H")
+            outPath = args.path+hdate.strftime("/%Y/%Y%m/%Y%m%d/%Y%m%d%H/")
+            if not os.path.exists(outPath):
+                os.makedirs(outPath)
+                       
+            shutil.move(inPath+cdate.strftime("/%Y%m%d%H_F{:02d}.sig".format(h)), scycle_tmpDir+'/fort.11')
+            shutil.move(inPath+cdate.strftime("/%Y%m%d%H_F{:02d}.sfc".format(h)), scycle_tmpDir+'/fort.12')
+            if sp.call("./sscycle2 {}".format(hdateShort), cwd=scycle_tmpDir, shell=True) != 0:
+                print "error with calling sscyle"
+                sys.exit(1)
+            shutil.move(scycle_tmpDir+'/fort.21', outPath+hdate.strftime("/%Y%m%d%H.sig"))
+            shutil.move(scycle_tmpDir+'/fort.22', outPath+hdate.strftime("/%Y%m%d%H.sfc"))
+            [os.remove(f) for f in  glob(scycle_tmpDir+'/fort.*')]
 
-        ## rename the ocean/ice files
-        for f in glob(outPath+"/*F06.ocean*.nc")+glob(outPath+"/*F06.ice*.nc"):
-            shutil.move(f, outPath+'/'+ndateShort+os.path.basename(f)[14:])
+            ## rename the ocean/ice files
+            for f in glob(inPath+"/*F{:02d}.ocean*.nc".format(h))+glob(inPath+"/*F{:02d}.ice*.nc".format(h)):
+                shutil.move(f, outPath+'/'+hdateShort+os.path.basename(f)[14:])
+
+            ## rename the flux restart files
+            for f in glob(inPath+"/*F{:02d}.fluxes_restart".format(h)):
+                shutil.move(f, outPath+'/'+hdateShort+os.path.basename(f)[14:])
         
     ## incremment the date
-    cdate += dt.timedelta(hours=6)
+    cdate = ndate
         
 shutil.rmtree(tmpDir)

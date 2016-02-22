@@ -8,7 +8,7 @@ cat << EOF
 &nam_mrf
   FHOUT=${OUT_PERIOD}, FHMAX=${FCST_LEN}, IGEN=82, DELTIM=300,
   FHRES=24, FHZER=6, FHLWR=1, FHSWR=1,
-  FHROT=0, FHDFI=0, FHCYC=6,
+  FHROT=0, FHDFI=0, FHCYC=24,
   ntrac=3, jcap=${AM_RES}, levs=64,
   lonf=${AM_RES_X}, lonr=${AM_RES_X}, latg=${AM_RES_Y},latr=${AM_RES_Y},
   ntoz=2,ntcw=3,ncld=1,lsoil=4,
