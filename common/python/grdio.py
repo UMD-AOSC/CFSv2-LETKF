@@ -57,7 +57,6 @@ class GradsCtl:
             
     ## ------------------------------
     def _procdim(self, dim):
-        print "processing "+dim
 
         ## if linear array is defined
         p = re.compile("%s\s+(\d+)\s+LINEAR\s+(%s)\s+(%s)" % (dim, _NUMBER, _NUMBER))
@@ -84,7 +83,6 @@ class GradsCtl:
             return np.array([ start+i*increment for i in range(length)]) 
 
     def _procvars(self):
-        print "whee"
         lines = self.ctl.split('\n')
         nvars = 0
         varoffset=0
@@ -112,7 +110,7 @@ class GradsCtl:
     
 def readGrd(ctl, filename):
     grd = {}
-    if ctl.endian=='big':
+    if ctl.big_endian:
         fmt = '>f4'
     else:
         fmt = '<f4'
@@ -141,6 +139,6 @@ def writeGrd(ctl, data, filename):
             dataout=np.append(dataout, data[dv.name].flatten())
     dataout[dataout==np.nan]=ctl.undef
             
-    if ctl.endian=='big':
+    if ctl.big_endian:
         dataout.byteswap(True)               
     dataout.tofile(filename)
