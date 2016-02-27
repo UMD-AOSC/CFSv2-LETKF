@@ -8,7 +8,6 @@ import numpy as np
 import netCDF4 as nc
 import scipy.spatial
 
-
 sys.path.insert(1,'../../common/python')
 import obsio
 
@@ -23,7 +22,7 @@ parser = argparse.ArgumentParser(
 parser.add_argument("nature", metavar="NATURE_PATH", help=(
     "path to the folder containing the nature run from which "
     "observations values will be generated"))
-parser.add_argument("obs", metavar="OBS_PATH", help=(
+parser.add_argument("obs", metavar="REAL_OBS_PATH", help=(
     "path to the folder containing the actual observations. These "
     "existing observations will be used only in determining the "
     "synthetic obs locations and errors."))
@@ -34,20 +33,17 @@ parser.add_argument("enddate", metavar="END", help=(
 parser.add_argument("output", metavar="OUTPUT_PATH", help=(
     "Directory to place the created synthetic observations in"))
 
-## parse the arguments
-print "Synthetic ocean observation generation script.\n"
 args = parser.parse_args()
 args.startdate = dt.datetime.strptime(args.startdate, "%Y%m%d%H")
 args.enddate = dt.datetime.strptime(args.enddate, "%Y%m%d%H")
 print "Parameters: "+str(args)
-
 
 ## 
 cdate = args.startdate
 
 
 ## Read in the grid definition file, and save lat/lon pairs in a KD tree
-## for easy index lookup
+## for easy index lookup,
 print "Reading grid definition and proccessing lat/lons..."
 ncdat = nc.Dataset('../../support/fix/fix_om/grid_spec_05.nc.T62')
 lons = ncdat.variables["x_T"][:]

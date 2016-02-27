@@ -12,16 +12,23 @@ include $(CFS_LETKF_ROOT)/config/makefile.mk
 
 
 #LIBS := -L$(NCEPLIBDIR)/lib -lsp_4 $(LIBBLAS) -lbufrlib
-LIBS := $(LIBBLAS) -L$(NCEPLIBDIR)/lib -lsp_4 -lbufrlib $(CFS_LETKF_ROOT)/common/common_cfs.a
-INCLUDE := -I$(CFS_LETKF_ROOT)/common
-FOPTS= -O2 $(INCLUDE) #-mcmodel=medium
+LIBS := $(LIBBLAS) -L$(NCEPLIBDIR)/lib -lsp_4 -lbufrlib
+
+#$(CFS_LETKF_ROOT)/common/common_cfs.a
+
+#INCLUDE := -I$(CFS_LETKF_ROOT)/common
+FOPTS= -O2
+#$(INCLUDE) #-mcmodel=medium
 
 .PHONY: all clean
 
 all: dec_prepbufr
 
-dec_prepbufr:dec_prepbufr.o
+dec_prepbufr:dec_prepbufr.o common.o common_obs.o SFMT.o
 	$(FC) $(FOPTS) $(COMMON_OBJS) $? -o $@ $(LIBS) 
+
+dec_prepbufr.o: common.o common_obs.o
+common.o:SFMT.o
 
 %.o:%.f90
 	$(F90) $(FOPTS) -c $<

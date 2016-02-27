@@ -1,18 +1,40 @@
 #!/usr/bin/env python
+
+################################################################################
+## genobs_atm.py
+## CFSv2-LETKF
+##
+## Generate synthetic observations for the atmosphere using the
+## lat/lon/pressure/error information from real observations, but using
+## the corresponding values from a nature run. To be used for perfect model
+## experiments. For simplicity obs are generated at the closest grid points.
+##
+## Travis Sluka, 2016
+## University of Maryland
+################################################################################
+
+## built-in modules
 import argparse
 import datetime as dt
 import subprocess as sp
 import os, shutil, sys
 import hashlib
 
+## 3rd party modules
 import numpy as np
 import netCDF4 as nc
 
-
+## my modules
 sys.path.insert(1,os.getenv("CFS_LETKF_ROOT")+'/common/python')
 import cfs
 import obsio
 import grdio
+
+
+
+################################################################################
+################################################################################
+
 
 
 ## get the command line arguments
@@ -21,8 +43,7 @@ parser = argparse.ArgumentParser(description=(
     "lat/lon/pressure/error information from real observations, but using"
     " the corresponding values from a nature run. To be used for "
     "perfect model experiments. For simplicity obs are generated "
-    "at the closest grid points. Only the observations at the analysis "
-    "time are used (t.dat)"))
+    "at the closest grid points."))
 parser.add_argument("nature", metavar="NATURE_PATH", help=(
     "Path to the folder containing the nature run from which observation"
     " values will be generated"))
@@ -36,19 +57,25 @@ parser.add_argument("enddate", metavar="END", help=(
     "End date in YYYYMMDDHH format"))
 parser.add_argument("output", metavar="OUTPUT_PATH", help=(
     "Directory to place the created synthetic observations in"))
-parser.add_argument("--force", "-f", action="store_true")
+parser.add_argument("--force", "-f", action="store_true", help=(
+    "Forces the removing of the destination directory and temp "
+    "directory if they already exist"))
 
-## parse the arguments
-print "Synthetic atmosphere observation generation script.\n"
 args = parser.parse_args()
 args.startdate = dt.datetime.strptime(args.startdate, "%Y%m%d%H")
 args.enddate = dt.datetime.strptime(args.enddate, "%Y%m%d%H")
+## generate a temporary directory that has a random hash at the end,
+## so that the user can run more than one copy of this script at a time
+## for different experiments
 args.tmpdir = os.getenv("TMP_DIR_LOCAL")+'/genobs_atm_'+hashlib.md5(args.output).hexdigest()[:6]
 print "parameters: "+str(args)
 cdate = args.startdate
 
 
-## ------------------------------------------------------------
+
+################################################################################
+################################################################################
+
 
 
 ## setup a temporary work directory
@@ -66,12 +93,12 @@ for f in ['ss2grd','grdctl']:
 ##  read the spectral resolution from one of the nature files
 natfile = os.path.abspath(args.nature+cdate.strftime("/%Y/%Y%m/%Y%m%d/%Y%m%d%H/%Y%m%d%H.sig"))
 ares = int(sp.check_output("global_sighdr {} jcap".format(natfile), shell=True))
+ares_x, ares_y = cfs.getAtmRes(ares)
 print "  Nature files are T{}".format(ares)
+print "  Nature files are a {} x {} grid".format(ares_x, ares_y)
 
 
 ## write out the ss2grd namelist.
-ares_x,ares_y = cfs.getAtmRes(ares)
-print "  Nature files are a {} x {} grid".format(ares_x,ares_y)
 with open(args.tmpdir+'/ssio.nml', 'w') as f:
     f.write("$common_gfs nlon={} nlat={} gfs_jcap={} nlev=64 /".format(
         ares_x,ares_y,ares))
@@ -82,7 +109,8 @@ sp.call('grdctl 0 0 0 0 0 x > grd.ctl', shell=True, cwd=args.tmpdir)
 grdctl = grdio.GradsCtl(args.tmpdir+'/grd.ctl')
 
 
-## obsid mappings
+## obsid mappings,
+## allows lookup of the variable name stored in the grd file
 obsidmap = {
     1100 : 'ps',
     1210 : 't',
@@ -90,9 +118,22 @@ obsidmap = {
     1250 : 'u',
     1251 : 'v'}
 
+## platformid mapping,
+## allows lookup of observation platform name given the id
+platformidmap = {
+     1 : "ADPUPA",     2 : "AIRCAR",     3 : "AIRCFT",
+     4 : "SATWND",     5 : "PROFLR",     6 : "VADWND",
+     7 : "SATEMP",     8 : "ADPSFC",     9 : "SFCSHP",
+    10 : "SFCBOG",    11 : "SPSSMI",    12 : "SYNDAT",
+    13 : "ERS1DA",    14 : "GOESND",    15 : "QKSWND",
+    16 : "MSONET",    17 : "SPGIPW",    18 : "RASSDA",
+    19 : "WDSATR",    20 : "ASCATW",    21 : "TMPAPR",}
 
-## function to find the closes grid point dimension
+
+## ------------------------------------------------------------
+## function to find the closest grid point dimension.
 ##  caches the results in the hash table to speed things up
+## ------------------------------------------------------------
 dim_cache = {}
 def nearestDim(coord, dims, *dimV):
     ## if this dimension has a label (e.g. "x" or "y")
@@ -104,10 +145,10 @@ def nearestDim(coord, dims, *dimV):
         if coord in dim_cache[dimV[0]]:
             return dim_cache[dimV[0]][coord]
 
-    ## start searching for the closes lon/lat/height that matches this
+    ## start searching for the closest lon/lat/height that matches this
     ## given coordinate
-    nrIdx = 0
-    nrDif = 1e20
+    nrIdx = 0       ## index of gridpoint dimension closest so far
+    nrDif = 1e20    ## distance of closes point
     for d in range(len(dims)):
         v = abs(coord-dims[d])
         if v < nrDif:
@@ -117,6 +158,7 @@ def nearestDim(coord, dims, *dimV):
     ## cache the results in hash table for faster lookup next time
     if len(dimV) > 0:
         dim_cache[dimV[0]][coord] = nrIdx
+        
     return nrIdx
 
 
@@ -125,27 +167,37 @@ def nearestDim(coord, dims, *dimV):
 ## create the observations
 
 count = 0
+## for each 6 hour date in the list given
 while cdate <= args.enddate:
+    
     print ""
     print "Processing " + cdate.strftime("%Y%m%d%H")
+    
     badObs = {}  ## a list of unknown observation ids read in
                  ## and the number of those observations seen
-    goodObs = {} ## a list of the observation ids that were
+    platforms={} ## a list of the platform types seen
+                 ## and the nubmer of those observations seen
+    goodObs = dict( [ (x,0) for x in obsidmap ] )
+                 ## a list of the observation types that were
                  ## used and the number of those generated
     usedLoc = set([]) ## a hash of x/y/z/obid values so that
-                      ## we only generate 1 ob per grid point    
-    for x in obsidmap:
-        goodObs[x] = 0
+                      ## we only generate 1 ob per grid point
 
+    ## obs, obs_xy, and obs_z will be generated below, all arrays
+    ##  are the same length and corresponding elements go together
+    ##  between the 3.
         
     ## read in the observation locations
     print "  reading obs file..."
-    obsfile = os.path.abspath(args.obs+cdate.strftime(
-        "/%Y/%Y%m/%Y%m%d/%Y%m%d%H/t.dat"))
-    obs = obsio.read(obsfile)
+    obs = []
+    ## this will read in all timeslots for the 6 hour observation window
+    for f in ["-3","-2","-1","","+1","+2","+3"]:
+        obsfile = os.path.abspath(
+            args.obs+cdate.strftime("/%Y/%Y%m/%Y%m%d/%Y%m%d%H/t")+f+".dat")
+        obs += obsio.read(obsfile)
     print "  {} observations loaded.".format(len(obs))
 
-    
+
     ## generate an x/y grid coordinate for each observation
     print "  calculating grid x/y coords..."
     obs_xy = []
@@ -176,29 +228,31 @@ while cdate <= args.enddate:
         o = obs[i]
         if o[0] == 1100: #Ps obs
             xy_ps[obs_xy[i]] = o[4]
-        o = None
 
         
     ## for each observation, determine the z level
     obs_z = []
     for i in range(len(obs)):
         if obs[i][0] == 1100:
-            ## PS always is at the surface... duh
+            z = 0   ## PS always is at the surface... duh
+        elif obs[i][6] in (8,9,19):
+            ## ADPSFC, SFCSHP, and WDSATR are at the surface
             z = 0
         else:
-            x,y = obs_xy[i]            
+            ## o_p will be the pressure level at which to generate the observation            
+            x, y = obs_xy[i]
             if obs_xy[i] in xy_ps:
-                ## we prevopusly found an observation of ps at this x/y
-                ##   we can calculate P of the nature it should occur at.
+                ## we prevoiously found an observation of ps at this x/y
+                ## we can calculate P of the nature it should occur at.
                 ## important to do for raobs
                 ps = xy_ps[obs_xy[i]]
                 o_p = obs[i][3]/ps*(nat['ps'][0,y,x]/100)
             else:
                 ## otherwise, just use the P that is given by the real ob
                 o_p = obs[i][3]
+                
             ## find the z value based on the P
-            vp = nat['p'][:,y,x]/100
-            z = nearestDim(o_p, vp)
+            z = nearestDim(o_p, nat['p'][:,y,x]/100)
         obs_z.append(z)
 
     
@@ -208,30 +262,15 @@ while cdate <= args.enddate:
         o = obs[i]
 
         ## make sure this is an observation ID we recognize
-        if not o[0] in obsidmap:
-            if not o[0] in badObs:
+        if o[0] not in obsidmap:
+            if o[0] not in badObs:
                 badObs[o[0]] = 0
             badObs[o[0]] += 1
             continue
-        
+       
         ## calculate the x/y/z coords
-        x,y = obs_xy[i]
+        x, y = obs_xy[i]
         z = obs_z[i]
-        
-        ## generate a value
-        err = o[5]
-        val = nat[obsidmap[o[0]]][z,y,x]
-        if o[0] == 1100:
-            val /= 100
-        val += np.random.normal(0,err)
-        
-        if o[0] == 1100:  ## Ps            
-            hgt = nat['orog'][0,y,x]
-        else:
-            hgt = nat['p'][z,y,x]/100
-            
-        o2 = (o[0], grdctl.x[x], grdctl.y[y], hgt, val, err, o[6])
-
         
         ## obs thinning, make sure only 1 observation of any given type
         ##  is generated at a given x/y/z
@@ -240,19 +279,48 @@ while cdate <= args.enddate:
             continue
         usedLoc.add(hkey)
 
+        
+        ## generate a value
+        err = o[5]
+        val = nat[obsidmap[o[0]]][z,y,x]
+        if o[0] == 1100: 
+            val /= 100  ## convert pressure from Pa to hPa
+        val += np.random.normal(0,err) ## add gaussian noise
+        
+        if o[0] == 1100:
+            ## PS obs give height as the actual terrain height
+            hgt = nat['orog'][0,y,x]
+        else:
+            ## other obs give height as pressure in mb
+            hgt = nat['p'][z,y,x]/100
+            
+        newob = (o[0], grdctl.x[x], grdctl.y[y], hgt, val, err, o[6])
+
+        
         ## add the observation
-        goodObs[o[0]] += 1
-        synth_obs.append(o2)
+        goodObs[newob[0]] += 1
+        if not newob[6] in platforms:
+            platforms[newob[6]] = 1
+        else:
+            platforms[newob[6]] = platforms[newob[6]] + 1
+            
+        synth_obs.append(newob)
 
         
     ## diagnostic summary info
     for o in badObs:
         print "  [Error] Unkown obsid ({}) found {} times".format(o, badObs[o])
-    total = 0
+    print "  ====== Observations variables ========"
+    total = 0    
     for o in goodObs:
         print "  {:7d} {:2} obs".format(goodObs[o],obsidmap[o])
         total += goodObs[o]
     print "  {:7d} TOTAL obs".format(total)
+
+    print ""
+    print "  ====== Observations Platforms ========="
+    for o in platforms:
+        print "  {:7d} {:2}({:02d}) obs".format(platforms[o], platformidmap[int(o)], int(o))
 
     
     ## write the observatiosn out
