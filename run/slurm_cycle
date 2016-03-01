@@ -49,9 +49,11 @@ parser.add_argument('end', metavar="END_DATE", help=(
 
 ## optional variables
 parser.add_argument('--oobs', help=(
-    "directory to ocean observations that are to be assimilated"))
-parser.add_argument('--account', default="aosc-hi", help=(
-    "The SLURM account to run the experiment with. (Default: aosc-hi)"))
+    "directory to ocean observations that are to be assimilated. "
+    "If not specified, not ocean observations are used."))
+parser.add_argument('--aobs', help=(
+    "directory to atmospheric observations that are to be assimilated. "
+    "If not specified, not atmospheric observations are used."))
 parser.add_argument('--ares', default='62', type=int, choices=common.aresList, help=(
     "Atmospheric resolution, must match the resolution of the initial "
     " ensemble members in the PATH directory. (Default: 62)"))
@@ -63,13 +65,18 @@ parser.add_argument('--mem', metavar='MEMBERS', type=int, help=(
     "The number of ensemble members. By default the script will "
     "automatically determine the number of ensemble members based "
     "on the directory structure of PATH"))
-parser.add_argument('--partition', help=(
+
+g = parser.add_argument_group("SLURM options")
+g.add_argument('--account', default="aosc-hi", help=(
+    "The SLURM account to run the experiment with. (Default: aosc-hi)"))
+g.add_argument('--partition', help=(
     "The SLURM partition to use. Only meaningful overrides (on DT2) "
     " are 'debug' and 'scavenger'."))
-parser.add_argument('--retries', metavar="NUM", default="3", type=int, help=(
+g.add_argument('--retries', metavar="NUM", default="3", type=int, help=(
     "Maximum number of times to retry submitting a SLURM job step before "
     "This script fails out. (Default: 3)"))
-                    
+
+
 ## parse the variables 
 args=parser.parse_args()
 args.path = os.path.abspath(args.path)
@@ -78,7 +85,7 @@ if args.partition:
 args.start = dt.datetime.strptime(args.start, "%Y%m%d%H")
 args.end   = dt.datetime.strptime(args.end, "%Y%m%d%H")
 slurm.account = args.account
-slurm.maxJobRetires = args.retries
+slurm.maxJobRetries = args.retries
 #args.analGFS = os.getenv("CFSR_DIR")+"/T{}".format(args.ares)
 if args.mem is None:
     args.mem = common.getEnsMem(args.path)
@@ -132,15 +139,16 @@ while cdate < args.end:
             )
         jobs.append(job)
     log.info("  Running parallel ens mem forecast and other jobs...")
-    slurm.monitor(jobs)
+#    slurm.monitor(jobs)
 
-
+    
     ##############################
     ## Run the observation operator for the atmosphere
     ##  This is done separately from the above step because the
     ##  superob program requires the mean of the atm ensemble
     cmd = "run_cycle_atmObsop {} {}".format(
         args.path, cdateShort)
+    if args.aobs is not None: cmd += " --aobs "+args.aobs
     job = slurm.Job(
         name     = 'CFS_atmobs',
         cmd      = cmd,

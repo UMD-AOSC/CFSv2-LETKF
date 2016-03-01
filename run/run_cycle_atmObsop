@@ -31,14 +31,17 @@ parser.add_argument('path', metavar="PATH", help=(
 parser.add_argument('date', metavar="DATE", help=(
     "Date that the forecasts were started from, in YYYYMMDDHH format."
     " E.g. for an analysis at 2010010106, 2010010100 would be passed in here"))
+parser.add_argument('--aobs', metavar="DIR", help=(
+    "Path to atmospheric observations to be used, "
+    "if not specified no atmospheric observations are used"))
 
 ## parse the arguments
 args = parser.parse_args()
 args.path = os.path.abspath(args.path)
+args.aobs = os.path.abspath(args.aobs)
 args.date = dt.datetime.strptime(args.date, "%Y%m%d%H")
 args.wrkdir = os.path.abspath(os.getenv("TMP_DIR_LOCAL")+"/cfs/atm_obsop")
 args.adate = args.date + dt.timedelta(hours=6)
-args.aobsDir = os.path.abspath(os.getenv("CFS_LETKF_ROOT")+'/DATA/obs/atm_prepbufr')
 args.mem  = common.getEnsMem(args.path)
 args.thinning = False
 
@@ -54,18 +57,25 @@ log.info("Travis Sluka, University of Maryland, 2016")
 log.info("")
 log.info("Configuration: \n"+str(args)+"\n")
 
+if args.aobs is None:
+    log.error("No observations directory was given, skipping the atmospheric observation operator script")
+    sys.exit(0)
 
 ############################################################
 log.info("Preparing observations and files...")
-if (not os.path.exists(args.wrkdir)): os.makedirs(args.wrkdir)
-shutil.copy(os.getenv("CFS_LETKF_ROOT")+'/run/config_files/letkf_mom.nml', args.wrkdir+'/letkf.nml')
+if os.path.exists(args.wrkdir):
+    log.warn("deleting exiting working directory")
+    shutil.rmtree(args.wrkdir)
+os.makedirs(args.wrkdir)
+shutil.copy(args.path+'/letkf.nml', args.wrkdir+'/letkf.nml')
 
 ## get the observations linked
 window = 3
 idx = 1
 for slot in range(-window,window+1):
     slotPfx = '{:+d}'.format(slot) if slot !=0 else ''
-    obsFile = args.aobsDir+'/'+adateDir+'/t'+slotPfx+'.dat'
+    obsFile = args.aobs+'/'+adateDir+'/t'+slotPfx+'.dat'
+    log.info(obsFile)
     if (not os.path.exists(obsFile)):
         log.error("obs file not found: "+obsFile)
         cmd = 'touch {}/obs{:02d}.dat'.format(args.wrkdir, idx)        
