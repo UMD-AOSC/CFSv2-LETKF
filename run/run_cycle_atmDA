@@ -56,9 +56,11 @@ log.info("Configuration: \n"+str(args)+"\n")
 
 ############################################################
 ## setup the working directory
-if (not os.path.exists(args.wrkdir)): os.makedirs(args.wrkdir)
-shutil.copy(os.getenv("CFS_LETKF_ROOT")+'/run/config_files/letkf_mom.nml',
-            args.wrkdir+'/letkf.nml')
+if os.path.exists(args.wrkdir):
+    log.warn("Removing existing working directory")
+    shutil.rmtree(args.wrkdir)
+os.makedirs(args.wrkdir)
+shutil.copy(args.path+'/letkf.nml', args.wrkdir+'/letkf.nml')
 
 ## TODO, add logic for strong coupling
 for m in mems:

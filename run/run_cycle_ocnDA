@@ -64,11 +64,15 @@ log.info("Configuration: \n"+str(args)+"\n")
 
 ############################################################
 ## setup the working directory
-if (not os.path.exists(args.wrkdir)): os.makedirs(args.wrkdir)
+if os.path.exists(args.wrkdir):
+    log.warn("Removing existing working directory")
+    shutil.rmtree(args.wrkdir)
+os.makedirs(args.wrkdir)
 os.symlink(os.getenv("FIX_DIR_OM")+"/grid_spec_{}.nc.T{}".format(args.ores,args.ares),
            args.wrkdir+'/grid_spec.nc')
-shutil.copy(os.getenv("CFS_LETKF_ROOT")+'/run/config_files/letkf_mom.nml',
-            args.wrkdir+'/input.nml')
+shutil.copy(args.path+"/letkf.nml", args.wrkdir+'/input.nml')
+
+
 jobs=[]
 for m in mems:
     for f in ['temp_salt','velocity','sbc']:
