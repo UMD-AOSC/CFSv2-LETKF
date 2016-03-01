@@ -85,7 +85,7 @@ if do_cfs:
       log.error("Problem running CFS forecast.")
       sys.exit(1)
 
-    
+      
 ############################################################
 ## convert atmosphere spectral files to gridded
 if do_atmcnvt:
@@ -97,8 +97,8 @@ if do_atmcnvt:
    for hr in range(fcstHrStart, fcstHrEnd+1):
       tmpDir = args.wrkdir+'/ss2grd_wrk_{0:02d}'.format(hr)
       if (not os.path.exists(tmpDir)): os.makedirs(tmpDir)
-      os.symlink(args.wrkdir+'/SIG.F{:02d}'.format(hr), tmpDir+'/fort.11')
-      os.symlink(args.wrkdir+'/SFC.F{:02d}'.format(hr), tmpDir+'/fort.12')
+      os.symlink("{}/gues/{:03d}/{}_F{:02d}.sig".format(args.path,args.ensNum,dateShort,hr), tmpDir+'/fort.11')
+      os.symlink("{}/gues/{:03d}/{}_F{:02d}.sfc".format(args.path,args.ensNum,dateShort,hr), tmpDir+'/fort.12')
       with open(tmpDir+'/ssio.nml', 'w') as f:
          f.write('$common_gfs nlon={} nlat={} gfs_jcap={} nlev=64 /'.format(
             args.ares_x, args.ares_y, args.ares))
@@ -115,7 +115,6 @@ if do_atmcnvt:
 
 ############################################################
 ## run ocean observation operator
-
 if do_ocnobsop:
    log.info("Running OCN observation operator...")   
    ## get the required files ready
