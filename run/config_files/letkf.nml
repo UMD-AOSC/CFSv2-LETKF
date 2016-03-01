@@ -1,8 +1,13 @@
+#!/bin/bash
+## use by "source letkf.nml > outfile"
+## Required env vars:
+
+cat << EOF
 ! ------------------------------------------------------------
 ! Parameters common to LETKF for all domains
 ! ------------------------------------------------------------
 &letkf
-  nbv = 10		! Number of ensemble members
+  nbv = ${nbv}		! Number of ensemble members
 /
 
 
@@ -40,3 +45,5 @@ $letkf_atm
   sigma_ocn_v   = 0.1  
   sigma_ocn_t   = 3.0
 /
+
+EOF

@@ -70,6 +70,12 @@ if os.path.exists(args.tmpDir):
 os.makedirs(args.tmpDir)
 shutil.copy(args.ssioDir+'/sscycle2', args.tmpDir)
 
+## write the namelist for the sscyle program
+with open(args.tmpDir+'/ssio.nml', 'w') as f:
+    res = common.getAtmRes(args.ares)
+    f.write('$common_gfs nlon={} nlat={} gfs_jcap={} nlev=64 /'.format(
+        res[0], res[1], args.ares))
+
 ## create the output directory if it does not already exist
 if os.path.exists(args.path):
     if args.force:
@@ -91,11 +97,15 @@ anaPfx = "/{0}/{0}{1}/{0}{1}{2}/{0}{1}{2}{3}".format(
 for d in ('anal','gues'):
     [os.makedirs(args.path+'/{0}/{1}'.format(d,d2)) for d2 in ('mean','sprd')]
 
-## write the namelist for the sscyle program
-with open(args.tmpDir+'/ssio.nml', 'w') as f:
-    res = common.getAtmRes(args.ares)
-    f.write('$common_gfs nlon={} nlat={} gfs_jcap={} nlev=64 /'.format(
-        res[0], res[1], args.ares))
+## copy an initial letkf namelist
+env = os.environ
+env['nbv'] = str(args.mem)
+sp.check_call("source $CFS_LETKF_ROOT/run/config_files/letkf.nml > letkf.nml",
+               shell=True, cwd=args.path)
+
+## copy the global settings
+sp.check_call("cp $CFS_LETKF_ROOT/run/config_files/config.py .",
+              shell=True,cwd=args.path)
 
 
 ############################################################
