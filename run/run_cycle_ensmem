@@ -18,11 +18,6 @@ import common
 ## setup the logging system
 log = common.setupLog()
 
-## directory locations
-fixDir = os.getenv("FIX_DIR_OM")
-letkfDir = os.getenv("CFS_LETKF_ROOT") + '/letkf-mom/mom4'
-obsDir = os.getenv("CFS_LETKF_ROOT") + '/DATA/obs/single_obs/ocn'
-
 ## determine which parts of the script to run, mainly for debugging,
 ## For normal operations these should all be True
 do_cfs      = True
@@ -45,17 +40,22 @@ parser.add_argument('date', metavar="DATE", help=(
 parser.add_argument('ensNum', metavar="ENS_NUM", type=int, help=(
     "ensemble member number"))
 
+parser.add_argument("--ares", type=int, help=(""))
+parser.add_argument("--oobs", help=(
+   "Directory containing the ocean observations to be assimilated. If argument is not present, "
+   "it is assumed no ocean observations are to be used."))
+
+
 ## parse the arguments
 args = parser.parse_args()
 args.date = dt.datetime.strptime(args.date, "%Y%m%d%H")
 args.path = os.path.abspath(args.path)
-args.ares = 62 ## TODO, make this configurable
+args.fixDir = os.path.abspath(os.getenv("FIX_DIR_OM"))
+args.letkfDir = os.path.abspath(os.getenv("CFS_LETKF_ROOT") + '/letkf-mom/mom4')
+args.ores = '05'
 args.ares_x,args.ares_y = common.getAtmRes(args.ares)
 args.wrkdir = os.path.abspath(os.getenv("TMP_DIR_SHARED")+"/CFS_{:03d}".format(args.ensNum))
 assert( args.ensNum > 0 and args.ensNum <= common.getEnsMem(args.path))
-
-#aobsDir = os.getenv("CFS_LETKF_ROOT")+'/DATA/obs/atm_prepbufr'
-#oobsDir = os.getenv("CFS_LETKF_ROOT")+'/DATA/obs/PROFS_gerr_TS_deep'
 
 ## date: the date the forecast was initialized from
 dateShort = args.date.strftime("%Y%m%d%H")
@@ -74,7 +74,14 @@ log.info("Travis Sluka, University of Maryland, 2016")
 log.info("")
 log.info("Configuration:\n"+str(args)+"\n")
 
-
+if args.oobs is None:
+   log.warn("No ocean observations directory is specified, not ocean obs will be assimilated")
+   
+## make sure the wrk directory is empty
+if os.path.exists(args.wrkdir):
+   shutil.rmtree(args.wrkdir)
+   os.makedirs(args.wrkdir)
+   
 ############################################################
 ## run the CFS forecast
 if do_cfs:
@@ -112,21 +119,22 @@ if do_atmcnvt:
          log.error("Problem converting spectral to gridded")
          sys.exit(1)
 
-
 ############################################################
 ## run ocean observation operator
-if do_ocnobsop:
+if do_ocnobsop and args.oobs is not None:
    log.info("Running OCN observation operator...")   
    ## get the required files ready
-   obsFile = obsDir+ndate.strftime('/%Y/%Y%m/%Y%m%d.dat')
+   obsFile = args.oobs + ndate.strftime('/%Y/%Y%m/%Y%m%d.dat')
    log.info("Using obs file: "+obsFile)
    tmpDir = args.wrkdir+'/ocnObsop'
    if (not os.path.exists(tmpDir)): os.makedirs(tmpDir)
-   os.symlink(letkfDir +'/obs/obsop', tmpDir+'/obsop')
-   os.symlink(tmpDir+'/../INPUT/grid_spec.nc', tmpDir+'/grid_spec.nc')
-   for f in glob(args.wrkdir+'/IRESTART/*ocean_*.res.nc'):
+   os.symlink(args.letkfDir +'/obs/obsop', tmpDir+'/obsop')
+   os.symlink(args.fixDir+'/grid_spec_{}.nc.T{}'.format(args.ores,args.ares),
+              tmpDir+'/grid_spec.nc')
+   for f in glob("{}/gues/{:03d}/{}_F06.ocean_*.res.nc".format(
+         args.path, args.ensNum, dateShort)):
       f2 = os.path.basename(f)
-      os.symlink(f, tmpDir+'/gs01.'+f2[10:])
+      os.symlink(f, tmpDir+'/gs01.'+f2[15:])
    shutil.copy(obsFile, tmpDir+'/obsin.dat')
 
    ## Run the observation operator

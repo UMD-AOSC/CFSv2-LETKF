@@ -87,6 +87,7 @@ if os.path.exists(args.path):
 os.makedirs(args.path)
 os.makedirs(args.path+'/infl_mul')
 os.makedirs(args.path+'/logs')
+os.makedirs(args.path+'/obsop')
 
 ## create folders for ensemble members, and copy
 ## other date into it for the initial conditions

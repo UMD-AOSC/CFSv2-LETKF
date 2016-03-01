@@ -25,9 +25,6 @@ log = common.setupLog()
 timeLimit_CFS = "7:00"
 timeLimit_DA  = "7:00"
 
-rootDir = os.getenv("CFS_LETKF_ROOT")
-tmpDir  = os.getenv("TMP_DIR_SHARED")
-
 
 
 ############################################################
@@ -49,7 +46,10 @@ parser.add_argument('start', metavar="START_DATE", help=(
 parser.add_argument('end', metavar="END_DATE", help=(
     "Stop date in format YYYYMMDDHH"))
 
+
 ## optional variables
+parser.add_argument('--oobs', help=(
+    "directory to ocean observations that are to be assimilated"))
 parser.add_argument('--account', default="aosc-hi", help=(
     "The SLURM account to run the experiment with. (Default: aosc-hi)"))
 parser.add_argument('--ares', default='62', type=int, choices=common.aresList, help=(
@@ -119,8 +119,9 @@ while cdate < args.end:
     jobs = []
     for m in range(1, args.mem+1):
         mem = '{0:03d}'.format(m)
-        cmd = "run_cycle_ensmem {} {} {}".format(
-            args.path, cdateShort, mem)
+        cmd = "run_cycle_ensmem {} {} {} --ares {}".format(
+            args.path, cdateShort, mem, args.ares)
+        if args.oobs is not None: cmd += " --oobs "+args.oobs
         job = slurm.Job(
             name    = 'CFS_'+mem,
             cmd     = cmd,
