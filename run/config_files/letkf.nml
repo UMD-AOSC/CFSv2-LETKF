@@ -11,10 +11,12 @@ cat << EOF
 /
 
 
+
 ! ------------------------------------------------------------
 ! MOM-LETKF parameters
 ! ------------------------------------------------------------
 &letkf_ocn
+
  nslots = 1		! Number of timeslots for 4DLETKF
  nbslot = 1		! index of analysis time 
 
@@ -23,28 +25,35 @@ cat << EOF
  sigma_ocn_h = 720.0d3, 200.0d3,
  sigma_atm_h = 1000.0d3, 200.0d3,
 
+ infl_rtps = 0.8    !Relaxation to prior spread, ( 0.0 to 1.0 )
+ infl_mult = 1.0
 
  gross_error = 30.0d0
  DO_DRIFTERS = F,
  DO_ALTIMETRY = F,
  DO_NO_VERT_LOC = T,
  localization_method = 1
- cov_infl_mul = -1.0d0,
- sp_infl_add = 0.d0
 /
 
 
 ! ------------------------------------------------------------
+! GFS-LETKF parameters
 ! ------------------------------------------------------------
 &letkf_atm
 
+  ! horizontal localization for the atm obs,
+  !  first number is half radius at EQ, 2nd is at the pole
   sigma_atm_h   = 1000.0d3, 1000.0d3
   sigma_atm_v   = 0.4
   sigma_atm_t   = 3.0
 
+  ! horizontal localization for the ocn obs
   sigma_ocn_h   = 500.0d3, 200.0d3
   sigma_ocn_v   = 0.1  
   sigma_ocn_t   = 3.0
+
+  infl_rtps = 0.8
+  infl_mult = 1.0
 /
 
 EOF

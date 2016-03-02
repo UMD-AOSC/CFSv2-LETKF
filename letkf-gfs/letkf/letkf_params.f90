@@ -12,16 +12,8 @@ IMPLICIT NONE
 
 PUBLIC
 
-!-------------------------------------------------------------------------------
-! Details for LETKF localization and quality control
-!-------------------------------------------------------------------------------
-! INTEGER  :: nslots=1                 ! number of time slots for 4D-LETKF
-! INTEGER  :: nbslot=1                 !STEVE: nbslot=1 for testing for GMAO example case. Normal case is nbslot=5 ! basetime slot
-! REAL(r_size) :: gross_error=3.0d0    ! number of standard deviations
-!                                      ! used to filter out observations
-! real(r_size) :: sigma_ocn_h(2)  
-! real(r_size) :: sigma_atm_h(2)
-
+!! Localization
+!! ------------------------------------------------------------
 real(r_size) :: sigma_atm_h(2)
 real(r_size) :: sigma_atm_v
 real(r_size) :: sigma_atm_t
@@ -30,10 +22,16 @@ real(r_size) :: sigma_ocn_h(2)
 real(r_size) :: sigma_ocn_v
 real(r_size) :: sigma_ocn_t
 
-!-------------------------------------------------------------------------------
-! Ensemble Size
-!-------------------------------------------------------------------------------
+!! Inflation
+!! ------------------------------------------------------------
+real(r_size) :: infl_rtps
+real(r_size) :: infl_mult
+
+!! Ensemble Size
+!! ------------------------------------------------------------
 INTEGER   :: nbv=90
+
+
 
 contains
 
@@ -41,12 +39,14 @@ contains
   subroutine params_init()
     logical :: ex
 
+    !! parameters used by all LETKFs in the coupled system
     namelist /letkf/ nbv
 
+    !! parameters used by just the GFS-LETKF
     namelist /letkf_atm/ &
          sigma_atm_h, sigma_atm_v, sigma_atm_t, &
-         sigma_ocn_h, sigma_ocn_v, sigma_ocn_t         
-
+         sigma_ocn_h, sigma_ocn_v, sigma_ocn_t, &
+         infl_rtps, infl_mult
 
     open(99, file="letkf.nml", status="old")
     read(99, nml=letkf)

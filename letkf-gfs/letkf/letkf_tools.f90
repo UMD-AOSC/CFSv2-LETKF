@@ -10,6 +10,7 @@ MODULE letkf_tools
 !   01/01/2014 Guo-Yuan Lien     merged to GFS-LETKF main development
 !
 !=======================================================================
+  use letkf_params
   USE common
   use common_obs
   USE common_mpi
@@ -29,8 +30,8 @@ MODULE letkf_tools
 
 !  INTEGER,SAVE :: nobstotal
 
-  real(r_size),parameter :: infl_rtps = 0.85
-  REAL(r_size),PARAMETER :: cov_infl_mul = 1.00d0
+!  real(r_size),parameter :: infl_rtps = 0.85
+!  REAL(r_size),PARAMETER :: cov_infl_mul = 1.00d0
 ! > 0: globally constant covariance inflation
 ! < 0: 3D inflation values input from a GPV file "infl_mul.grd"
   REAL(r_size),PARAMETER :: sp_infl_add = 0.0d0 !additive inflation
@@ -87,7 +88,7 @@ SUBROUTINE das_letkf(gues3d,gues2d,anal3d,anal2d)
   real(r_size), allocatable :: meana2d(:,:)  
 
   WRITE(6,'(A)') 'Hello from das_letkf'
-  WRITE(6,'(A,F15.2)') '  cov_infl_mul = ',cov_infl_mul
+  WRITE(6,'(A,F15.2)') '  cov_infl_mul = ',infl_mult
   nobstotal = nobs
   WRITE(6,'(A,I8)') 'Target observation numbers : NOBS=',nobs
   !
@@ -134,13 +135,13 @@ SUBROUTINE das_letkf(gues3d,gues2d,anal3d,anal2d)
   !
   ! multiplicative inflation
   !
-  IF(cov_infl_mul > 0.0d0) THEN ! fixed multiplicative inflation parameter
+  IF(infl_mult > 0.0d0) THEN ! fixed multiplicative inflation parameter
     ALLOCATE( work3d(nij1,nlev,nv3d) )
     ALLOCATE( work2d(nij1,nv2d) )
-    work3d = cov_infl_mul
-    work2d = cov_infl_mul
+    work3d = infl_mult
+    work2d = infl_mult
   END IF
-  IF(cov_infl_mul <= 0.0d0) THEN ! 3D parameter values are read-in
+  IF(infl_mult <= 0.0d0) THEN ! 3D parameter values are read-in
     ALLOCATE( work3dg(nlon,nlat,nlev,nv3d) )
     ALLOCATE( work2dg(nlon,nlat,nv2d) )
     ALLOCATE( work3d(nij1,nlev,nv3d) )
@@ -152,8 +153,8 @@ SUBROUTINE das_letkf(gues3d,gues2d,anal3d,anal2d)
         CALL read_grd4(inflfile,work3dg,work2dg,0)
       ELSE
         WRITE(6,'(2A)') '!!WARNING: no such file exist: ',inflfile
-        work3dg = -1.0d0 * cov_infl_mul
-        work2dg = -1.0d0 * cov_infl_mul
+        work3dg = -1.0d0 * infl_mult
+        work2dg = -1.0d0 * infl_mult
       END IF
     END IF
     CALL scatter_grd_mpi(0,work3dg,work2dg,work3d,work2d)
@@ -245,7 +246,7 @@ SUBROUTINE das_letkf(gues3d,gues2d,anal3d,anal2d)
   !
   ! Write updated inflation parameters
   !
-  IF(cov_infl_mul < 0.0d0) THEN
+  IF(infl_mult < 0.0d0) THEN
     CALL gather_grd_mpi(0,work3d,work2d,work3dg,work2dg)
     IF(myrank == 0) THEN
       WRITE(6,'(A,I3.3,2A)') 'MYRANK ',myrank,' is writing.. ',inflfile
@@ -397,7 +398,7 @@ SUBROUTINE das_letkf_obs(v3dinfl,v2dinfl)
   !
   ! If adaptive inflation is used, prepare a global array of inflation parameter
   !
-  IF(cov_infl_mul <= 0.0d0) THEN
+  IF(infl_mult <= 0.0d0) THEN
     ALLOCATE(v3dinflx(nlon,nlat,nlev,nv3dx))
     ALLOCATE(v2dinflx(nlon,nlat,nv2dx))
     IF(myrank == 0) THEN
@@ -493,8 +494,8 @@ SUBROUTINE das_letkf_obs(v3dinfl,v2dinfl)
     !
     ! Determine the inflation parameter
     !
-    IF(cov_infl_mul > 0.0d0) THEN
-      parm = cov_infl_mul
+    IF(infl_mult > 0.0d0) THEN
+      parm = infl_mult
     ELSE
       CALL phys2ijk(v3dinflx(:,:,:,iv3d_p),real(inflelem,r_size),obslon(nn),obslat(nn),rlev,ri,rj,rk)
       IF(CEILING(rk) > nlev) THEN
@@ -579,7 +580,7 @@ SUBROUTINE das_letkf_obs(v3dinfl,v2dinfl)
   END DO
 
   DEALLOCATE(obsanal)
-  IF(cov_infl_mul <= 0.0d0) THEN
+  IF(infl_mult <= 0.0d0) THEN
     DEALLOCATE(v3dinflx,v2dinflx)
   END IF
   RETURN
