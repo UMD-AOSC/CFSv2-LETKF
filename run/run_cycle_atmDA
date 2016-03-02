@@ -30,15 +30,22 @@ parser.add_argument('date', metavar="DATE", help=(
     "Date the the forecasts were started from, in YYYYMMDDHH format."
     " E.g. for an analysis at 2010010106, 2010010100 would be pass in here."))
 
+parser.add_argument("--ares", type=int, required=True, help=(""))
+parser.add_argument("--aobs", action="store_true", default=False, help=(
+    "If set, atmospheric observations are assimilated"))
+parser.add_argument("--oobs", action="store_true", default=False, help=(
+    "If set, ocean observations are assimilated"))
+
+    
 ## parse the arguments
 args = parser.parse_args()
 args.path = os.path.abspath(args.path)
 args.date = dt.datetime.strptime(args.date, "%Y%m%d%H")
 args.wrkdir = os.path.abspath(os.getenv("TMP_DIR_LOCAL")+"/cfs/letkf-atm")
 args.mem = common.getEnsMem(args.path)
-args.ares = 62
 args.cfsrDir = os.getenv("CFSR_DIR")+'/T{}/'.format(args.ares)
 args.ares_x,args.ares_y = common.getAtmRes(args.ares)
+
 mems = range(1,args.mem+1)
 dateShort = args.date.strftime("%Y%m%d%H")
 ndate = args.date+dt.timedelta(hours=6)
@@ -62,11 +69,18 @@ if os.path.exists(args.wrkdir):
 os.makedirs(args.wrkdir)
 shutil.copy(args.path+'/letkf.nml', args.wrkdir+'/letkf.nml')
 
-## TODO, add logic for strong coupling
 for m in mems:
-    ## obs
-    os.symlink(args.path+"/obsop/{}_atm{:03d}.dat".format(ndateShort, m),
-               args.wrkdir+"/obs{:03d}.dat".format(m))
+    ## get the observations that have already been processed
+    ## by the observation operators
+    obsfile = args.wrkdir+"/obs{:03d}.dat".format(m)
+    sp.check_call('touch '+ obsfile, shell=True)
+    if args.aobs:
+        afile=args.path+"/obsop/{}_atm{:03d}.dat".format(ndateShort, m)
+        sp.check_call('cat {} >> {}'.format(afile,obsfile), shell=True)
+    if args.oobs:
+        ofile=args.path+"/obsop/{}_ocn{:03d}.dat".format(ndateShort, m)
+        sp.check_call('cat {} >> {}'.format(ofile,obsfile), shell=True)
+        
     ## gues
     os.symlink(args.path+"/gues/{:03d}/{}_F06.grd".format(m,dateShort),
                args.wrkdir+"/gues{:03d}.grd".format(m))

@@ -36,6 +36,8 @@ parser.add_argument('--ares', type=int, choices=common.aresList, default=62, hel
     "Horizontal resolution of atmosphere, (Default: 62)"))
 parser.add_argument('--ores', choices=['05','1x1'], default='05', help=(
     "Horizontal resolution of the ocean, either 1/2 (05) or 1 (1x1) degree. (Default: 05)"))
+parser.add_argument("--aobs", action="store_true", default=False, help=(""))
+parser.add_argument("--oobs", action="store_true", default=False, help=(""))
 
 ## parse the arguments
 args = parser.parse_args()
@@ -43,8 +45,7 @@ args.path = os.path.abspath(args.path)
 args.date = dt.datetime.strptime(args.date, "%Y%m%d%H")
 args.wrkdir = os.path.abspath(os.getenv("TMP_DIR_LOCAL")+"/cfs/letkf-ocn")
 args.mem = common.getEnsMem(args.path)
-args.useAObs = True
-args.useOObs = False
+
 mems = range(1,args.mem+1)
 dateShort = args.date.strftime("%Y%m%d%H")
 ndate = args.date+dt.timedelta(hours=6)
@@ -85,15 +86,14 @@ for m in mems:
         jobs.append(sp.Popen(cmd,shell=True, cwd=args.wrkdir))
     
         ## atmospheric obs departures
-        if (args.useAObs):
-            shutil.copy(args.path+'/obsop/{}_atm{:03d}.dat'.format(ndateShort,m),
-                    args.wrkdir+'/obs01{:03d}.dat'.format(m))
-        if (args.useOObs):
-            shutil.copy(args.path+'/obsop/{}_ocn{:03d}.dat'.format(ndateShort,m),
-                    args.wrkdir+'/obs01{:03d}.dat'.format(m))
-        if (args.useOObs and args.useAObs):
-            log.critical('using both atmospheric and ocean obs at the same time not yet supported');
-            sys.exit(1)
+        obsfile = args.wrkdir+'/obs01{:03d}.dat'.format(m)
+        sp.check_call('touch '+obsfile, shell=True)
+        if (args.aobs):
+            afile=args.path+'/obsop/{}_atm{:03d}.dat'.format(ndateShort,m)
+            sp.check_call('cat {} >> {}'.format(afile, obsfile), shell=True)
+        if (args.oobs):
+            ofile=args.path+'/obsop/{}_ocn{:03d}.dat'.format(ndateShort,m)
+            sp.check_call('cat {} >> {}'.format(ofile, obsfile), shell=True)
             
 for j in jobs:
     j.wait()
