@@ -324,7 +324,7 @@ while cdate <= args.enddate:
 
     
     ## write the observatiosn out
-    filename = args.output+cdate.strftime("/%Y/%Y%m/%Y%m%d/%Y%m%d%H.dat")
+    filename = args.output+cdate.strftime("/%Y/%Y%m/%Y%m%d/%Y%m%d%H/t.dat")
     obsio.write(synth_obs,filename)
 
     
