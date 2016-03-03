@@ -36,6 +36,9 @@ module KDTREE
     real(r_size) :: lon_bounds(2)
   end type KD_ROOT
 
+  !! dont bother dividing a box any further if it contains
+  !! this many or fewer items. 
+  integer, parameter :: MINDIV = 10
 contains
 
 
@@ -69,15 +72,16 @@ contains
        root%ptindx(n) = n
     end do
 
-    !! TODO make sure lon is within 0 to 360
-    ! do n=1,size(lons)
-    !    lons2(n)=lons(n)
-    ! end do
-    lons2 = lons
+    !! make sure lon is within 0 to 360
+    do n=1,size(lons)
+       lons2(n)=lons(n)
+       if(lons2(n) < 0) lons2(n) = lons2(n) + 360
+       if(lons2(n) >= 360) lons2(n) = lons2(n) - 360       
+    end do    
 
     !! save the longitude bounds, we'll need those in the future
-    root%lon_bounds(1) = minval(lons2)
-    root%lon_bounds(2) = maxval(lons2)
+    root%lon_bounds(1) = 0 ! minval(lons2)
+    root%lon_bounds(2) = 360 !maxval(lons2)
     if (root%lon_bounds(2)-root%lon_bounds(1) > 360) then
        write (*,*) "ERROR: kd_init(), the range of longitudes of the observations is too great (",&
             root%lon_bounds(1), root%lon_bounds(2),") kd_init doesn't care what the values are, just as long ",&
@@ -142,13 +146,13 @@ contains
        root%boxes(tmom)%dau2 = jbox
 
        !! subdivide left further
-       if (kk > 2) then
+       if (kk > MINDIV) then       
           nowtask = nowtask +1
           taskmom(nowtask) = jbox-1
           taskdim(nowtask) = mod((tdim+1),2)
        end if
        !! subdivie right further
-       if (np-kk > 4) then
+       if (np-kk > MINDIV+2) then
           nowtask = nowtask + 1
           taskmom(nowtask) = jbox
           taskdim(nowtask) = mod((tdim+1),2)
@@ -172,12 +176,14 @@ contains
     real(r_size) :: r, dl, mid
     real(r_size) :: s_box_min(2), s_box_max(2), s_pt(2)
     integer :: r_num2, i
+    logical :: overlap
     
     !! some basic checks
     if (size(r_points) /= size(r_distance) ) then
        write (*,*) "ERROR: kd_search(), r_points and r_distance must be allocated with same size"
        stop 1
     end if
+    !! make sure the search point is within 0 to 360
     s_pt = s_point
     do while (s_pt(1) < 0)
        s_pt(1) = s_pt(1) + 360.0d0
@@ -211,20 +217,27 @@ contains
     !! if so we need to run the search again with the search area shifted by 360 degrees
     r_num2 = 0
     mid = (root%lon_bounds(1)+root%lon_bounds(2)) * 0.5 !! middle longitude of the observations
+    overlap = .false.
     if (s_pt(1) < mid .and. s_box_min(1) < root%lon_bounds(1)) then
        !! search area overlaps past the left of the map
        s_pt(1) = s_pt(1)+360
-       call kd_search_inner(root,lons,lats,s_pt,s_radius,r_points(r_num+1:),r_distance(r_num+1:),r_num2)
+       call kd_search_inner(root,lons,lats,s_pt,&
+            s_radius,r_points(r_num+1:),r_distance(r_num+1:),r_num2)
+       overlap = s_box_min(1)+360 >= s_box_max(1)
     else if (s_pt(1) > mid .and. s_box_max(1) > root%lon_bounds(2)) then
        !! search area overlaps past the right of the map
        s_pt(1) = s_pt(1)-360
-       call kd_search_inner(root,lons,lats,s_pt,s_radius,r_points(r_num+1:),r_distance(r_num+1:),r_num2)
+       overlap = s_box_max(1)-360 >= s_box_min(1)
+       call kd_search_inner(root,lons,lats,s_pt,&
+            s_radius,r_points(r_num+1:),r_distance(r_num+1:),r_num2)
     end if
 
-    !! if we ran 2 search, and there is the possibility of duplicates (longitudes wrap around and touch)...
+    !! if we ran 2 searches, and there is the possibility of duplicates
+    !!  (longitudes wrap around and touch), remove the duplicates
+    !!  There is probably a faster way to do this not having to sort the entire
+    !!  list.
     r_num = r_num+r_num2
-!    write (*,*) s_box_min, s_box_max
-    if (r_num2 > 0 )then !.and. (360+s_box_min(1) - s_box_max(1) < 1)) then
+    if (r_num2 > 0 .and. overlap) then
        !! sort the list and remove duplicates
        call qsort(r_points(1:r_num))
        do i=r_num-1,1,-1
@@ -332,13 +345,13 @@ contains
              n = root%ptindx(i)
              !! don't bother calculating the radius if the previous point was the same.
              !! This case will happen frequently as there are often profiles at a same lat/lon
-             if ( abs(plat-lats(n)) < 1.0d-4 .and. abs(plon-lons(n)) < 1.0d-4) then
+             if ( abs(plat-lats(n)) < 1.0d-5 .and. abs(plon-lons(n)) < 1.0d-5) then
              else
                 plat = lats(n)
-                plon=lons(n)
+                plon = lons(n)
                 latr = lats(n)*pi/180
-                ! TODO, this line is very expensive, can we calulate distance with less accurate but faster trig functions?
-                r = re*acos(slatr*sin(latr) + clatr*cos(latr)*cos( (lons(n)-s_point(1))*pi/180.0 ))
+                r = re*acos(slatr*sin(latr) + &
+                    clatr*cos(latr)*cos( (lons(n)-s_point(1))*pi/180.0 ))                
              end if
              
              if (r < s_radius) then
