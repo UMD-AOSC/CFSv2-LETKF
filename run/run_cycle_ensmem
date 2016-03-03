@@ -124,7 +124,7 @@ if do_atmcnvt:
 if do_ocnobsop and args.oobs is not None:
    log.info("Running OCN observation operator...")   
    ## get the required files ready
-   obsFile = args.oobs + ndate.strftime('/%Y/%Y%m/%Y%m%d.dat')
+   obsFile = args.oobs + ndate.strftime('/%Y/%Y%m/%Y%m%d/%Y%m%d%H.dat')
    log.info("Using obs file: "+obsFile)
    tmpDir = args.wrkdir+'/ocnObsop'
    if (not os.path.exists(tmpDir)): os.makedirs(tmpDir)

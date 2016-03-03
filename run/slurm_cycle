@@ -109,7 +109,7 @@ log.info("Configuration:\n"+str(args)+"\n")
 nproc_cfs = int(os.getenv("NPROC_AM"))+int(os.getenv("NPROC_OM"))+1
 assert(nproc_cfs >= 3)
 ## number of nodes for a CFS ensemble member run
-nnodes_cfs = nproc_cfs / 20
+nnodes_cfs = nproc_cfs / 20  ## TODO, move 20 to be a configurable
 log.info("Using {:d} cores on {} nodes for each CFS ens member\n".format(
     nproc_cfs,nnodes_cfs))
 
