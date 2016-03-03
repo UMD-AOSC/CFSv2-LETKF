@@ -175,7 +175,7 @@ contains
 
     real(r_size) :: r, dl, mid
     real(r_size) :: s_box_min(2), s_box_max(2), s_pt(2)
-    integer :: r_num2, i
+    integer :: r_num2, i,j
     logical :: overlap
     
     !! some basic checks
@@ -232,21 +232,31 @@ contains
             s_radius,r_points(r_num+1:),r_distance(r_num+1:),r_num2)
     end if
 
+    
     !! if we ran 2 searches, and there is the possibility of duplicates
     !!  (longitudes wrap around and touch), remove the duplicates
-    !!  There is probably a faster way to do this not having to sort the entire
-    !!  list.
-    r_num = r_num+r_num2
+    !!  There is probably a faster way of doing this...
     if (r_num2 > 0 .and. overlap) then
-       !! sort the list and remove duplicates
-       call qsort(r_points(1:r_num))
-       do i=r_num-1,1,-1
-          if( r_points(i) == r_points(i+1) ) then
-             call swap(r_points(i), r_points(r_num))
-             r_num = r_num-1
-          end if
+       !! run through all the indices of the first search
+       do i=1,r_num
+          !! see if it matches any of the indices from the second search
+          j = r_num+1
+          do while (j <= r_num+r_num2)             
+             if (r_points(i) == r_points(j)) then
+                !! a match was found, remove this element
+                !! by replacing it with the last element of the second search
+                !! and shrinking the size of the second search by 1
+                r_points(j) =  r_points(r_num+r_num2)
+                r_distance(j) = r_distance(r_num+r_num2)
+                r_num2 = r_num2-1
+             else
+                !! not a match, continue on to the next one
+                j = j+1
+             end if             
+          end do
        end do
     end if
+    r_num = r_num+r_num2
     
   end subroutine kd_search
 
