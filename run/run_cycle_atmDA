@@ -43,7 +43,6 @@ args.path = os.path.abspath(args.path)
 args.date = dt.datetime.strptime(args.date, "%Y%m%d%H")
 args.wrkdir = os.path.abspath(os.getenv("TMP_DIR_LOCAL")+"/cfs/letkf-atm")
 args.mem = common.getEnsMem(args.path)
-args.cfsrDir = os.getenv("CFSR_DIR")+'/T{}/'.format(args.ares)
 args.ares_x,args.ares_y = common.getAtmRes(args.ares)
 
 mems = range(1,args.mem+1)
@@ -106,20 +105,28 @@ for m in mems:
     with open(tmpdir+'/ssio.nml','w') as f:
         f.write('$common_gfs nlon={} nlat={} gfs_jcap={} nlev=64 /'.format(
             args.ares_x, args.ares_y, args.ares))
+            
+    ## 1) Make a copy from the forecast to the analysis.
+    ## 2) convert the gridded into spectral, and put it in the analysis
+    ## 3) update the headers on the analysis so the dates are correct
     os.symlink(args.wrkdir+'/anal{:03d}.grd'.format(m),
                tmpdir+'/fort.41')
     os.symlink(args.path+'/gues/{:03d}/{}_F06.sig'.format(m,dateShort),
                tmpdir+'/fort.11')
     os.symlink(args.path+'/gues/{:03d}/{}_F06.sfc'.format(m,dateShort),
                tmpdir+'/fort.12')
-    shutil.copy(args.cfsrDir+ndate.strftime("/%Y/%Y%m/%Y%m%d/%Y%m%d%H")+".sig",
+    shutil.copy(args.path+'/gues/{:03d}/{}_F06.sig'.format(m,dateShort),
                 tmpdir+'/fort.21')
-    shutil.copy(args.cfsrDir+ndate.strftime("/%Y/%Y%m/%Y%m%d/%Y%m%d%H")+".sfc",
+    shutil.copy(args.path+'/gues/{:03d}/{}_F06.sfc'.format(m,dateShort),
                 tmpdir+'/fort.22')
     cmd = ("$CFS_LETKF_ROOT/util/bin/grd2ss; "
+           "rm fort.1?; "
+           "mv fort.21 fort.11; "
+           "mv fort.22 fort.12; "
+           "$CFS_LETKF_ROOT/util/bin/sscycle2 {2}; "
            "cp fort.21 {0}/anal/{1:03d}/{2}.sig; "
            "cp fort.22 {0}/anal/{1:03d}/{2}.sfc").format(
-               args.path, m, ndate.strftime("%Y%m%d%H"))
+         args.path, m, ndateShort)
     jobs.append(sp.Popen(cmd, shell=True, cwd=tmpdir))
 for j in jobs:
     j.wait()
