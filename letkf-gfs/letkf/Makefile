@@ -13,4 +13,4 @@ clean:
 	make -f Makefile.efso clean
 
 netlib.o:netlib.f
-	mpiifort -c ./netlib.f
+	mpiifort -O3 -c ./netlib.f 

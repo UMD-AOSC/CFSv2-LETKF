@@ -172,9 +172,10 @@ SUBROUTINE das_letkf(gues3d,gues2d,anal3d,anal2d)
   ! MAIN ASSIMILATION LOOP
   !
   ALLOCATE( hdxf(1:nobstotal,1:nbv),rdiag(1:nobstotal),rloc(1:nobstotal),dep(1:nobstotal) )
-  DO ilev=1,nlev
-    WRITE(6,'(A,I3)') 'ilev = ',ilev
-    DO ij=1,nij1
+  DO ij=1,nij1
+     !! doing everythin one column at a time should be faster   
+    WRITE(6,*) 'ij',ij,"of",nij1
+    DO ilev=1,nlev       
       DO n=1,nv3d
         IF(var_local_n2n(n) < n) THEN
           trans(:,:,n) = trans(:,:,var_local_n2n(n))

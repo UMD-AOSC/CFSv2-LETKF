@@ -32,6 +32,15 @@ MODULE letkf_local
   integer,save :: nobstotal
   integer :: initialized = 0
   type(KD_ROOT) :: kdtree_root
+
+  !! the list of observations found and their distances
+  !! are cached here, outside of obs_local,
+  !! this greatly speeds things up by not having to search the kd
+  !! tree again if we do all the vertical levels first for each grid point.
+  integer,allocatable :: idx(:)
+  real(r_size),allocatable :: dist(:)
+  real(r_size) :: prev_lon, prev_lat
+  integer :: nn
   
 !   INTEGER, PARAMETER :: lev_update_q = 30 !q and qc are only updated below and equal to this model level
 !   REAL(r_size), PARAMETER :: q_sprd_max = 0.5 !GYL, maximum q (ensemble spread)/(ensemble mean)
@@ -72,12 +81,12 @@ SUBROUTINE obs_local(rlon,rlat,rlev,nvar,hdxf,rdiag,rloc,dep,nobsl,oindex)
   REAL(r_size) :: logrlev
   INTEGER,ALLOCATABLE:: nobs_use(:)
   INTEGER :: imin,imax,jmin,jmax,im,ichan
-  INTEGER :: n,nn,iobs
+  INTEGER :: n,iobs
 
   real(r_size) :: sigma_max_h_d0, dist_zero_h, sigma_h
   real(r_size) :: dist_zero_v, sigma_v
-  integer :: idx(nobstotal), j, id
-  real(r_size) :: dist(nobstotal), dlev
+  integer :: j, id
+  real(r_size) :: dlev
   real(r_size) :: loc_h, loc_t, loc_v
   
   !!------------------------------------------------------------
@@ -88,6 +97,10 @@ SUBROUTINE obs_local(rlon,rlat,rlev,nvar,hdxf,rdiag,rloc,dep,nobsl,oindex)
      call kd_init(kdtree_root, obslon, obslat)
      write(6,*) "done constructing KD search tree"
      write(6,*) "nobstotal",nobstotal
+     allocate(dist(nobstotal))
+     allocate(idx(nobstotal))
+     prev_lon = -10000
+     prev_lat = -10000
   end if
 
 
@@ -97,8 +110,16 @@ SUBROUTINE obs_local(rlon,rlat,rlev,nvar,hdxf,rdiag,rloc,dep,nobsl,oindex)
   
   !!------------------------------------------------------------
   !! query the KD tree
-  call kd_search(kdtree_root, obslon, obslat, (/rlon, rlat/), &
-       sigma_max_h_d0, idx, dist, nn)
+  !!  if this was the same lat/lon that we saw last time this function
+  !!  was called, just return the cached observations that were found
+  !!  last time. This way, it should go much faster if we do DA one
+  !!  column at a time.
+  if (rlon /= prev_lon .or. rlat /= prev_lat) then
+     call kd_search(kdtree_root, obslon, obslat, (/rlon, rlat/), &
+          sigma_max_h_d0, idx, dist, nn)
+     prev_lon = rlon
+     prev_lat = rlat
+  end if
 
   
   !! for each observation found in the radius, do the localization

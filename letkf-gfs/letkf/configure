@@ -12,7 +12,7 @@ echo "#   ignore that error"
 echo "#============================================================"
 echo ""
 export F90=mpiifort
-export FMKMF_F90="$F90 -I../../lib-ncep/incmod/sigio_4"
+export FMKMF_F90="$F90 -I../../lib-ncep/incmod/sigio_4 -O3"
 export FMKMF_LINKOPTS="netlib.o -L../../lib-ncep/lib -lsigio_4 -lsp_4 -mkl"
 ./fmkmf letkf.f90 > Makefile.letkf
 ./fmkmf mean.f90 > Makefile.mean
