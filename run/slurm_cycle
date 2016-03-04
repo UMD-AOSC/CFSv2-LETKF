@@ -67,6 +67,7 @@ parser.add_argument('--mem', metavar='MEMBERS', type=int, help=(
     "The number of ensemble members. By default the script will "
     "automatically determine the number of ensemble members based "
     "on the directory structure of PATH"))
+parser.add_argument('--3d', dest='is3d', action="store_true")
 
 g = parser.add_argument_group("SLURM options")
 g.add_argument('--account', default="aosc-hi", help=(
@@ -134,6 +135,7 @@ while cdate < args.end:
         mem = '{0:03d}'.format(m)
         cmd = "run_cycle_ensmem {} {} {} --ares {}".format(
             args.path, cdateShort, mem, args.ares)
+        if args.is3d: cmd += " --3d"
         if args.oobs is not None: cmd += " --oobs "+args.oobs
         job = slurm.Job(
             name    = 'CFS_'+mem,
@@ -155,6 +157,7 @@ while cdate < args.end:
     cmd = "run_cycle_atmObsop {} {}".format(
         args.path, cdateShort)
     if args.aobs is not None: cmd += " --aobs "+args.aobs
+    if args.is3d: cmd += " --3d"
     job = slurm.Job(
         name     = 'CFS_atmobs',
         cmd      = cmd,

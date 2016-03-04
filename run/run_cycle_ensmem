@@ -45,6 +45,7 @@ parser.add_argument("--oobs", help=(
    "Directory containing the ocean observations to be assimilated. If argument is not present, "
    "it is assumed no ocean observations are to be used."))
 
+parser.add_argument("--3d", action="store_true", dest="is3d")
 
 ## parse the arguments
 args = parser.parse_args()
@@ -88,6 +89,7 @@ if do_cfs:
    log.info("Running the CFS forecast...")
    cmd = 'run_fcst {0}/anal/{1:03d} {0}/gues/{1:03d} {2} --wrkdir {3}'.format(
       args.path, args.ensNum, dateShort, args.wrkdir)
+   if args.is3d: cmd += " --len 6 --period 6"
    if (sp.call(cmd, shell=True) > 0):
       log.error("Problem running CFS forecast.")
       sys.exit(1)
@@ -98,9 +100,16 @@ if do_cfs:
 if do_atmcnvt:
    log.info("Converting atmosphere spectral files to gridded...")
    jobs = []
-   fcstHrStart = 3
-   fcstHrEnd   = 9
-   baseSlot    = 4 ## hour 6
+   
+   if args.is3d:
+      fcstHrStart = 6
+      fcstHrEnd = 6
+      baseSlot = 1
+   else:
+      fcstHrStart = 3
+      fcstHrEnd   = 9
+      baseSlot    = 4 ## hour 6
+      
    for hr in range(fcstHrStart, fcstHrEnd+1):
       tmpDir = args.wrkdir+'/ss2grd_wrk_{0:02d}'.format(hr)
       if (not os.path.exists(tmpDir)): os.makedirs(tmpDir)
