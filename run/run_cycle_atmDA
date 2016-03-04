@@ -11,6 +11,7 @@ import os, sys, shutil
 import subprocess as sp
 from glob import glob
 import datetime as dt
+import hashlib
 
 ## load our own modules
 import common
@@ -41,7 +42,8 @@ parser.add_argument("--oobs", action="store_true", default=False, help=(
 args = parser.parse_args()
 args.path = os.path.abspath(args.path)
 args.date = dt.datetime.strptime(args.date, "%Y%m%d%H")
-args.wrkdir = os.path.abspath(os.getenv("TMP_DIR_LOCAL")+"/cfs/letkf-atm")
+args.wrkdir = os.path.abspath(os.getenv("TMP_DIR_SHARED") + "/cfs-letkf-atm_" + \
+                              hashlib.md5(args.path).hexdigest()[0:6])
 args.mem = common.getEnsMem(args.path)
 args.ares_x,args.ares_y = common.getAtmRes(args.ares)
 
@@ -97,6 +99,7 @@ with open(args.wrkdir+"/NOUT-000",'r') as f:
 
 ############################################################
 ## gridded to spectral
+## TODO, parallelize this across nodes??
 log.info("Converting output to spectral...")
 jobs=[]
 for m in mems:
@@ -124,8 +127,8 @@ for m in mems:
            "mv fort.21 fort.11; "
            "mv fort.22 fort.12; "
            "$CFS_LETKF_ROOT/util/bin/sscycle2 {2}; "
-           "cp fort.21 {0}/anal/{1:03d}/{2}.sig; "
-           "cp fort.22 {0}/anal/{1:03d}/{2}.sfc").format(
+           "mv fort.21 {0}/anal/{1:03d}/{2}.sig; "
+           "mv fort.22 {0}/anal/{1:03d}/{2}.sfc").format(
          args.path, m, ndateShort)
     jobs.append(sp.Popen(cmd, shell=True, cwd=tmpdir))
 for j in jobs:

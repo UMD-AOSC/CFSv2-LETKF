@@ -107,9 +107,13 @@ log.info("Configuration:\n"+str(args)+"\n")
 ########################################
 ## number of cores for a CFS ensemble member run
 nproc_cfs = int(os.getenv("NPROC_AM"))+int(os.getenv("NPROC_OM"))+1
+nproc_letkf = int(os.getenv("NPROC_LETKF"))
+nproc_pernode = int(os.getenv("NPROC_PERNODE"))
 assert(nproc_cfs >= 3)
 ## number of nodes for a CFS ensemble member run
-nnodes_cfs = nproc_cfs / 20  ## TODO, move 20 to be a configurable
+nnodes_cfs = nproc_cfs / nproc_pernode
+nnodes_letkf = nproc_letkf / nproc_pernode
+
 log.info("Using {:d} cores on {} nodes for each CFS ens member\n".format(
     nproc_cfs,nnodes_cfs))
 
@@ -155,7 +159,7 @@ while cdate < args.end:
         name     = 'CFS_atmobs',
         cmd      = cmd,
         runtime  = "10:00",
-        nproc    = os.getenv("NPROC_LETKF"),
+        nproc    = nproc_pernode,
         output   = args.path+'/logs/'+cdateDir+'/atmObsop_%j.log'
         )
     log.info("  Running ATM observation operator...")    
@@ -172,7 +176,8 @@ while cdate < args.end:
         name = "CFSDAAtm",
         cmd = cmd,
         runtime = timeLimit_DA,
-        nproc = os.getenv("NPROC_LETKF"),
+        nproc = nproc_letkf,
+        nodes   = nnodes_letkf,    
         output = args.path+'/logs/'+cdateDir+'/letkf-atm_%j.log'
     ))
     cmd = "run_cycle_ocnDA {} {} --oobs".format(args.path, cdateShort)
@@ -181,7 +186,8 @@ while cdate < args.end:
         name = "CFSDAOcn",
         cmd = cmd,
         runtime = timeLimit_DA,
-        nproc = os.getenv("NPROC_LETKF"),
+        nproc = nproc_letkf,
+        nodes = nnodes_letkf,
         output = args.path+'/logs/'+cdateDir+'/letkf-ocn_%j.log'
     ))
     log.info("  Running LETKF...")

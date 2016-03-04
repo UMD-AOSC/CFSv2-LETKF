@@ -11,6 +11,7 @@ import os, sys, shutil
 import subprocess as sp
 from glob import glob
 import datetime as dt
+import hashlib
 
 ## load our own modules
 import common
@@ -43,7 +44,8 @@ parser.add_argument("--oobs", action="store_true", default=False, help=(""))
 args = parser.parse_args()
 args.path = os.path.abspath(args.path)
 args.date = dt.datetime.strptime(args.date, "%Y%m%d%H")
-args.wrkdir = os.path.abspath(os.getenv("TMP_DIR_LOCAL")+"/cfs/letkf-ocn")
+args.wrkdir = os.path.abspath(os.getenv("TMP_DIR_SHARED")+ "/cfs-letkf-ocn_" + \
+                              hashlib.md5(args.path).hexdigest()[0:6])
 args.mem = common.getEnsMem(args.path)
 
 mems = range(1,args.mem+1)
@@ -118,11 +120,11 @@ with open(args.wrkdir+"/NOUT-0000",'r') as f:
 
 ############################################################
 ##
-log.info("copying files...")
+log.info("moving files...")
 jobs=[]
 for m in mems:
     for f in ['temp_salt','velocity','sbc']:
-        cmd = "cp anal{0:03d}.ocean_{1}.res.nc {2}/anal/{0:03d}/{3}.ocean_{1}.res.nc".format(
+        cmd = "mv anal{0:03d}.ocean_{1}.res.nc {2}/anal/{0:03d}/{3}.ocean_{1}.res.nc".format(
             m, f, args.path, ndateShort)
         jobs.append(sp.Popen(cmd,shell=True, cwd=args.wrkdir))
 for j in jobs:
@@ -143,7 +145,7 @@ for f in files:
     dst = args.path+f[1].format(dateStr)
     dstDir = os.path.dirname(dst)
     if (not os.path.exists(dstDir)): os.makedirs(dstDir)
-    cmd = "cp {} {}".format( f[0], dst)
+    cmd = "mv {} {}".format( f[0], dst)
     jobs.append(sp.Popen(cmd,shell=True, cwd=args.wrkdir))
 for j in jobs:
     j.wait()
