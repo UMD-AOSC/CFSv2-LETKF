@@ -11,6 +11,7 @@ import os, shutil, sys
 import subprocess as sp
 from glob import glob
 import datetime as dt
+import hashlib
 
 ## load our own modules
 import common
@@ -55,7 +56,9 @@ args.fixDir = os.path.abspath(os.getenv("FIX_DIR_OM"))
 args.letkfDir = os.path.abspath(os.getenv("CFS_LETKF_ROOT") + '/letkf-mom/mom4')
 args.ores = '05'
 args.ares_x,args.ares_y = common.getAtmRes(args.ares)
-args.wrkdir = os.path.abspath(os.getenv("TMP_DIR_SHARED")+"/CFS_{:03d}".format(args.ensNum))
+args.wrkdir = os.path.abspath(os.getenv("TMP_DIR_SHARED")+"/cfs_fcst_" + \
+                              hashlib.md5(args.path).hexdigest()[0:6] + \
+                              "_{:03d}".format(args.ensNum))
 assert( args.ensNum > 0 and args.ensNum <= common.getEnsMem(args.path))
 
 ## date: the date the forecast was initialized from
