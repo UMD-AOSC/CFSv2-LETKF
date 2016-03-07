@@ -108,12 +108,14 @@ log.info("Configuration:\n"+str(args)+"\n")
 ########################################
 ## number of cores for a CFS ensemble member run
 nproc_cfs = int(os.getenv("NPROC_AM"))+int(os.getenv("NPROC_OM"))+1
-nproc_letkf = int(os.getenv("NPROC_LETKF"))
+nproc_letkf_a = int(os.getenv("NPROC_LETKF_A"))
+nproc_letkf_o = int(os.getenv("NPROC_LETKF_O"))
 nproc_pernode = int(os.getenv("NPROC_PERNODE"))
 assert(nproc_cfs >= 3)
 ## number of nodes for a CFS ensemble member run
 nnodes_cfs = nproc_cfs / nproc_pernode
-nnodes_letkf = nproc_letkf / nproc_pernode
+nnodes_letkf_a = nproc_letkf_a / nproc_pernode
+nnodes_letkf_o = nproc_letkf_o / nproc_pernode
 
 log.info("Using {:d} cores on {} nodes for each CFS ens member\n".format(
     nproc_cfs,nnodes_cfs))
@@ -189,8 +191,8 @@ while cdate < args.end:
         name = "CFSDAOcn",
         cmd = cmd,
         runtime = timeLimit_DA,
-        nproc = nproc_letkf,
-        nodes = nnodes_letkf,
+        nproc = nproc_letkf_o,
+        nodes = nnodes_letkf_o,
         output = args.path+'/logs/'+cdateDir+'/letkf-ocn_%j.log'
     ))
     log.info("  Running LETKF...")

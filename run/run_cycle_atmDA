@@ -92,7 +92,7 @@ log.error("Adaptive inflation file not being copied")
 ############################################################
 ## LETKF
 log.info("Running GFS-LETKF...")
-sp.check_call("mpirun -n $NPROC_LETKF $CFS_LETKF_ROOT/letkf-gfs/letkf/letkf",
+sp.check_call("mpirun -n $NPROC_LETKF_A $CFS_LETKF_ROOT/letkf-gfs/letkf/letkf",
              shell=True, cwd = args.wrkdir)
 with open(args.wrkdir+"/NOUT-000",'r') as f:
     log.info(f.read())
