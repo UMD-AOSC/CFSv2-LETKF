@@ -41,7 +41,9 @@ export NPROC_PERNODE=20 ## The number of processors on each node
 export NPROC_OM=19      ## number of cores for ocean model
 export NPROC_AM=20      ## number of cores for atmosphere model
                         ## plus 1 core for the coupler
-export NPROC_LETKF=40   ## number of cores for the LETKF
+export NPROC_LETKF_A=60   ## number of cores for the LETKF
+export NPROC_LETKF_O=120   ## number of cores for the LETKF
 
 
-export NPROC_LETKF=20   ## number of cores for the LETKF
+## Append the path
+export PATH=$CFS_LETKF_ROOT/cfs/bin:$CFS_LETKF_ROOT/util/bin:$PATH

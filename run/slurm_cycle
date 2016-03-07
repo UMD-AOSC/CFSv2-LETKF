@@ -181,8 +181,8 @@ while cdate < args.end:
         name = "CFSDAAtm",
         cmd = cmd,
         runtime = timeLimit_DA,
-        nproc = nproc_letkf,
-        nodes   = nnodes_letkf,    
+        nproc = nproc_letkf_a,
+        nodes   = nnodes_letkf_a,    
         output = args.path+'/logs/'+cdateDir+'/letkf-atm_%j.log'
     ))
     cmd = "run_cycle_ocnDA {} {} --oobs".format(args.path, cdateShort)
