@@ -13,7 +13,7 @@ FOPTS2 = -O2
 
 .PHONY: all clean
 
-all:	$(PROGS)
+all: msg $(PROGS)
 
 commonlibs= common_gfs_pres.o common_gfs.o ssio_tools.o
 sscycle2.o :
@@ -36,6 +36,11 @@ common_gfs_pres.o : common.o common_gfs.o
 %.o : %.f90
 	$(FC) $(FOPTS) -c $<  -I$(COMMON_DIR) $(INCS) -o $@
 
+msg:
+	@echo ""
+	@echo "============================================================"
+	@echo " ssio"
+	@echo "============================================================"
 
-clean:
+clean: msg
 	rm -f *.o *.mod $(PROGS)

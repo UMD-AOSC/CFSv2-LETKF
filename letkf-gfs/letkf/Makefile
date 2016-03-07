@@ -1,16 +1,33 @@
 .PHONY: all clean
-all: netlib.o
+all:
+	+make -C ../common
+
+	@echo ""
+	@echo "============================================================"
+	@echo " GFS-LETKF (letkf)"
+	@echo "============================================================"
 	+make -f Makefile.letkf
+
+	@echo ""
+	@echo "============================================================"
+	@echo " GFS-LETKF (mean)"
+	@echo "============================================================"
 	+make -f Makefile.mean
+
+	@echo ""
+	@echo "============================================================"
+	@echo " GFS-LETKF (obsope)"
+	@echo "============================================================"
 	+make -f Makefile.obsope
-	+make -f Makefile.efso
+
+#	@echo "============================================================"
+#	@echo " Building GFS-LETKF (letkf)"
+#	@echo "============================================================"
+#	+make -f Makefile.efso
 
 clean:
-	rm -f letkf mean obsope efso
-	make -f Makefile.letkf clean
-	make -f Makefile.mean clean
-	make -f Makefile.obsope clean
-	make -f Makefile.efso clean
-
-netlib.o:netlib.f
-	mpiifort -O3 -c ./netlib.f 
+	@echo ""
+	@echo "============================================================"
+	@echo " GFS-LETKF (obsope,mean,efso,letkf)"
+	@echo "============================================================"	
+	rm -f letkf mean obsope efso *.o *.mod

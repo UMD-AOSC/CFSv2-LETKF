@@ -4,7 +4,10 @@
 # for Fortran 90. It was originally in shell script and was re-written
 # in perl for greater speed and (hopefully) portability.
 # Initial tests suggest speed is 10x better than the sh version.
-
+#
+# Modified by Travis SLuka 2016 to ignore certain modules that
+# we know are prebuilt and the makefile shouldn't worry about i
+#
 # A basic makefile entry for bork.f90 would be
 # bork.o:bork.f90
 # <-tab->$(F90) -c bork.f90
@@ -37,7 +40,15 @@ else {
   $f90="f90";
 }
 
-
+if ( $ENV{FMKMF_IGNORE} ) {
+    print "\# FMKMF_IGNORE set to $ENV{FMKMF_IGNORE}\n";
+    $ignore=$ENV{FMKMF_IGNORE};
+}
+else {
+    print "\# FMKMF_IGNORE not set";
+    $ignore="";
+}
+    
 if ( $ENV{FMKMF_SFTAG} ) {
   print "\# FMKMF_SFTAG set to $ENV{FMKMF_SFTAG}\n";
   $sftag=$ENV{FMKMF_SFTAG};
@@ -100,6 +111,8 @@ while (@ARGV){
 
 
 @spath=split(/:/,$spath);
+@ignore=split(/:/,$ignore);
+my %ignore = map { $_ => 1 } @ignore;
 
 
 @global_outlines=();
@@ -218,8 +231,10 @@ sub process_fsource {
       close( SOURCEFILE );
     }
   }
-  # exhausted source files
-  print STDERR "Couldn't find source file for module $module\n";
+    # exhausted source files
+    if(!exists($ignore{$module})){
+	print STDERR "Couldn't find source file for module $module\n";
+    }
 }
 
 # name of file we want to make

@@ -1,0 +1,17 @@
+#!/bin/bash
+set -e
+
+## ------------------------------
+cd common
+./configure
+cd ..
+
+## ------------------------------
+cd letkf
+./configure
+cd ..
+
+## ------------------------------
+cd util
+./configure
+cd ..

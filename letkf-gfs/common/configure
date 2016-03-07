@@ -1,0 +1,14 @@
+#!/bin/bash
+
+
+echo ""
+echo "============================================================"
+echo " GFS-LETKF (common)"
+echo "============================================================"
+pwd
+
+
+#export FMKMF_F90="$F90 -I$CFS_LETKF_ROOT/lib-ncep/incmod/sigio_4 -O2"
+#export FMKMF_LINKOPTS="netlib.o -L$CFS_LETKF_ROOT/lib-ncep/lib -lsigio_4 -lsp_4 -mkl"
+# $CFS_LETKF_ROOT/common/fmkmf build.f90 > Makefile.common
+

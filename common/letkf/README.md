@@ -1,0 +1,1 @@
+Fortran code common to both the GFS-LETKF and MOM-LETKF. More code will be moved into this directory as the respective LETKFs are cleaned up. Of greatest importance here is the `common_obs.f90` file which desribes the observation id's for all domains.

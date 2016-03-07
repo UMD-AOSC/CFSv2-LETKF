@@ -1,0 +1,13 @@
+#!/bin/bash
+set -e
+
+## ------------------------------
+cd src/dec_prepbufr
+./configure
+cd ../../
+
+## ------------------------------
+cd src/superob
+./configure
+cd ../../
+

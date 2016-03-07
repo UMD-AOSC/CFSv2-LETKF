@@ -1,20 +1,21 @@
 #!/bin/bash
 
-# source ../../config/machine.sh
-# source ../../config/$MACHINE.fortran.sh
-# source ../../config/$MACHINE.netcdf.sh
-# source ../../config/$MACHINE.mpi.sh
-echo "#============================================================"
-echo "# GFS-LETKF build configuration"
-echo "# Searching for dependencies to create Makefile..."
-echo "# You will see warnings that 'sigio_module' source was not found,"
-echo "#   ignore that error"
-echo "#============================================================"
 echo ""
-export F90=mpiifort
-export FMKMF_F90="$F90 -I../../lib-ncep/incmod/sigio_4 -O3"
-export FMKMF_LINKOPTS="netlib.o -L../../lib-ncep/lib -lsigio_4 -lsp_4 -mkl"
-./fmkmf letkf.f90 > Makefile.letkf
-./fmkmf mean.f90 > Makefile.mean
-./fmkmf obsope.f90 > Makefile.obsope
-./fmkmf efso.f90 > Makefile.efso
+echo "============================================================"
+echo " GFS-LETKF (letkf)"
+echo "============================================================"
+pwd
+
+export FMKMF_F90="$F90 -I$CFS_LETKF_ROOT/lib-ncep/incmod/sigio_4 -O2"
+export FMKMF_LINKOPTS="../common/netlib.o -L$CFS_LETKF_ROOT/lib-ncep/lib  -lsigio_4 -lsp_4 -mkl"
+export FMKMF_SPATH=".:../common"
+export FMKMF_IGNORE="sigio_module"
+
+echo "Makefile.letkf"
+$CFS_LETKF_ROOT/common/fmkmf letkf.f90 > Makefile.letkf
+echo "Makefile.mean"
+$CFS_LETKF_ROOT/common/fmkmf mean.f90 > Makefile.mean
+echo "Makefile.obsope"
+$CFS_LETKF_ROOT/common/fmkmf obsope.f90 > Makefile.obsope
+echo "Makefile.efso"
+$CFS_LETKF_ROOT/common/fmkmf efso.f90 > Makefile.efso

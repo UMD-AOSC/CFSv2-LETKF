@@ -1,14 +1,16 @@
-.PHONY: all clean
-all: msg
+.PHONY: all  clean
 
-#	+make -C ../common
-	+make -f Makefile.superob
+all: msg netlib.o
+#	+make -f Makefile.common
 
 clean: msg
-	rm -f *.o *.mod superob
+	rm -f *.mod *.o
+
+netlib.o:netlib.f
+	$(F90) -O2 -c netlib.f
 
 msg:
 	@echo ""
 	@echo "============================================================"
-	@echo " Building GFS-LETKF (superob)"
+	@echo " GFS-LETKF (common)"
 	@echo "============================================================"

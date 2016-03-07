@@ -1,58 +1,117 @@
 #!/bin/bash
+## ------------------------------------------------------------
+## LETKF namelist generation script
+##
 ## use by "source letkf.nml > outfile"
-## Required env vars:
+##
+## Required env vars: nbv
+## ------------------------------------------------------------
 
 cat << EOF
-! ------------------------------------------------------------
-! Parameters common to LETKF for all domains
-! ------------------------------------------------------------
+!! ------------------------------------------------------------
+!! ------------------------------------------------------------
+!! Namelist file for the LETKF components.
+!! This file sets all user configurable setting for 
+!! the GFS-LETKF, MOM-LETKF, and observation operators
+!!
+!! Travis Sluka, 2016
+!! Univesity of Maryland
+!! ------------------------------------------------------------
+!! ------------------------------------------------------------
+
+
+!! ------------------------------------------------------------
+!! Parameters common to LETKF for all domains
+!! ------------------------------------------------------------
 &letkf
-  nbv = ${nbv}		! Number of ensemble members
+  !! number of ensemble members
+  nbv = ${nbv}
 /
 
 
 
-! ------------------------------------------------------------
-! MOM-LETKF parameters
-! ------------------------------------------------------------
+!! ------------------------------------------------------------
+!! Ocean MOM-LETKF parameters
+!! ------------------------------------------------------------
 &letkf_ocn
 
- nslots = 1		! Number of timeslots for 4DLETKF
- nbslot = 1		! index of analysis time 
+  !! Number of timeslots (nslots) and the index of the analysis
+  !! timeslt (nbslot) for 4D LETKF. If both of these are set
+  !! to 1, a 3D LETKF  configuration will be used.
+  !! ------------------------------
+  nslots = 1
+  nbslot = 1
 
- ! horizontal localization for ocean, and atm obs,
- !  first number is radius at EQ, second is at pole
- sigma_ocn_h = 720.0d3, 200.0d3,
- sigma_atm_h = 1000.0d3, 200.0d3,
 
- infl_rtps = 0.8    !Relaxation to prior spread, ( 0.0 to 1.0 )
- infl_mult = 1.0
+  !! horizontal localization for ocean, and atmospheric
+  !! observations, in meters. The first number is radius at the equator,
+  !! the second is at the pole, with the value linearly decreasing 
+  !! from the EQ to the pole.
+  !! ------------------------------
+  sigma_ocn_h = 300.0d3, 80.0d3,
+  sigma_atm_h = 300.0d3, 80.0d3,
 
- gross_error = 30.0d0
- DO_DRIFTERS = F,
- DO_ALTIMETRY = F,
- DO_NO_VERT_LOC = T,
- localization_method = 1
+
+  !! vertical localization within the ocean, in meters
+  !! ------------------------------
+  sigma_ocn_v = 50.0d0
+  
+
+  !! Inflation parameters
+  !! (infl_mult) basic multiplicative inflation, effectively
+  !!   disabled if = 1
+  !! (infl_rtps) The relaxation to prior sread technique of 
+  !!   Whitaker, 2012. 0.0 indicates no inflation, 1.0 indicates
+  !!   spread is increased 100% of the way back to the background
+  !!   works best with values around 90%
+  !! ------------------------------
+  infl_rtps = 0.9 
+  infl_mult = 1.0
+
+
+  !! other parameters that were included in the original
+  !! mom-letkf and need to be cleaned up
+  !! ------------------------------
+  gross_error = 30.0d0
+  DO_DRIFTERS = F,
+  DO_ALTIMETRY = F,
 /
 
 
-! ------------------------------------------------------------
-! GFS-LETKF parameters
-! ------------------------------------------------------------
+
+!! ------------------------------------------------------------
+!! Atmosphere GFS-LETKF parameters
+!! ------------------------------------------------------------
 &letkf_atm
 
-  ! horizontal localization for the atm obs,
-  !  first number is half radius at EQ, 2nd is at the pole
-  sigma_atm_h   = 1000.0d3, 1000.0d3
-  sigma_atm_v   = 0.4
-  sigma_atm_t   = 3.0
+  !! horizontal localization for ocean, and atmospheric
+  !! observations, in meters. The first number is radius at the equator,
+  !! the second is at the pole, with the value linearly decreasing 
+  !! from the EQ to the pole.
+  !! ------------------------------
+  sigma_atm_h   = 500.0d3, 500.0d3
+  sigma_ocn_h   = 300.0d3, 80.0d3
 
-  ! horizontal localization for the ocn obs
-  sigma_ocn_h   = 500.0d3, 200.0d3
+  !! vertical localization within the atmosphere, as 
+  !! difference between natural log of pressure levels
+  !! ------------------------------
   sigma_ocn_v   = 0.1  
+  sigma_atm_v   = 0.4
+
+  !! temporal localization (not yet used)
+  !! ------------------------------
+  sigma_atm_t   = 3.0
   sigma_ocn_t   = 3.0
 
-  infl_rtps = 0.8
+  !! Inflation parameters
+  !! (infl_mult) basic multiplicative inflation, effectively
+  !!   disabled if = 1
+  !! (infl_rtps) The relaxation to prior sread technique of 
+  !!   Whitaker, 2012. 0.0 indicates no inflation, 1.0 indicates
+  !!   spread is increased 100% of the way back to the background
+  !!   works best with values around 90%
+  !! ------------------------------
+  infl_rtps = 0.9 
   infl_mult = 1.0
 /
 

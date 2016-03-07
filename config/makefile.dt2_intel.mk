@@ -1,18 +1,20 @@
+## ------------------------------------------------------------
+## Common makefile variables that are used when compiling the system.
+## The makefiles sorely need to  be cleaned up, I know.
+## ------------------------------------------------------------
+
 export
 
-
 ## compilers
-#FC  = mpif90
 FC  = mpiifort
 F77 = $(FC)
 F90 = $(FC)
-#CC  = mpicc
 CC  = mpiicc
 
 ## path to the ESMF (earth system modeling framework) version v3.1.0rp5
 ## make sure that ESMF is compiled with the matching MPI settings for the
 ## MPI used to compile GFS (openmpi vs mpich, etc)
-ESMFDIR   = /lustre/tsluka/CFSv2-old/external/esmf
+ESMFDIR   = /lustre/tsluka/esmf
 ESMFMODS  = $(ESMFDIR)/mod/modO/Linux.intel.64.intelmpi.default
 ESMFLIBS  = $(ESMFDIR)/lib/libO/Linux.intel.64.intelmpi.default
 
@@ -27,6 +29,7 @@ NETCDF_LIBS = -lnetcdf
 
 ## fortan compiler options dependant on compiler used
 #F_CNVTBE  = -convert big_endian  # big endian bit format
+## TODO, most of these can be removed now
 F_FREE    = -FR  # freeform fortran 90
 F_STRICT  = -fp-model strict
 F_R8 = -r8

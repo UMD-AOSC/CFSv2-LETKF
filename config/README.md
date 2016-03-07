@@ -1,0 +1,1 @@
+The user, before compiling and using the CFSv2-LETKF, will need to link 2 files, `setenv.sh` and `makefile.mk`, the details of which will be specific to their architecture. The configuration for UMD's Deepthought2 supercomputer are included here as an example.

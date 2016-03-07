@@ -1,6 +1,9 @@
-################################################################################
+## ------------------------------------------------------------
+## ------------------------------------------------------------
+## Common functions used by the CFSv2-LETKF control scripts.
+## ------------------------------------------------------------
+## ------------------------------------------------------------
 
-################################################################################
 import logging
 import os, sys
 from glob import glob
@@ -11,9 +14,11 @@ if __name__ == '__main__':
     logging.critical("This file should not be run from the command line")
     sys.exit(1)
 
+
 ## list of available GFS resolutions
 aresList = [62,126,190,382,574,1148]
-    
+
+
 ## Get the x/y atmosphere grid resolution base on the
 ## spectral resolution given
 def getAtmRes(t_res):
@@ -27,7 +32,7 @@ def getAtmRes(t_res):
     assert(t_res in res)
     return res[t_res]
 
-        
+
 
 ############################################################
 ## determine the number of ensemble members the experiment
@@ -45,6 +50,8 @@ def getEnsMem(path):
 
 
 ############################################################
+## allow easy logging in the python scripts
+## by using log.info(), log.warn(), etc
 ############################################################
 def setupLog():
     log = logging.getLogger('')
@@ -60,6 +67,10 @@ def setupLog():
     logging.addLevelName(logging.CRITICAL, "\033[01;35mCRIT \033[00m")
     return log
 
+
+############################################################
+## sets up the logs set up in "setupLog" to be sent out to a file as well
+############################################################
 def addFileLog(log, path):
     if not os.path.exists(os.path.dirname(path)):
         os.makedirs(os.path.dirname(path))
