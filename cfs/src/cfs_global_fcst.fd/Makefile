@@ -369,12 +369,12 @@ INCS = f_hpm.h mpi_inc.h function2
 #
 # *****************************************************************
 #
-all: $(EXEC)
+all: msg $(EXEC)
 
 $(EXEC): $(OBJ_MOD) $(OBJS_CC) $(OBJS0) $(OBJS) $(OBJS_PHY) $(OBJS_RAD) $(OBJS_IO) 
 	$(LDR) $(LDFLAGS) -o $(EXEC) $(OBJ_MOD) $(OBJS_CC) $(OBJS0) $(OBJS) $(OBJS_PHY) $(OBJS_RAD) $(OBJS_IO) $(LIBS)
 
-clean:
+clean: msg
 	rm -f *.o *.mod $(EXEC)
 
 tar:
@@ -874,3 +874,8 @@ mpi_GV.o:		mpi_GV.f
 
 mygather.o:		mygather.c
 		$(CC) $(FFLAGSC) -c mygather.c
+msg:
+	@echo ""
+	@echo "============================================================"
+	@echo " CFS (GFS)"
+	@echo "============================================================"

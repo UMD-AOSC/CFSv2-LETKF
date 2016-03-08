@@ -1,0 +1,8 @@
+#!/bin/bash
+set -e
+
+cd $CFS_LETKF_ROOT
+
+./util/configure
+./letkf-gfs/configure
+./letkf-mom/configure

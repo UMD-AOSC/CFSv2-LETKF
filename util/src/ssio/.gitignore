@@ -1,8 +1,9 @@
 *.o
 *.mod
-grd2ss
-grdctl
-ss2grd
-ss2grdp
-sscycle
-sscycle2
+/grd2ss
+/grdctl
+/ss2grd
+/ss2grdp
+/sscycle
+/sscycle2
+Makefile.*

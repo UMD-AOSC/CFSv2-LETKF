@@ -9,7 +9,7 @@ OBJECTS := $(OBJECTS:%.f90=%.o)
 
 .PHONY: all clean
 
-all: $(EXEC)
+all:msg $(EXEC)
 
 $(EXEC): $(OBJECTS)
 	$(FC) $(OBJECTS) $(LIBS) -o $(EXEC)
@@ -23,5 +23,10 @@ chgres.o   : nstio_module.o gfsio_rst.o funcphys.o surface_chgres.o
 funcphys.o : physcons.o
 physcons.o : machine_8.o
 
-clean:
+clean:msg
 	rm -rf *.o *.a *.mod $(EXEC)
+msg:
+	@echo ""
+	@echo "============================================================"
+	@echo " CFS (chgres)"
+	@echo "============================================================"    

@@ -1,0 +1,8 @@
+#!/bin/bash
+set -e
+
+## ------------------------------
+cd $CFS_LETKF_ROOT/util
+cd src/ssio
+./configure
+cd ..

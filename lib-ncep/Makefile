@@ -4,7 +4,7 @@ TARGETS := ip sp bacio sigio w3lib-2.0 gfsio sfcio landsfcutil bufrlib
 
 .PHONY: all clean dirs $(TARGETS)
 
-all: dirs $(TARGETS)
+all: msg dirs $(TARGETS)
 
 dirs :
 	@mkdir -p lib
@@ -60,7 +60,7 @@ w3lib-2.0: sigio
 	+make -C src/w3lib-2.0
 	cp src/w3lib-2.0/lib_?/*.a lib/
 
-clean:
+clean: msg
 	rm -rf lib
 	rm -rf incmod
 	+make -C src/bacio clean
@@ -72,3 +72,9 @@ clean:
 	+make -C src/sigio clean
 	+make -C src/sp clean
 	+make -C src/w3lib-2.0 clean
+
+msg:
+	@echo ""
+	@echo "============================================================"
+	@echo " NCEP libraries"
+	@echo "============================================================"

@@ -1,0 +1,19 @@
+#!/bin/bash
+
+echo ""
+echo "============================================================"
+echo " SSIO"
+echo "============================================================"
+pwd
+
+export FMKMF_F90="$F90 -I$CFS_LETKF_ROOT/lib-ncep/incmod/sigio_4 -I$CFS_LETKF_ROOT/lib-ncep/incmod/sfcio_4 -O2"
+export FMKMF_LINKOPTS=" -L$CFS_LETKF_ROOT/lib-ncep/lib  -lsigio_4 -lbacio_4 -lsfcio_4 -lsp_4 -mkl"
+export FMKMF_SPATH=".:$CFS_LETKF_ROOT/letkf-gfs/common"
+export FMKMF_IGNORE="sigio_module:sfcio_module"
+
+pgms=( "ss2grd" "grd2ss" "sscycle" "ss2grdp" "grdctl" "sscycle2" )
+for pgm in "${pgms[@]}"
+do
+    echo "Makefile.$pgm"
+    $CFS_LETKF_ROOT/common/fmkmf $pgm.f90 > Makefile.$pgm
+done

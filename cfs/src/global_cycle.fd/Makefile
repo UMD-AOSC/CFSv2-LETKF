@@ -11,7 +11,7 @@ OBJECTS := $(OBJECTS:%.f90=%.o)
 
 .PHONY: all clean
 
-all: $(EXEC)
+all: msg $(EXEC)
 
 $(EXEC): $(OBJECTS)
 	$(FC) $(OBJECTS) $(LIBS) -o $(EXEC)
@@ -22,5 +22,10 @@ $(EXEC): $(OBJECTS)
 	$(F90) $(FFLAGS) -c $<
 
 cycle.o : machine.o 
-clean:
+clean: msg
 	rm -rf *.o *.a *.mod $(EXEC)
+msg:
+	@echo ""
+	@echo "============================================================"
+	@echo " CFS (cycle)"
+	@echo "============================================================"    

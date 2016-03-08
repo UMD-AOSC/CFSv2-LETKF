@@ -17,7 +17,7 @@ mfile := $(executable)_h/Makefile
 
 
 
-all : $(mfile)
+all : msg $(mfile)
 	cd $(executable)_h ; make
 
 
@@ -26,5 +26,11 @@ $(mfile):
 	cd $(executable)_h ; $(mkmf) -f -a $(code_dir) -t $(mkmfTemplate) -p $(executable) -c $(cppDefs) $(pathnames) $(root)/include $(code_dir)/shared/mpp/include
 
 
-clean:
+clean: msg
 	rm -rf $(curdir)/exec
+
+msg:
+	@echo ""
+	@echo "============================================================"
+	@echo " CFS (MOM)"
+	@echo "============================================================"

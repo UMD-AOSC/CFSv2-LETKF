@@ -6,9 +6,9 @@ LIBS    := -L$(NCEPLIBDIR)/lib -lsfcio_4 -lw3lib-2.0_4
 SOURCES := $(wildcard *.f90)
 OBJECTS := $(SOURCES:%.f90=%.o)
 
-.PHONY: all clean
+.PHONY: all clean msg
 
-all: $(EXEC)
+all: msg $(EXEC)
 
 $(EXEC): $(OBJECTS)
 	$(FC) $(OBJECTS) $(LIBS) -o $(EXEC)
@@ -16,5 +16,11 @@ $(EXEC): $(OBJECTS)
 %.o : %.f90
 	$(F90) $(FFLAGS) -c $<
 
-clean:
+clean: msg
 	rm -rf *.o *.a *.mod $(EXEC)
+
+msg:
+	@echo ""
+	@echo "============================================================"
+	@echo " CFS (sfchdr)"
+	@echo "============================================================"    
