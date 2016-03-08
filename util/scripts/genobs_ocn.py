@@ -8,7 +8,7 @@ import numpy as np
 import netCDF4 as nc
 import scipy.spatial
 
-sys.path.insert(1,'../../common/python')
+sys.path.insert(1,os.getenv("CFS_LETKF_ROOT")+'/common/python')
 import obsio
 
 
