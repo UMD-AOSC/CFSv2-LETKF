@@ -167,7 +167,7 @@ for m in range(1,args.mem+1):
 
 ## create/copy the grads ctl files
 datestr=dt.datetime.strptime(args.date,"%Y%m%d%H").strftime("%e%b%Y")
-with open(args.rootDir+'/letkf-mom/mom4/grads/ocn.ctl','r') as fin:
+with open(args.rootDir+'/letkf-mom/ocn.ctl','r') as fin:
     with open(args.path+'/anal/mean/ocn.ctl','w') as fout:
         for line in fin:
             line = line.replace("##DATE##", datestr)
