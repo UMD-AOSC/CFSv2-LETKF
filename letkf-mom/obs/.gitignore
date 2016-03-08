@@ -1,0 +1,4 @@
+/obsop
+*.mod
+*.o
+Makefile.obsop
