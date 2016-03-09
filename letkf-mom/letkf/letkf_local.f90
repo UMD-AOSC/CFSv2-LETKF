@@ -26,6 +26,7 @@ MODULE letkf_local
 
 CONTAINS
 
+  
 SUBROUTINE obs_local(ij,ilev,var_local,hdxf,rdiag,rloc,dep,nobsl,nobstotal)
 !===============================================================================
 ! Project global observations to local
@@ -39,19 +40,17 @@ SUBROUTINE obs_local(ij,ilev,var_local,hdxf,rdiag,rloc,dep,nobsl,nobstotal)
     real(r_size), INTENT(out) :: dep(nobstotal)
     integer,      INTENT(out) :: nobsl
 
-    !! things used internally for hz loclzlization
-    real(r_size)           :: sigma_max_h_d0, dist_zero_h, sigma_h, sigma_atm_h_ij, sigma_ocn_h_ij
-    real(r_size)           :: dist_zero_v, sigma_v
-    real(r_size) :: r
+    real(r_size),parameter  :: loc_cutoff = 4*10/3
 
-    real(r_size) :: loc_h, loc_v
+    real(r_size) :: sigma_max_h_d0, sigma_h, sigma_atm_h_ij, sigma_ocn_h_ij
+    real(r_size) :: loc, loc_h, loc_atm_v, loc_ocn_v
+    real(r_size) :: dlev    
     integer :: n, j
-    real(r_size):: dlev
 
-    !! determine the maximum search radius for the initial obs search 
+    !! determine the maximum horizontal search radius for the initial obs search 
     sigma_ocn_h_ij = (1.0d0-abs(lat1(ij))/90.0d0)*(sigma_ocn_h(1)-sigma_ocn_h(2))+sigma_ocn_h(2)
     sigma_atm_h_ij = (1.0d0-abs(lat1(ij))/90.0d0)*(sigma_atm_h(1)-sigma_atm_h(2))+sigma_atm_h(2)    
-    sigma_max_h_d0 = max(sigma_ocn_h_ij, sigma_atm_h_ij)  * SQRT(10.0d0/3.0d0) * 2.0d0
+    sigma_max_h_d0 = max(sigma_ocn_h_ij, sigma_atm_h_ij)  * SQRT(loc_cutoff)
 
     !!  ------------------------------------------------------------
     !! Initialize the KD search tree
@@ -83,68 +82,73 @@ SUBROUTINE obs_local(ij,ilev,var_local,hdxf,rdiag,rloc,dep,nobsl,nobstotal)
     !! going to be used
     nobsl=0        
     do n = 1, nn
+       loc_atm_v = 0.0
+       loc_ocn_v = 0.0
        loc_h = 0.0
-       loc_v = 0.0
        
        if(nobsl >= nobstotal) return
 
-       !! calculate domain specific parameters
-       !! ------------------------------
        j = obselm(idx(n))
 
+       !! calculate domain specific parameters
+       !! ------------------------------       
        if (j >= obsid_atm_min .and. j <= obsid_atm_max) then
        !!------------------------------
        !! atmospheric observation
-       !!------------------------------
-          if (j == obsid_atm_ps) then
-             dlev = 0
-          else
-!             if (obslev(idx(n)) > 400) cycle
+          !!------------------------------
+          !! vertical localization into the atmosphere
+          if (j /= obsid_atm_ps) then
              !!TODO, this assumes an atmospheric pressure of 1013mb over the ocean,
              !! for better accuracy the actual ensemble mean atmospheric pressure
              !! should be read in and used, though I don't know how much of an actual
              !! difference this would make, I'm lazy right now.
-             dlev = abs(log(obslev(idx(n)))-log(1013.0d0))             
+             loc_atm_v =  ((abs(log(obslev(idx(n)))-log(1013.0d0))) / sigma_atm_v) ** 2
+             if (loc_atm_v > loc_cutoff) cycle             
           end if
-          sigma_h = sigma_atm_h_ij
-          sigma_v = sigma_atm_v                             
-          
-       !! ------------------------------
-          
+
+          !! vertical localization into the ocean
+          dlev = lev(ilev)
+
+          !! horizontal localization
+          sigma_h = sigma_atm_h_ij          
+
+       !! ------------------------------          
        else if (j >= obsid_ocn_min .and.j <= obsid_ocn_max) then
        !! ------------------------------          
        !! ocean observation
-          !!------------------------------
+       !!------------------------------
+          !! vertical localization within ocean
+          dlev = abs(lev(ilev)-obslev(idx(n)))
+
+          !! horizontal localization
           sigma_h = sigma_ocn_h_ij
 
-          
-          if (sigma_ocn_v < 0) then
-             !! vertical localization is off
-             dlev = 0
-             sigma_v = 100
-          else
-             dlev = abs(lev(ilev)-obslev(idx(n)))
-             sigma_v = sigma_ocn_v
-          end if             
+       !! ------------------------------                    
        else
-
-          !! unknown Domain
-          !! ------------------------------
+       !! unknown Domain
+       !! ------------------------------
           cycle
        end if
-      
+       
+
+       !! vertical localization into the ocean
+       if (sigma_ocn_v > 0) then
+          loc_ocn_v = (dlev / sigma_ocn_v) ** 2
+          if (loc_ocn_v > loc_cutoff) cycle
+       end if
+             
 
        !! horizontal localization cutoff
-       dist_zero_h = sigma_h * SQRT(10.0d0/3.0d0) * 2.0d0
-       if(dist(n) > dist_zero_h) cycle
+       loc_h = (dist(n)/sigma_h)**2       
+       if (loc_h > loc_cutoff) cycle
 
-       !! vertical localization cutoff
-       dist_zero_v = sigma_v * sqrt(10.0d0/3.0d0) * 2.0d0
-       if(dlev > dist_zero_v) cycle
+       
+       loc = loc_h + loc_atm_v + loc_ocn_v
+       if (loc > loc_cutoff) cycle
        
        !! use this observation!
        nobsl = nobsl+1              
-       rloc(nobsl) = exp(-0.5d0 * ((dist(n)/sigma_h)**2 + (dlev/sigma_v)**2))
+       rloc(nobsl) = exp(-0.5d0 * loc)
        hdxf(nobsl,:) = obshdxf(idx(n),:)
        dep(nobsl)  = obsdep(idx(n))
        rdiag(nobsl) = obserr(idx(n))**2

@@ -55,6 +55,8 @@ cat << EOF
   !! vertical localization within the ocean, in meters
   !! ------------------------------
   sigma_ocn_v = 50.0d0
+
+  sigma_atm_v = 0.1d0
   
 
   !! Inflation parameters
