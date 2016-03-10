@@ -34,7 +34,8 @@ real(r_size) :: infl_mult
 !! ------------------------------------------------------------
 INTEGER  :: nbv
 
-integer  :: use_obs_plat(10) !not used right now
+logical :: atm_obs
+integer :: atm_obs_plat(10)
 
 !-------------------------------------------------------------------------------
 ! From letkf_local.f90
@@ -92,7 +93,7 @@ contains
          gross_error, &
          do_drifters, do_altimetry, &
          infl_rtps, infl_mult, &
-         use_obs_plat
+         atm_obs, atm_obs_plat
     
     open(99, file="input.nml", status="old")
 

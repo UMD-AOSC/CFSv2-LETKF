@@ -1,16 +1,17 @@
 MODULE letkf_local
   USE common
   use common_obs
-  USE common_mpi
-  USE common_mom4
-  USE common_mpi_mom4
   use kdtree
-  USE common_letkf
   USE letkf_obs !contains debug_hdxf_0, and nobsgrd
   USE letkf_mom_params
-  USE vars_letkf,   ONLY: var_local_n2n
+  !  USE vars_letkf,   ONLY: var_local_n2n
+  !  USE common_mpi
+  !  USE common_mom4
+  !  USE common_mpi_mom4
+  !  USE common_letkf
 
   implicit none
+
   PUBLIC :: obs_local
   
   PRIVATE
@@ -45,7 +46,8 @@ SUBROUTINE obs_local(ij,ilev,var_local,hdxf,rdiag,rloc,dep,nobsl,nobstotal)
     real(r_size) :: sigma_max_h_d0, sigma_h, sigma_atm_h_ij, sigma_ocn_h_ij
     real(r_size) :: loc, loc_h, loc_atm_v, loc_ocn_v
     real(r_size) :: dlev    
-    integer :: n, j
+    integer :: n, j, k
+    logical :: b
 
     !! determine the maximum horizontal search radius for the initial obs search 
     sigma_ocn_h_ij = (1.0d0-abs(lat1(ij))/90.0d0)*(sigma_ocn_h(1)-sigma_ocn_h(2))+sigma_ocn_h(2)
@@ -92,10 +94,26 @@ SUBROUTINE obs_local(ij,ilev,var_local,hdxf,rdiag,rloc,dep,nobsl,nobstotal)
 
        !! calculate domain specific parameters
        !! ------------------------------       
-       if (j >= obsid_atm_min .and. j <= obsid_atm_max) then
-       !!------------------------------
-       !! atmospheric observation
+       if (atm_obs .and. j >= obsid_atm_min .and. j <= obsid_atm_max) then
           !!------------------------------
+          !! atmospheric observation
+          !!------------------------------
+
+          !! Has the user enabled assimilation of atmospheric observations?
+          !! Has the user explicitly define a subset of atmospheric platforms to use?
+          !! TODO: this should be moved to early in the LETKF program
+          b = .false.
+          if (atm_obs_plat(1) > 0) then
+             do k=1,size(atm_obs_plat)
+                if (atm_obs_plat(k) <=0 ) exit
+                if (atm_obs_plat(k) == obspla(idx(n))) then
+                   b = .true.
+                   exit
+                end if
+             end do
+             if (.not. b) cycle
+          end if
+
           !! vertical localization into the atmosphere
           if (j /= obsid_atm_ps) then
              !!TODO, this assumes an atmospheric pressure of 1013mb over the ocean,
@@ -114,19 +132,21 @@ SUBROUTINE obs_local(ij,ilev,var_local,hdxf,rdiag,rloc,dep,nobsl,nobstotal)
 
        !! ------------------------------          
        else if (j >= obsid_ocn_min .and.j <= obsid_ocn_max) then
-       !! ------------------------------          
-       !! ocean observation
-       !!------------------------------
+          !! ------------------------------          
+          !! ocean observation
+          !!------------------------------
+          cycle
           !! vertical localization within ocean
           dlev = abs(lev(ilev)-obslev(idx(n)))
 
           !! horizontal localization
           sigma_h = sigma_ocn_h_ij
 
-       !! ------------------------------                    
-       else
-       !! unknown Domain
        !! ------------------------------
+       else
+          !! ------------------------------
+          !! unknown Domain
+          !! ------------------------------
           cycle
        end if
        

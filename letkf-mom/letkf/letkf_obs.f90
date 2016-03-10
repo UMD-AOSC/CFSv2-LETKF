@@ -83,6 +83,7 @@ SUBROUTINE set_letkf_obs
   REAL(r_size),ALLOCATABLE :: tmplev(:)
   REAL(r_size),ALLOCATABLE :: tmpdat(:)
   REAL(r_size),ALLOCATABLE :: tmperr(:)
+  integer, allocatable     :: tmppla(:)
   REAL(r_size),ALLOCATABLE :: tmpi(:)
   REAL(r_size),ALLOCATABLE :: tmpj(:)
   REAL(r_size),ALLOCATABLE :: tmpk(:)
@@ -98,6 +99,7 @@ SUBROUTINE set_letkf_obs
   REAL(r_size),ALLOCATABLE :: tmp2lev(:)
   REAL(r_size),ALLOCATABLE :: tmp2dat(:)
   REAL(r_size),ALLOCATABLE :: tmp2err(:)
+  integer, allocatable     :: tmp2pla(:)
   REAL(r_size),ALLOCATABLE :: tmp2dep(:)
   REAL(r_size),ALLOCATABLE :: tmp2hdxf(:,:)
   REAL(r_size),ALLOCATABLE :: tmp2id(:)   !(DRIFTERS)
@@ -160,6 +162,7 @@ SUBROUTINE set_letkf_obs
   ALLOCATE( tmplev(nobs) )
   ALLOCATE( tmpdat(nobs) )
   ALLOCATE( tmperr(nobs) )
+  allocate( tmppla(nobs) )
   ALLOCATE( tmpk(nobs) )
   ALLOCATE( tmpdep(nobs) )
   ALLOCATE( tmphdxf(nobs,nbv) )
@@ -186,7 +189,8 @@ SUBROUTINE set_letkf_obs
       CALL read_obs2(obsfile,nobslots(islot),&
        & tmpelm(nn+1:nn+nobslots(islot)),tmplon(nn+1:nn+nobslots(islot)),&
        & tmplat(nn+1:nn+nobslots(islot)),tmplev(nn+1:nn+nobslots(islot)),&
-       & tmpdat(nn+1:nn+nobslots(islot)),tmperr(nn+1:nn+nobslots(islot)),&
+       & tmpdat(nn+1:nn+nobslots(islot)),tmperr(nn+1:nn+nobslots(islot)),& 
+       & tmppla(nn+1:nn+nobslots(islot)),&
        & tmphdxf(nn+1:nn+nobslots(islot),im),tmpqc0(nn+1:nn+nobslots(islot),im),&
        & tmptime(nn+1:nn+nobslots(islot)) )
       l = l+1
@@ -210,6 +214,8 @@ SUBROUTINE set_letkf_obs
   CALL MPI_BCAST( tmpdat, nobs, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD,ierr)
   CALL MPI_BARRIER(MPI_COMM_WORLD,ierr)
   CALL MPI_BCAST( tmperr, nobs, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD,ierr)
+  CALL MPI_BARRIER(MPI_COMM_WORLD,ierr)
+  CALL MPI_BCAST( tmppla, nobs, MPI_INT, 0, MPI_COMM_WORLD,ierr)
   CALL MPI_BARRIER(MPI_COMM_WORLD,ierr)
 
   !STEVE: compile the tmphdxf array on all procs
@@ -487,6 +493,7 @@ endif
     tmplev(nn) = tmplev(n)
     tmpdat(nn) = tmpdat(n)
     tmperr(nn) = tmperr(n)
+    tmppla(nn) = tmppla(n)
     tmpk(nn) = tmpk(n)
     tmpdep(nn) = tmpdep(n)
     tmphdxf(nn,:) = tmphdxf(n,:)
@@ -506,6 +513,7 @@ endif
   ALLOCATE( tmp2lev(nobs) )
   ALLOCATE( tmp2dat(nobs) )
   ALLOCATE( tmp2err(nobs) )
+  allocate( tmp2pla(nobs) )
   ALLOCATE( tmp2dep(nobs) )
   ALLOCATE( tmp2hdxf(nobs,nbv) )
   ALLOCATE( tmp2id(nobs) )    !(DRIFTERS)
@@ -516,6 +524,7 @@ endif
   ALLOCATE( obslev(nobs) )
   ALLOCATE( obsdat(nobs) )
   ALLOCATE( obserr(nobs) )
+  allocate( obspla(nobs) )
   ALLOCATE( obsdep(nobs) )
   ALLOCATE( obshdxf(nobs,nbv) )
   ALLOCATE( obsid(nobs) )    !(DRIFTERS)
@@ -551,6 +560,7 @@ endif
       tmp2lev(njs(j)+nn) = tmplev(n)
       tmp2dat(njs(j)+nn) = tmpdat(n)
       tmp2err(njs(j)+nn) = tmperr(n)
+      tmp2pla(njs(j)+nn) = tmppla(n)
 !      tmp2k(njs(j)+nn) = tmpk(n)
       tmp2dep(njs(j)+nn) = tmpdep(n)
       tmp2hdxf(njs(j)+nn,:) = tmphdxf(n,:)
@@ -601,6 +611,7 @@ endif
         obslev(njs(j)+nn) = tmp2lev(n)
         obsdat(njs(j)+nn) = tmp2dat(n)
         obserr(njs(j)+nn) = tmp2err(n)
+        obspla(njs(j)+nn) = tmp2pla(n)
         obsdep(njs(j)+nn) = tmp2dep(n)
         obshdxf(njs(j)+nn,:) = tmp2hdxf(n,:)
         obsid(njs(j)+nn) = tmp2id(n)     !(DRIFTERS)
@@ -631,6 +642,7 @@ endif
   DEALLOCATE( tmp2lev )
   DEALLOCATE( tmp2dat )
   DEALLOCATE( tmp2err )
+  deallocate( tmp2pla )
   DEALLOCATE( tmp2dep )
   DEALLOCATE( tmp2hdxf )
   DEALLOCATE( tmp2id )    !(DRIFTERS)
@@ -641,6 +653,7 @@ endif
   DEALLOCATE( tmplev )
   DEALLOCATE( tmpdat )
   DEALLOCATE( tmperr )
+  deallocate( tmppla )
   DEALLOCATE( tmpk )
   DEALLOCATE( tmpdep )
   DEALLOCATE( tmphdxf )

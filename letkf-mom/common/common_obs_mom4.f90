@@ -637,7 +637,7 @@ SUBROUTINE read_obs(cfile,nn,elem,rlon,rlat,rlev,odat,oerr,obhr)
 END SUBROUTINE read_obs
 
 
-SUBROUTINE read_obs2(cfile,nn,elem,rlon,rlat,rlev,odat,oerr,ohx,oqc,obhr)
+SUBROUTINE read_obs2(cfile,nn,elem,rlon,rlat,rlev,odat,oerr,opla,ohx,oqc,obhr)
 !===============================================================================
 ! Read in observations with appended H(xb) for each ob
 !===============================================================================
@@ -650,6 +650,7 @@ SUBROUTINE read_obs2(cfile,nn,elem,rlon,rlat,rlev,odat,oerr,ohx,oqc,obhr)
   REAL(r_size),INTENT(OUT) :: rlev(nn)
   REAL(r_size),INTENT(OUT) :: odat(nn)
   REAL(r_size),INTENT(OUT) :: oerr(nn)
+  INTEGER,INTENT(OUT)      :: opla(nn)  
   REAL(r_size),INTENT(OUT) :: ohx(nn)
   REAL(r_size),OPTIONAL,INTENT(OUT) :: obhr(nn)
   INTEGER,INTENT(OUT) :: oqc(nn)
@@ -667,6 +668,7 @@ SUBROUTINE read_obs2(cfile,nn,elem,rlon,rlat,rlev,odat,oerr,ohx,oqc,obhr)
     rlev(n) = REAL(wk(4),r_size)
     odat(n) = REAL(wk(5),r_size)
     oerr(n) = REAL(wk(6),r_size)
+    opla(n )= NINT(wk(7))    
     obhr(n) = REAL(wk(8),r_size)    
     ohx(n)  = REAL(wk(9),r_size)
     oqc(n)  = NINT(wk(10))
