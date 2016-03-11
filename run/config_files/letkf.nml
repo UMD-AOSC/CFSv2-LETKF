@@ -56,6 +56,7 @@ cat << EOF
   !! ------------------------------
   sigma_ocn_v = 50.0d0
 
+  !! vertical localization within the atmosphere, in delta ln P
   sigma_atm_v = 0.1d0
   
 
@@ -97,8 +98,10 @@ cat << EOF
   !! vertical localization within the atmosphere, as 
   !! difference between natural log of pressure levels
   !! ------------------------------
-  sigma_ocn_v   = 0.1  
   sigma_atm_v   = 0.4
+
+  sigma_ocn_v   = 50 ! meters
+
 
   !! temporal localization (not yet used)
   !! ------------------------------

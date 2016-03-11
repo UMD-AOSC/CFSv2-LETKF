@@ -94,7 +94,7 @@ SUBROUTINE obs_local(ij,ilev,var_local,hdxf,rdiag,rloc,dep,nobsl,nobstotal)
 
        !! calculate domain specific parameters
        !! ------------------------------       
-       if (atm_obs .and. j >= obsid_atm_min .and. j <= obsid_atm_max) then
+       if (atm_obs .and. getDomain(j) == dom_atm) then
           !!------------------------------
           !! atmospheric observation
           !!------------------------------
@@ -131,11 +131,10 @@ SUBROUTINE obs_local(ij,ilev,var_local,hdxf,rdiag,rloc,dep,nobsl,nobstotal)
           sigma_h = sigma_atm_h_ij          
 
        !! ------------------------------          
-       else if (j >= obsid_ocn_min .and.j <= obsid_ocn_max) then
+       else if (getDom(j) == dom_ocn) then
           !! ------------------------------          
           !! ocean observation
           !!------------------------------
-          cycle
           !! vertical localization within ocean
           dlev = abs(lev(ilev)-obslev(idx(n)))
 
@@ -154,15 +153,13 @@ SUBROUTINE obs_local(ij,ilev,var_local,hdxf,rdiag,rloc,dep,nobsl,nobstotal)
        !! vertical localization into the ocean
        if (sigma_ocn_v > 0) then
           loc_ocn_v = (dlev / sigma_ocn_v) ** 2
-          if (loc_ocn_v > loc_cutoff) cycle
        end if
              
 
        !! horizontal localization cutoff
        loc_h = (dist(n)/sigma_h)**2       
-       if (loc_h > loc_cutoff) cycle
 
-       
+       !! total localization
        loc = loc_h + loc_atm_v + loc_ocn_v
        if (loc > loc_cutoff) cycle
        

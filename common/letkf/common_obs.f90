@@ -17,6 +17,9 @@ module common_obs
   !!------------------------------------------------------------
   !!------------------------------------------------------------
 
+  integer, parameter :: dom_atm = 1000
+  integer, parameter :: dom_ocn = 2000
+  
   !! unique ID's for observations
   !!------------------------------
   integer, parameter :: obsid_num = 16
@@ -65,6 +68,8 @@ module common_obs
        "OCN_T   ", "OCN_S   ", "OCN_U   ", "OCN_V   "/)
 
 
+    
+  !!
   !! ------------------------------------------------------------
   !! Structure to hold LETKF formated observations,
   !! see the wiki for further documentation. This is the
@@ -102,7 +107,20 @@ module common_obs
 contains
 
   
+  function getDomain(obsid)
+    integer, intent(in) :: obsid
+    integer ::  getDomain
 
+    if (obsid >= obsid_atm_min .and. obsid <= obsid_atm_max) then
+       getDomain = dom_atm
+    else if(obsid >= obsid_ocn_min .and. obsid <= obsid_ocn_max) then
+       getDomain = dom_ocn
+    else
+       getDomain = -1
+    end if
+  end function getDomain
+
+  
   !! ------------------------------------------------------------
   !! given an integer observation ID, returns its location in the
   !! above obsid_ids and obdsid_name arrays (and presumably
