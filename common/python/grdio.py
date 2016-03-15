@@ -68,10 +68,10 @@ class GradsCtl:
             return np.arange(start, start+length*increment, increment)   
 
         ## levels are defined
-        p = re.compile("%s\s+\d+\s+LEVELS((\s+%s)+)" % (dim, _NUMBER))
+        p = re.compile("%s\s+\d+\s+LEVELS((\s+%s(,)?)+)" % (dim, _NUMBER))
         m = p.search(self.ctlU)
         if m:
-            return np.fromstring(m.group(1), sep=' ')
+            return np.fromstring(m.group(1).replace(',',' '), sep=' ')
 
         ## and, whatever this one if for
         p = re.compile("%s\s+(\d+)\s+LINEAR\s+([:\w]+)\s+(\d{1,2})(\w{2})" % dim)
