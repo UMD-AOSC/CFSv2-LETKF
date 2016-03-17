@@ -67,3 +67,15 @@ def getOcnXY(lon, lat):
     x = _ocnGrd_xs[res[1]]
     return x,y
     
+
+def getAtmLevels():
+    lvlFile = _root+"/support/fix/fix_am/global_hyblev.l64.txt"
+    if getAtmLevels.lvls == None:
+        f = open(lvlFile,'r')
+        d = f.read().splitlines()[1:]
+        params = []
+        for l in d:
+            params.append([float(x) for x in l.split() ])
+        getAtmLevels.lvls = params
+    return getAtmLevels.lvls
+getAtmLevels.lvls = None
