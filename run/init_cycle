@@ -139,7 +139,7 @@ for m in range(1,args.mem+1):
     ## ssycle is needed to set the correct date and other boundary conditions
     shutil.copy(  srcAtm+".sig", args.tmpDir+'/fort.11')
     shutil.copy(  srcAtm+".sfc", args.tmpDir+"/fort.12")
-    if sp.call("./sscycle2 {}".format(cdate.strftime("%Y%m%d%H")),cwd=args.tmpDir, shell=True) != 0:
+    if sp.call("./sscycle2 {}".format(args.date),cwd=args.tmpDir, shell=True) != 0:
         print 'Error with calling sscyle'
         sys.exit(1)
     shutil.copy(args.tmpDir+'/fort.21', args.path+'/anal/{0:03d}/{1}.sig'.format(m, args.date))
