@@ -389,7 +389,7 @@ contains
   !!   arr[indx[1..k-1]] <= arr[indx[k]] <= arr[indx[k+1,n]]
   !!   the array "arr" is not modified
   !! --------------------------------------------------------------------------------
-  subroutine kd_selecti(k, indx, arr)
+  pure subroutine kd_selecti(k, indx, arr)
     integer, intent(in) :: k
     integer, intent(inout) :: indx(:)
     real(r_size),intent(in) :: arr(:)
@@ -444,7 +444,7 @@ contains
   !!  as the sorting key value. Pivot points are chosen by a median of 3 using the
   !!  segment start, middle, and end... if anyone cares.
   !! --------------------------------------------------------------------------------
-  subroutine qsort(arr)
+  pure subroutine qsort(arr)
     integer, intent(inout) :: arr(:)        !! the array of indices to key to sort
 
     integer, parameter :: M=7          !! the max array size before switching over to insertion sort
@@ -515,10 +515,10 @@ contains
           !! push pointers of larger array onto stack, process smaller
           !! array immediately
           jstack = jstack + 2
-          if (jstack >= NSTACK) then
-             write(*,*) "NSTACK is too small!!"
-             stop 1
-          end if
+!          if (jstack >= NSTACK) then
+!             write(*,*) "NSTACK is too small!!"
+!             stop 1
+!          end if
           if (ir-i+1 >= j-1) then
              istack(jstack) = ir
              istack(jstack-1) = i
@@ -534,7 +534,7 @@ contains
 
 
   !! Convenience function to swap two array indices
-  subroutine swap(a1, a2)
+  pure subroutine swap(a1, a2)
     integer, intent(inout) :: a1, a2
     integer :: a
     a = a1
