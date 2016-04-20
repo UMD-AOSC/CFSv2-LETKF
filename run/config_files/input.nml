@@ -217,8 +217,8 @@ cat <<EOF
  &ocean_sbc_nml
       rotate_winds=.false.
       use_waterflux=.true.
-      temp_restore_tscale=30.
-      salt_restore_tscale=30.
+      temp_restore_tscale=10000.
+      salt_restore_tscale=10000.
       salt_restore_under_ice=.true.
       max_ice_thickness=4.0
       zero_net_water_restore=.true.
