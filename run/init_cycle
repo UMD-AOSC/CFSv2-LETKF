@@ -7,6 +7,9 @@
 ##  CFSR_DIR
 ##  CFS_LETKF_ROOT
 ##  TMP_DIR_LOCAL
+##
+## TODO: should add logic to ensure ensemble members are pulled from years other
+## than the inital date, but from the same season
 ################################################################################
 
 import argparse
@@ -16,6 +19,7 @@ import sys
 import subprocess as sp
 from glob import glob
 import hashlib
+from random import shuffle
 
 import common
 
@@ -29,8 +33,6 @@ parser = argparse.ArgumentParser( description=(
 
 parser.add_argument('date', metavar="DATE", help=(
     'Initial date of data to generate. Should be in format of "YYYYMMDDHH"'))
-parser.add_argument('sourceDate', metavar="SRC_DATE", help=(
-    "date to start generating ensemble members from, in YYYYMMDDHH format"))
 parser.add_argument('path', metavar='DST_DIR', help=(
     "Path to the new directory to create for the experiment. E.g., '../DATA/exp1'"))
 parser.add_argument('mem', metavar='MEM', type=int, help=(
@@ -49,8 +51,8 @@ parser.add_argument('--ares',type=int,choices=[62,126,382],default=62,help=(
 args = parser.parse_args()
 
 ## process command line arguments
-args.sourceDate = dt.datetime.strptime(args.sourceDate,"%Y%m%d%H")
 args.step = dt.timedelta(hours=args.step)
+args.path = os.path.abspath(args.path)
 if args.nature is None:
     args.initGFS = os.getenv("CFSR_DIR")+"/T{0}".format(args.ares)
     args.initMOM = os.getenv("CFSR_DIR")+"/ocn_05"
@@ -91,8 +93,6 @@ os.makedirs(args.path+'/obsop')
 
 ## create folders for ensemble members, and copy
 ## other date into it for the initial conditions
-cdate = args.sourceDate
-
 anaPfx = "/{0}/{0}{1}/{0}{1}{2}/{0}{1}{2}{3}".format(
     args.date[0:4],args.date[4:6],args.date[6:8],args.date[8:10])
 for d in ('anal','gues'):
@@ -109,23 +109,30 @@ sp.check_call("cp $CFS_LETKF_ROOT/run/config_files/config.py .",
               shell=True,cwd=args.path)
 
 
-############################################################
-## Generate the ensemble members 
+## get the list of files that are of the same hour to randomly pull ensemble members from
+adates = glob(args.initGFS+'/*/*/*/*{}.sig'.format(args.date[-2:]))
+adates = [a.split('/')[-1].split('.')[0] for a in adates]
+adates = [dt.datetime.strptime(a,"%Y%m%d%H") for a in adates]
+shuffle(adates)
+
 for m in range(1,args.mem+1):
+    cdate = adates[m-1]
     for d in ('anal','gues'):
         os.makedirs(args.path+'/{0}/{1:03d}/'.format(d,m))
     print 'member {0:03d}  from {1}'.format(m,cdate)
 
-
+    
     ## determine where to get the files from
     if args.nature is None:
-        srcOcn = args.initMOM + cdate.strftime("/%Y/%Y%m/%Y%m%d/%Y%m%d%H.tgz")
-        srcAtm = args.initGFS + cdate.strftime("/%Y/%Y%m/%Y%m%d/%Y%m%d%H")
+        srcOcn = args.initMOM + \
+             cdate.strftime("/%Y/%Y%m/%Y%m%d/%Y%m%d%H.tgz")
+        srcAtm = args.initGFS + \
+             cdate.strftime("/%Y/%Y%m/%Y%m%d/%Y%m%d%H")
     else:
-        srcOcn = args.nature + cdate.strftime("/%Y/%Y%m/%Y%m%d/%Y%m%d%H/%Y%m%d%H")
-        srcAtm = args.nature + cdate.strftime("/%Y/%Y%m/%Y%m%d/%Y%m%d%H/%Y%m%d%H")
+        print "oops, pulling from nature run is not yet implemented"
+        sys.exit(1)
 
-        
+
     ## Atmosphere files
     ##############################
     ## copy to a tmp dir, and run sscycle on it,
