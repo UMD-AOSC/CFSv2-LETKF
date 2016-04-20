@@ -32,6 +32,10 @@ real(r_size) :: infl_mult
 INTEGER   :: nbv=90
 
 
+logical :: ocn_obs = .false.
+logical :: atm_obs = .true.
+integer :: atm_obs_plat(10)
+
 
 contains
 
@@ -46,7 +50,8 @@ contains
     namelist /letkf_atm/ &
          sigma_atm_h, sigma_atm_v, sigma_atm_t, &
          sigma_ocn_h, sigma_ocn_v, sigma_ocn_t, &
-         infl_rtps, infl_mult
+         infl_rtps, infl_mult, &
+         ocn_obs, atm_obs, atm_obs_plat
 
     open(99, file="letkf.nml", status="old")
     read(99, nml=letkf)

@@ -34,7 +34,8 @@ real(r_size) :: infl_mult
 !! ------------------------------------------------------------
 INTEGER  :: nbv
 
-logical :: atm_obs
+logical :: ocn_obs = .true.
+logical :: atm_obs = .false.
 integer :: atm_obs_plat(10)
 
 !-------------------------------------------------------------------------------
@@ -93,7 +94,7 @@ contains
          gross_error, &
          do_drifters, do_altimetry, &
          infl_rtps, infl_mult, &
-         atm_obs, atm_obs_plat
+         ocn_obs, atm_obs, atm_obs_plat
     
     open(99, file="input.nml", status="old")
 

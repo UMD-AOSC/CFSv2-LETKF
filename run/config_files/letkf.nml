@@ -43,21 +43,27 @@ cat << EOF
   nbslot = 1
 
 
-  !! horizontal localization for ocean, and atmospheric
-  !! observations, in meters. The first number is radius at the equator,
+  !! parameters for ocean observations 
+  !! ------------------------------------------------------------
+  !! horizontal localization in meters. The first number is radius at the equator,
   !! the second is at the pole, with the value linearly decreasing 
   !! from the EQ to the pole.
   !! ------------------------------
-  sigma_ocn_h = 300.0d3, 80.0d3,
-  sigma_atm_h = 300.0d3, 80.0d3,
+  ocn_obs = T                     !! if False, no ocean observations are used
+  sigma_ocn_h = 300.0d3, 80.0d3,  !! meters
+  sigma_ocn_v = 50.0d0            !! meters
 
+  !! parameters for atmospheric observations
+  !! ------------------------------------------------------------
+  atm_obs = F        !! if False, no atmospheric observations are used
+  atm_obs_plat = 1,8,9,19
+                     !! a list of atmospheric platorms to assimilate, 
+                     !!  see the wiki for the full list of ids
+                     !! if < 0, all observations are used
 
-  !! vertical localization within the ocean, in meters
-  !! ------------------------------
-  sigma_ocn_v = 50.0d0
+  sigma_atm_h = 300.0d3, 80.0d3,  !! meters
+  sigma_atm_v = 0.1d0             !! delta ln P from surface
 
-  !! vertical localization within the atmosphere, in delta ln P
-  sigma_atm_v = 0.1d0
   
 
   !! Inflation parameters
@@ -87,26 +93,29 @@ cat << EOF
 !! ------------------------------------------------------------
 &letkf_atm
 
-  !! horizontal localization for ocean, and atmospheric
-  !! observations, in meters. The first number is radius at the equator,
+  !! Parameters for atmospheric observations
+  !! ------------------------------------------------------------
+  atm_obs = T
+  atm_obs_plat = 1,8,9,19
+                     !! a list of atmospheric platorms to NOT assimilate, 
+                     !!  see the wiki for the full list of ids
+                     !! if < 0, all observations are used
+
+  !! horizontal localization. The first number is radius at the equator,
   !! the second is at the pole, with the value linearly decreasing 
   !! from the EQ to the pole.
-  !! ------------------------------
-  sigma_atm_h   = 500.0d3, 500.0d3
+  sigma_atm_h   = 500.0d3, 500.0d3  !! meters
+  sigma_atm_v   = 0.4               !! delta ln P
+  sigma_atm_t   = 3.0               !! hours (not implemented right now)
+
+
+  !! paramters for ocean observations
+  ocn_obs = F
   sigma_ocn_h   = 300.0d3, 80.0d3
-
-  !! vertical localization within the atmosphere, as 
-  !! difference between natural log of pressure levels
-  !! ------------------------------
-  sigma_atm_v   = 0.4
-
   sigma_ocn_v   = 50 ! meters
-
-
-  !! temporal localization (not yet used)
-  !! ------------------------------
-  sigma_atm_t   = 3.0
   sigma_ocn_t   = 3.0
+
+
 
   !! Inflation parameters
   !! (infl_mult) basic multiplicative inflation, effectively

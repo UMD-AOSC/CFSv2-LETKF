@@ -131,7 +131,7 @@ SUBROUTINE obs_local(ij,ilev,var_local,hdxf,rdiag,rloc,dep,nobsl,nobstotal)
           sigma_h = sigma_atm_h_ij          
 
        !! ------------------------------          
-       else if (getDom(j) == dom_ocn) then
+       else if (ocn_obs .and. getDomain(j) == dom_ocn) then
           !! ------------------------------          
           !! ocean observation
           !!------------------------------

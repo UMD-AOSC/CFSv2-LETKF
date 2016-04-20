@@ -76,7 +76,8 @@ SUBROUTINE obs_local(rlon,rlat,rlev,nvar,hdxf,rdiag,rloc,dep,nobsl,oindex)
   INTEGER,INTENT(OUT),OPTIONAL :: oindex(nobstotal)      ! DH
 
   REAL(r_size) :: logrlev
-  INTEGER :: id, n
+  INTEGER :: id, n, k
+  logical :: b
 
   real(r_size), parameter :: loc_cutoff = 4.0*10.0/3.0
   real(r_size) :: sigma_max_h_ij, sigma_ocn_h_ij, sigma_atm_h_ij, sigma_h
@@ -134,9 +135,24 @@ SUBROUTINE obs_local(rlon,rlat,rlev,nvar,hdxf,rdiag,rloc,dep,nobsl,oindex)
      !! --------------------------------------------------
      id = obselm(idx(n))
 
-     if (getDomain(id) == dom_atm) then
+     if (atm_obs .and. getDomain(id) == dom_atm) then
         !! Atmospheric observations
         !! ------------------------------
+
+        !! has the user explicitly defined a subset of atmospheric platforms to use
+        !! TODO: this should be moved to earlier in the LETKF program
+        b = .false.
+        if (atm_obs_plat(1) > 0) then
+           do k=1, size(atm_obs_plat)
+              if (atm_obs_plat(k) <=0 ) exit
+              if (atm_obs_plat(k) == obstyp(idx(n))) then
+                 b = .true.
+                 exit
+              end if
+           end do
+           if (.not. b) cycle
+        end if
+        
         sigma_h = sigma_atm_h_ij
         if (id == obsid_atm_ps) then
            dlev = abs(log(obsdat(idx(n))) - logrlev)
@@ -145,7 +161,7 @@ SUBROUTINE obs_local(rlon,rlat,rlev,nvar,hdxf,rdiag,rloc,dep,nobsl,oindex)
         end if
         loc_atm_v = (dlev/sigma_atm_v) **2
         
-     else if (getDomain(id) == dom_ocn) then
+     else if (ocn_obs .and. getDomain(id) == dom_ocn) then
         !! Ocean observations
         !! ------------------------------
         sigma_h = sigma_ocn_h_ij
