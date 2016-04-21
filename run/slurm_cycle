@@ -49,7 +49,7 @@ parser.add_argument('end', metavar="END_DATE", help=(
 
 ## optional variables
 parser.add_argument('--oobs', help=(
-    "directory to ocean observations that are to be assimilated. "
+    "list of 1 or more directories to ocean observations that are to be assimilated. "
     "If not specified, not ocean observations are used."))
 parser.add_argument('--aobs', help=(
     "directory to atmospheric observations that are to be assimilated. "
@@ -138,7 +138,7 @@ while cdate < args.end:
         cmd = "run_cycle_ensmem {} {} {} --ares {}".format(
             args.path, cdateShort, mem, args.ares)
         if args.is3d: cmd += " --3d"
-        if args.oobs is not None: cmd += " --oobs "+args.oobs
+        if args.oobs is not None: cmd += " --oobs \""+args.oobs+"\""
         job = slurm.Job(
             name    = 'CFS_'+mem,
             cmd     = cmd,

@@ -31,7 +31,10 @@ do_cleanup  = True
 ## get the command line / env arguments
 
 parser = argparse.ArgumentParser(description=(
-    "TODO, insert descriptio"))
+   "CFSv2-LETKF ensemble member script. This performs the following functions "
+   "  1) Runs the CFS forecast for the given ensemble member (9 hour, or 6 hr if"
+   " --3d is given) 2) converts the atmosphere to gridded files  3) runs the ocean "
+   " observation operator."))
 
 ## required variables
 parser.add_argument('path', metavar="PATH", help=(
@@ -41,14 +44,18 @@ parser.add_argument('date', metavar="DATE", help=(
 parser.add_argument('ensNum', metavar="ENS_NUM", type=int, help=(
     "ensemble member number"))
 
-parser.add_argument("--ares", type=int, help=(""))
+parser.add_argument("--ares", type=int, required=True, help=(
+   "atmospheric spectral resolution"))
 parser.add_argument("--oobs", help=(
-   "Directory containing the ocean observations to be assimilated. If argument is not present, "
-   "it is assumed no ocean observations are to be used."))
+   "A list of 1 or more directories containing the ocean observations to be assimilated. "
+   "If argument is not present, it is assumed no ocean observations are to be used."))
 
-parser.add_argument("--3d", action="store_true", dest="is3d")
+parser.add_argument("--3d", action="store_true", dest="is3d", help=(
+   "if set, the CFS forecast is only run for 6 hours, with output at the end only. Otherwise"
+   ", the forecast is run for 9 hours, with output every hour from hours 3 through 9"))
 
 ## parse the arguments
+##############################
 args = parser.parse_args()
 args.date = dt.datetime.strptime(args.date, "%Y%m%d%H")
 args.path = os.path.abspath(args.path)
@@ -59,8 +66,10 @@ args.ares_x,args.ares_y = common.getAtmRes(args.ares)
 args.wrkdir = os.path.abspath(os.getenv("TMP_DIR_SHARED")+"/cfs_fcst_" + \
                               hashlib.md5(args.path).hexdigest()[0:6] + \
                               "_{:03d}".format(args.ensNum))
+if args.oobs is not None:
+   args.oobs = args.oobs.split()
+   
 assert( args.ensNum > 0 and args.ensNum <= common.getEnsMem(args.path))
-
 ## date: the date the forecast was initialized from
 dateShort = args.date.strftime("%Y%m%d%H")
 dateDir   = args.date.strftime("/%Y/%Y%m/%Y%m%d/%Y%m%d%H/")
@@ -76,12 +85,17 @@ log.info("CFSv2-LETKF ensemble member step.")
 log.info("Runs the forecast and any other required per member pre LETKF steps")
 log.info("Travis Sluka, University of Maryland, 2016")
 log.info("")
-log.info("Configuration:\n"+str(args)+"\n")
+log.info("Configuration:")
+args_v = vars(args)
+for v in args_v:
+   log.info("    "+v+" : "+ str(args_v[v]))
 
 if args.oobs is None:
    log.warn("No ocean observations directory is specified, not ocean obs will be assimilated")
+
    
 ## make sure the wrk directory is empty
+log.info("Setting up working directory "+args.wrkdir)
 if os.path.exists(args.wrkdir):
    shutil.rmtree(args.wrkdir)
    os.makedirs(args.wrkdir)
@@ -90,9 +104,11 @@ if os.path.exists(args.wrkdir):
 ## run the CFS forecast
 if do_cfs:
    log.info("Running the CFS forecast...")
-   cmd = 'run_fcst {0}/anal/{1:03d} {0}/gues/{1:03d} {2} --wrkdir {3}'.format(
-      args.path, args.ensNum, dateShort, args.wrkdir)
+   cmd = 'run_fcst {0}/anal/{1:03d} {0}/gues/{1:03d} {2} --wrkdir {3} --ares {4}'.format(
+      args.path, args.ensNum, dateShort, args.wrkdir, args.ares)
    if args.is3d: cmd += " --len 6 --period 6"
+   log.info ("calling with: "+cmd)
+   log.info("")
    if (sp.call(cmd, shell=True) > 0):
       log.error("Problem running CFS forecast.")
       sys.exit(1)
@@ -135,9 +151,8 @@ if do_atmcnvt:
 ## run ocean observation operator
 if do_ocnobsop and args.oobs is not None:
    log.info("Running OCN observation operator...")   
+
    ## get the required files ready
-   obsFile = args.oobs + ndate.strftime('/%Y/%Y%m/%Y%m%d/%Y%m%d%H.dat')
-   log.info("Using obs file: "+obsFile)
    tmpDir = args.wrkdir+'/ocnObsop'
    if (not os.path.exists(tmpDir)): os.makedirs(tmpDir)
    os.symlink(args.letkfDir +'/obs/obsop', tmpDir+'/obsop')
@@ -148,7 +163,16 @@ if do_ocnobsop and args.oobs is not None:
          args.path, args.ensNum, dateShort)):
       f2 = os.path.basename(f)
       os.symlink(f, tmpDir+'/gs01.'+f2[15:])
-   shutil.copy(obsFile, tmpDir+'/obsin.dat')
+
+   ## concatenate the ocean obs files into a single file
+   cmd = "cat "
+   for oobsDir in args.oobs:
+      obsFile = os.path.abspath(oobsDir + ndate.strftime('/%Y/%Y%m/%Y%m%d/%Y%m%d%H.dat'))
+      log.info("Using obs file: " + obsFile)
+      cmd += obsFile +" "
+   cmd += "> " + tmpDir + '/obsin.dat'
+   sp.call(cmd, shell=True)
+   
 
    ## Run the observation operator
    ret = sp.call('obsop -obsin obsin.dat -gues gs01 -obsout {}_ocn{:03d}.dat'.format(
