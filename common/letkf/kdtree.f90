@@ -360,8 +360,8 @@ contains
                 plat = lats(n)
                 plon = lons(n)
                 latr = lats(n)*pi/180
-                r = re*acos(slatr*sin(latr) + &
-                    clatr*cos(latr)*cos( (lons(n)-s_point(1))*pi/180.0 ))                
+                r = re*acos(min(slatr*sin(latr) + &
+                    clatr*cos(latr)*cos( (lons(n)-s_point(1))*pi/180.0 ), 1.0d0))
              end if
              
              if (r < s_radius) then
