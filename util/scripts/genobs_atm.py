@@ -60,10 +60,18 @@ parser.add_argument("output", metavar="OUTPUT_PATH", help=(
 parser.add_argument("--force", "-f", action="store_true", help=(
     "Forces the removing of the destination directory and temp "
     "directory if they already exist"))
+parser.add_argument("--platforms","-p", help=(
+    "a comma separated (no spaces!) list of observations platform "
+    "IDs to use. See the wiki for further documentation. "
+    "E.g., -p 1,2,3,8,9,19 is appropriate for perfect model experiments ("
+    " most PREPBUFR obs except SATWND)"))
+
 
 args = parser.parse_args()
 args.startdate = dt.datetime.strptime(args.startdate, "%Y%m%d%H")
 args.enddate = dt.datetime.strptime(args.enddate, "%Y%m%d%H")
+if args.platforms is not None:
+    args.platforms = [int(x) for x in args.platforms.split(',')]
 ## generate a temporary directory that has a random hash at the end,
 ## so that the user can run more than one copy of this script at a time
 ## for different experiments
@@ -197,6 +205,10 @@ while cdate <= args.enddate:
         obs += obsio.read(obsfile)
     print "  {} observations loaded.".format(len(obs))
 
+    ## remove unwanted platforms if the user explicitly defined
+    ## the list of platforms to use
+    if args.platforms:
+        obs = filter(lambda x: x[6] in args.platforms, obs)
 
     ## generate an x/y grid coordinate for each observation
     print "  calculating grid x/y coords..."
