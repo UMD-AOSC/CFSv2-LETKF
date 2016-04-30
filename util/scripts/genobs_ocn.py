@@ -32,6 +32,8 @@ parser.add_argument("enddate", metavar="END", help=(
     "End date in YYYYMMDDHH format"))
 parser.add_argument("output", metavar="OUTPUT_PATH", help=(
     "Directory to place the created synthetic observations in"))
+parser.add_argument("--split", action="store_true", default=False, help=(
+    "by default, obs are left in 24 hour bins, this option randomly splits obs into 6 hour bins in the day"))
 
 args = parser.parse_args()
 args.startdate = dt.datetime.strptime(args.startdate, "%Y%m%d%H")
@@ -84,12 +86,16 @@ while cdate <= args.enddate:
         ll_hr={}
         for i in range(4):
             ll_hr[i] = []
-        idx = 0
-        for l in ll:
-            ll_hr[idx].append(l)
-            idx +=1
-            if idx == 4:
-                idx = 0
+        if args.split:
+            idx = 0
+            for l in ll:
+                ll_hr[idx].append(l)
+                idx +=1
+                if idx == 4:
+                    idx = 0
+        else:
+            ll_hr[2] = ll
+                    
 
                 
     ## open the nature run
