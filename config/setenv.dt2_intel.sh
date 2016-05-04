@@ -17,6 +17,7 @@ module load python/2.7.8
 export F90=mpiifort
 export FC=$F90
 export F77=$F90
+export CC=mpiicc
 
 ## other modules
 export HDFLIB=/cell_root/software/hdf/1.8.13/intel/2013.1.039/intel/shared/sys/lib

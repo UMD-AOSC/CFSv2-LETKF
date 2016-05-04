@@ -156,8 +156,8 @@ while cdate < args.end:
     ## Run the observation operator for the atmosphere
     ##  This is done separately from the above step because the
     ##  superob program requires the mean of the atm ensemble
-    cmd = "run_cycle_atmObsop {} {}".format(
-        args.path, cdateShort)
+    cmd = "run_cycle_atmObsop {} {} --ares {}".format(
+        args.path, cdateShort, args.ares)
     if args.aobs is not None: cmd += " --aobs "+args.aobs
     if args.is3d: cmd += " --3d"
     job = slurm.Job(

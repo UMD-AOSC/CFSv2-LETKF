@@ -35,6 +35,7 @@ parser.add_argument('--aobs', metavar="DIR", help=(
     "Path to atmospheric observations to be used, "
     "if not specified no atmospheric observations are used"))
 parser.add_argument('--3d', action="store_true", dest="is3d")
+parser.add_argument('--ares', type=int, required=True)
 
 ## parse the arguments
 args = parser.parse_args()
@@ -93,6 +94,11 @@ for m in range(1,args.mem+1):
     os.symlink(args.path+'/gues/{:03d}/{}_F06.grd'.format(m,dateShort),
                args.wrkdir+'/gues{:03d}.grd'.format(m))
 
+### write the spectral configuration file
+with open(args.wrkdir+"/ssio.nml", 'w') as f:
+    res = common.getAtmRes(args.ares)
+    f.write('$common_gfs nlon={} nlat={} gfs_jcap={} nlev=64 /'.format(
+        res[0], res[1], args.ares))
     
 ## -
 log.info("Calculating ensemble mean...")
@@ -129,7 +135,8 @@ for m in range(1,args.mem+1):
     ## and link in the obs and gues
     tmpdir = args.wrkdir+'/obsop_{:03d}'.format(m)
     os.makedirs(tmpdir)
-    os.symlink(args.wrkdir+'/letkf.nml', tmpdir+'/letkf.nml')    
+    os.symlink(args.wrkdir+'/letkf.nml', tmpdir+'/letkf.nml')
+    os.symlink(args.wrkdir+'/ssio.nml', tmpdir+'/ssio.nml')    
     for i in range(1,fcstHrEnd-fcstHrStart+2):
         os.symlink(args.wrkdir+'/obs{:02d}.dat'.format(i),
                    tmpdir +'/obsin{:02d}.dat'.format(i))

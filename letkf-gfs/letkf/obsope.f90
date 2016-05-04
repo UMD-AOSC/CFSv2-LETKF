@@ -32,9 +32,9 @@ PROGRAM obsope
   REAL(r_size),ALLOCATABLE :: tdif(:)
   REAL(r_size),ALLOCATABLE :: ohx(:)
   INTEGER,ALLOCATABLE :: oqc(:)
-  REAL(r_size) :: v3d(nlon,nlat,nlev,nv3dx)
-  REAL(r_size) :: v2d(nlon,nlat,nv2dx)
-  REAL(r_size) :: pp(nlon,nlat)
+  REAL(r_size),allocatable :: v3d(:,:,:,:)
+  REAL(r_size),allocatable :: v2d(:,:,:)
+  REAL(r_size),allocatable :: pp(:,:)
   REAL(r_size),PARAMETER :: threshold_dz=500.0d0
   REAL(r_size) :: dz,tg,qg
   INTEGER :: nobslots(nslots+1)
@@ -67,6 +67,10 @@ PROGRAM obsope
   ALLOCATE( tdif(maxnobs) )
   ALLOCATE( ohx(maxnobs) )
   ALLOCATE( oqc(maxnobs) )
+  allocate( v3d(nlon,nlat,nlev,nv3dx) )
+  allocate( v2d(nlon,nlat,nv2dx) )
+  allocate( pp(nlon,nlat) )
+  
   firstwrite = .TRUE.
   pp = 0.0d0
 

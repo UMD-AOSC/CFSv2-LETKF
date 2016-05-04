@@ -18,9 +18,9 @@ MODULE common_gfs
 !-----------------------------------------------------------------------
 ! General parameters
 !-----------------------------------------------------------------------
-  INTEGER :: nlon=0
-  INTEGER :: nlat=0
-  INTEGER :: nlev=64
+  INTEGER,save :: nlon=0
+  INTEGER,save :: nlat=0
+  INTEGER,save :: nlev=64
   INTEGER,PARAMETER :: idrt=4  ! 4: Gaussian grid
   INTEGER,PARAMETER :: nv3dx=6 ! 3D extended variables: [u,v,t,q,qc],p
   INTEGER,PARAMETER :: nv3d=5  ! 3D state variables
@@ -43,7 +43,7 @@ MODULE common_gfs
   INTEGER :: nlevall
   INTEGER :: ngpvx
   INTEGER :: ngpv
-  INTEGER :: gfs_jcap
+  INTEGER,save :: gfs_jcap
   INTEGER,PARAMETER :: gfs_ntrac=3
   INTEGER,PARAMETER :: gfs_nvcoord=3
   INTEGER,PARAMETER :: gfs_idsl=2
@@ -55,7 +55,7 @@ MODULE common_gfs
   REAL(r_size),SAVE,allocatable :: dy(:)
   REAL(r_size),SAVE,allocatable :: dy2(:)
   REAL(r_size),SAVE,allocatable :: fcori(:)
-!  REAL(r_size),SAVE,allocatable :: wg(:,:)
+  REAL(r_size),SAVE,allocatable :: wg(:,:)
   CHARACTER(4),SAVE :: element(nv3d+nv2d)
 
 CONTAINS
@@ -71,6 +71,8 @@ SUBROUTINE set_common_gfs
   namelist /common_gfs/ nlon, nlat, nlev, gfs_jcap
   open(40, file='ssio.nml')
   read(40, nml=common_gfs)
+
+  write (6, common_gfs)
 
   !! allocate stuff
   nij0=nlon*nlat
@@ -88,7 +90,7 @@ SUBROUTINE set_common_gfs
   allocate( fcori(nlat) )
   allocate( slat(nlat) )
   allocate( wlat(nlat) )
-!  allocate( wg(nlon,nlat) )
+  allocate( wg(nlon,nlat) )
 
   allocate( gfs_vcoord(nlev+1,gfs_nvcoord) )
   gfs_vcoord = RESHAPE( &
@@ -125,12 +127,12 @@ SUBROUTINE set_common_gfs
 !   !
 !   ! Elements
 !   !
-!   element(iv3d_u)  = 'U   '
-!   element(iv3d_v)  = 'V   '
-!   element(iv3d_t)  = 'T   '
-!   element(iv3d_q)  = 'Q   '
-!   element(iv3d_qc) = 'QC  '
-!   element(nv3d+iv2d_ps) = 'PS  '
+  element(iv3d_u)  = 'U   '
+  element(iv3d_v)  = 'V   '
+  element(iv3d_t)  = 'T   '
+  element(iv3d_q)  = 'Q   '
+  element(iv3d_qc) = 'QC  '
+  element(nv3d+iv2d_ps) = 'PS  '
   !
   ! Lon, Lat
   !
@@ -175,24 +177,24 @@ SUBROUTINE set_common_gfs
 !   !
 !   ! Weight for global average
 !   !
-!   totalwg = 0.0_r_size
-!   DO j=1,nlat
-!     if (j == 1) then
-!       latm1 = -0.5d0*pi !-90 degree
-!     else
-!       latm1 = 0.5d0*(lat(j-1) + lat(j))*pi/180.0d0
-!     end if
-!     if (j == nlat) then
-!       latm2 = 0.5d0*pi !90 degree
-!     else
-!       latm2 = 0.5d0*(lat(j) + lat(j+1))*pi/180.0d0
-!     end if
-!     wgtmp = abs(sin(latm2) - sin(latm1))
-!     wg(:,j) = wgtmp
-!     totalwg = totalwg + wgtmp * nlon
-!   END DO
-!   totalwg = 1.0_r_size / totalwg
-!   wg(:,:) = sqrt(wg(:,:) * totalwg)
+  totalwg = 0.0_r_size
+  DO j=1,nlat
+    if (j == 1) then
+      latm1 = -0.5d0*pi !-90 degree
+    else
+      latm1 = 0.5d0*(lat(j-1) + lat(j))*pi/180.0d0
+    end if
+    if (j == nlat) then
+      latm2 = 0.5d0*pi !90 degree
+    else
+      latm2 = 0.5d0*(lat(j) + lat(j+1))*pi/180.0d0
+    end if
+    wgtmp = abs(sin(latm2) - sin(latm1))
+    wg(:,j) = wgtmp
+    totalwg = totalwg + wgtmp * nlon
+  END DO
+  totalwg = 1.0_r_size / totalwg
+  wg(:,:) = sqrt(wg(:,:) * totalwg)
   RETURN
 END SUBROUTINE set_common_gfs
 !-----------------------------------------------------------------------

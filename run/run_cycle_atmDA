@@ -86,6 +86,13 @@ for m in mems:
     os.symlink(args.path+"/gues/{:03d}/{}_F06.grd".format(m,dateShort),
                args.wrkdir+"/gues{:03d}.grd".format(m))
 
+## write the spectral configuration file
+with open(args.wrkdir+'/ssio.nml', 'w') as f:
+    res = common.getAtmRes(args.ares)
+    f.write('$common_gfs nlon={} nlat={} gfs_jcap={} nlev=64 /'.format(
+        res[0], res[1], args.ares))
+        
+
 ## adaptive inflation
 log.error("Adaptive inflation file not being copied")
 

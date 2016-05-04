@@ -54,7 +54,7 @@ MODULE letkf_obs
   REAL(r_size),ALLOCATABLE,SAVE :: obsdep(:)
   REAL(r_size),ALLOCATABLE,SAVE :: obshdxf(:,:)
   INTEGER,ALLOCATABLE,SAVE :: obsqc(:) ! GYL: QC values in output diag files (could be any value >= 1)
-  INTEGER,SAVE :: nobsgrd(nlon,nlat)
+  INTEGER,allocatable,SAVE :: nobsgrd(:,:)
 
 CONTAINS
 !-----------------------------------------------------------------------
@@ -138,8 +138,9 @@ SUBROUTINE set_letkf_obs
   ALLOCATE( tmpdep(nobs) )
   ALLOCATE( tmphdxf(nobs,nbv) )
   ALLOCATE( tmpqc0(nobs,nbv) )
-  ALLOCATE( tmpqc(nobs) )
-!
+  ALLOCATE( tmpqc(nobs) ) 
+  allocate( nobsgrd(nlon,nlat))
+ 
 ! reading observation data
 !
   CALL read_obs2_mpi(obsfile,nobs,nbv,tmpelm,tmplon,tmplat,tmplev, &
