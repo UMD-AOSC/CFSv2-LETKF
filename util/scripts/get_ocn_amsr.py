@@ -45,7 +45,13 @@ while(cdate <= args.end):
 
     urldir=args.urldir+"/{}/{:03d}/".format(yr,dy)
     print urldir
-    files = ftp.nlst(urldir)
+    try:
+        files = ftp.nlst(urldir)
+    except:
+        print "ERROR: directory not found:  "+urldir
+        cdate += dt.timedelta(days=1)    
+        continue
+    
     i = 0
     for f in files:
         if re.match(".*AMSRE\-REMSS\-L2P\-amsr\_l2b\_v05", f):
@@ -71,6 +77,6 @@ while(cdate <= args.end):
                 print "[ERROR] there was a problem downloading, giving up"
                 sys.exit(1)
                         
-    sp.call("gunzip *.gz", shell=True, cwd=outpath)
+    sp.call("gunzip *.gz -f", shell=True, cwd=outpath)
 
     cdate += dt.timedelta(days=1)
