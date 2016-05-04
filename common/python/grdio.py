@@ -33,7 +33,7 @@ class GradsCtl:
 
         ## process options
         if "UNDEF" in self.ctlU:
-            self.undef = eval(re.search("UNDEF (%s)" % _NUMBER, self.ctlU).group(1))
+            self.undef = eval(re.search("UNDEF[ ]+(%s)" % _NUMBER, self.ctlU).group(1))
         self.big_endian = bool(re.search("OPTIONS.*BIG_ENDIAN", self.ctlU))
         self.yrev = bool(re.search("OPTIONS.*YREV", self.ctlU))
         self.dset = re.search("DSET (.*)", self.ctlU).group(1)
