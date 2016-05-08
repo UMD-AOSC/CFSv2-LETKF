@@ -157,7 +157,8 @@ for j in jobs:
 for m in mems:
     files = ['ocean_{}.res.nc'.format(x) for x in [
         'density', 'frazil','freesurf','neutral','velocity_advection']]
-    files.append('ice_model.res.nc')
+    files += ['fluxes_restart', 'ice_model.res.nc']
+    
     for f in files:
         try:
             os.symlink(args.path+'/gues/{:03d}/{}_F06.{}'.format(m, dateShort, f),
