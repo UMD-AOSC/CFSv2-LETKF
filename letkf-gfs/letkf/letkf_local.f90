@@ -166,6 +166,10 @@ SUBROUTINE obs_local(rlon,rlat,rlev,nvar,hdxf,rdiag,rloc,dep,nobsl,oindex)
         !! ------------------------------
         sigma_h = sigma_ocn_h_ij
         loc_ocn_v = (abs(obslev(idx(n)))/sigma_ocn_v) ** 2
+
+        !!  domain localization
+        loc_ocn_v = loc_ocn_v + ocn_loc
+        
         !! TODO, calculate the reference ps correctly
         loc_atm_v = (abs(log(1013.0d2)-logrlev)/sigma_atm_v) ** 2
      end if

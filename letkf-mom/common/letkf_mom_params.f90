@@ -24,6 +24,8 @@ real(r_size) :: sigma_ocn_v
 
 real(r_size) :: sigma_atm_h(2)
 real(r_size) :: sigma_atm_v
+real(r_size) :: atm_loc
+
 
 !! inflation
 !! ------------------------------------------------------------
@@ -94,7 +96,7 @@ contains
          gross_error, &
          do_drifters, do_altimetry, &
          infl_rtps, infl_mult, &
-         ocn_obs, atm_obs, atm_obs_plat
+         ocn_obs, atm_obs, atm_obs_plat, atm_loc
     
     open(99, file="input.nml", status="old")
 

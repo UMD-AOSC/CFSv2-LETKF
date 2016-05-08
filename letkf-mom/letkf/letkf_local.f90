@@ -121,6 +121,10 @@ SUBROUTINE obs_local(ij,ilev,var_local,hdxf,rdiag,rloc,dep,nobsl,nobstotal)
              !! should be read in and used, though I don't know how much of an actual
              !! difference this would make, I'm lazy right now.
              loc_atm_v =  ((abs(log(obslev(idx(n)))-log(1013.0d0))) / sigma_atm_v) ** 2
+
+             !! domain localization
+             loc_atm_v = loc_atm_v + atm_loc
+             
              if (loc_atm_v > loc_cutoff) cycle             
           end if
 

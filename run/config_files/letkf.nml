@@ -60,7 +60,7 @@ cat << EOF
                      !! a list of atmospheric platorms to assimilate, 
                      !!  see the wiki for the full list of ids
                      !! if < 0, all observations are used
-
+  atm_loc = 0.5
   sigma_atm_h = 300.0d3, 80.0d3,  !! meters
   sigma_atm_v = 0.1d0             !! delta ln P from surface
 
@@ -111,6 +111,7 @@ cat << EOF
 
   !! paramters for ocean observations
   ocn_obs = F
+  ocn_loc = 0.5
   sigma_ocn_h   = 300.0d3, 80.0d3
   sigma_ocn_v   = 50 ! meters
   sigma_ocn_t   = 3.0

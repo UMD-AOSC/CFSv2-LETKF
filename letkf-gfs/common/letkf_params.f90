@@ -21,6 +21,8 @@ real(r_size) :: sigma_atm_t
 real(r_size) :: sigma_ocn_h(2)
 real(r_size) :: sigma_ocn_v
 real(r_size) :: sigma_ocn_t
+real(r_size) :: ocn_loc
+
 
 !! Inflation
 !! ------------------------------------------------------------
@@ -51,7 +53,7 @@ contains
          sigma_atm_h, sigma_atm_v, sigma_atm_t, &
          sigma_ocn_h, sigma_ocn_v, sigma_ocn_t, &
          infl_rtps, infl_mult, &
-         ocn_obs, atm_obs, atm_obs_plat
+         ocn_obs, atm_obs, atm_obs_plat, ocn_loc
 
     open(99, file="letkf.nml", status="old")
     read(99, nml=letkf)
