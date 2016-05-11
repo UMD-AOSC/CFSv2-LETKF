@@ -38,6 +38,8 @@ parser.add_argument("--len", metavar="LEN", type=int, default=9, help=(
     "Forecast length, in hours. (Default: 9)"))
 parser.add_argument("--ares", default=62, type=int, help=(
     "TODO, finish the description for this"))
+parser.add_argument("--ores", default="05", choices=["05","1"], help=(
+    "Ocean resolution, either \"05\" for half degree, or \"1\" for 1 degree"))
 parser.add_argument("--wrkdir", metavar="DIR",
     default=os.getenv("TMP_DIR_SHARED")+'/cfs_fcst', help=(
     "Temporary directory in which to do the work. (Default: $TMP_DIR_SHARED/cfs_fcst)"))
@@ -52,7 +54,10 @@ args = parser.parse_args()
 args.date = dt.datetime.strptime(args.date, "%Y%m%d%H")
 args.wrkdir = os.path.abspath(args.wrkdir)
 args.ares_x,args.ares_y = common.getAtmRes(args.ares)
-args.ores = '05' ## TODO, make this configurable (05 or 1x1)
+#args.ores = '05' ## TODO, make this configurable (05 or 1x1)
+if args.ores == '1':
+    args.ores = '1x1'
+
 args.indir=os.path.abspath(args.indir)
 args.outdir=os.path.abspath(args.outdir)
 cl = 'cp' if args.copy else 'ln -s'
@@ -121,7 +126,7 @@ sp.call(cl+" $CFS_LETKF_ROOT/run/config_files/d???_table .",
 ##############################
 log.info("Copying OCN fix files...")
 momFiles=[
-    ("MOM4LND{ores}GFSOCNt{ares}.msk", "MOM4LND_GFSOCN"),
+    ("MOM4LND05GFSOCNt{ares}.msk", "MOM4LND_GFSOCN"),
     ("grid_spec_{ores}.nc.T{ares}",    "INPUT/grid_spec.nc"),
     ("chl_{ores}.nc",                  "INPUT/chl.nc"),
     ("r2ts_clim.nc",                   "INPUT/"),

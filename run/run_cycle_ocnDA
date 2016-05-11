@@ -35,7 +35,7 @@ parser.add_argument('date', metavar="DATE", help=(
 ## optional arguments
 parser.add_argument('--ares', type=int, choices=common.aresList, default=62, help=(
     "Horizontal resolution of atmosphere, (Default: 62)"))
-parser.add_argument('--ores', choices=['05','1x1'], default='05', help=(
+parser.add_argument('--ores', choices=['05','1'], default='05', help=(
     "Horizontal resolution of the ocean, either 1/2 (05) or 1 (1x1) degree. (Default: 05)"))
 parser.add_argument("--aobs", action="store_true", default=False, help=(""))
 parser.add_argument("--oobs", action="store_true", default=False, help=(""))
@@ -71,7 +71,8 @@ if os.path.exists(args.wrkdir):
     log.warn("Removing existing working directory")
     shutil.rmtree(args.wrkdir)
 os.makedirs(args.wrkdir)
-os.symlink(os.getenv("FIX_DIR_OM")+"/grid_spec_{}.nc.T{}".format(args.ores,args.ares),
+os.symlink(os.getenv("FIX_DIR_OM")+"/grid_spec_{}.nc.T{}".format(
+    "1x1" if args.ores == "1" else args.ores, args.ares),
            args.wrkdir+'/grid_spec.nc')
 shutil.copy(args.path+"/letkf.nml", args.wrkdir+'/input.nml')
 

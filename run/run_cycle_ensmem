@@ -46,6 +46,7 @@ parser.add_argument('ensNum', metavar="ENS_NUM", type=int, help=(
 
 parser.add_argument("--ares", type=int, required=True, help=(
    "atmospheric spectral resolution"))
+parser.add_argument("--ores", default="05", choices=["05","1"])
 parser.add_argument("--oobs", help=(
    "A list of 1 or more directories containing the ocean observations to be assimilated. "
    "If argument is not present, it is assumed no ocean observations are to be used."))
@@ -61,7 +62,6 @@ args.date = dt.datetime.strptime(args.date, "%Y%m%d%H")
 args.path = os.path.abspath(args.path)
 args.fixDir = os.path.abspath(os.getenv("FIX_DIR_OM"))
 args.letkfDir = os.path.abspath(os.getenv("CFS_LETKF_ROOT") + '/letkf-mom')
-args.ores = '05'
 args.ares_x,args.ares_y = common.getAtmRes(args.ares)
 args.wrkdir = os.path.abspath(os.getenv("TMP_DIR_SHARED")+"/cfs_fcst_" + \
                               hashlib.md5(args.path).hexdigest()[0:6] + \
@@ -104,8 +104,8 @@ if os.path.exists(args.wrkdir):
 ## run the CFS forecast
 if do_cfs:
    log.info("Running the CFS forecast...")
-   cmd = 'run_fcst {0}/anal/{1:03d} {0}/gues/{1:03d} {2} --wrkdir {3} --ares {4}'.format(
-      args.path, args.ensNum, dateShort, args.wrkdir, args.ares)
+   cmd = 'run_fcst {0}/anal/{1:03d} {0}/gues/{1:03d} {2} --wrkdir {3} --ares {4} --ores {5}'.format(
+      args.path, args.ensNum, dateShort, args.wrkdir, args.ares, args.ores)
    if args.is3d: cmd += " --len 6 --period 6"
    log.info ("calling with: "+cmd)
    log.info("")
@@ -156,7 +156,8 @@ if do_ocnobsop and args.oobs is not None:
    tmpDir = args.wrkdir+'/ocnObsop'
    if (not os.path.exists(tmpDir)): os.makedirs(tmpDir)
    os.symlink(args.letkfDir +'/obs/obsop', tmpDir+'/obsop')
-   os.symlink(args.fixDir+'/grid_spec_{}.nc.T{}'.format(args.ores,args.ares),
+   os.symlink(args.fixDir+'/grid_spec_{}.nc.T{}'.format(
+      '1x1' if args.ores == '1' else args.ores, args.ares),
               tmpDir+'/grid_spec.nc')
    shutil.copy(args.path+"/letkf.nml", tmpDir+"/input.nml")
    for f in glob("{}/gues/{:03d}/{}_F06.ocean_*.res.nc".format(

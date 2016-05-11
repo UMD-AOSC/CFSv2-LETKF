@@ -59,6 +59,7 @@ parser.add_argument('--strong', action="store_true", default=False)
 parser.add_argument('--ares', default='62', type=int, choices=common.aresList, help=(
     "Atmospheric resolution, must match the resolution of the initial "
     " ensemble members in the PATH directory. (Default: 62)"))
+parser.add_argument('--ores', default='05', choices=['05','1'])
 parser.add_argument('--clear', metavar="HOURS", default="12", type=int, help=(
     "Age (in hours) at which old no longer required individual ensemble "
     "members are deleted. Setting this to 0 disables this and leaves all "
@@ -135,8 +136,8 @@ while cdate < args.end:
     jobs = []
     for m in range(1, args.mem+1):
         mem = '{0:03d}'.format(m)
-        cmd = "run_cycle_ensmem {} {} {} --ares {}".format(
-            args.path, cdateShort, mem, args.ares)
+        cmd = "run_cycle_ensmem {} {} {} --ares {} --ores {}".format(
+            args.path, cdateShort, mem, args.ares, args.ores)
         if args.is3d: cmd += " --3d"
         if args.oobs is not None: cmd += " --oobs \""+args.oobs+"\""
         job = slurm.Job(
@@ -185,7 +186,7 @@ while cdate < args.end:
         nodes   = nnodes_letkf_a,    
         output = args.path+'/logs/'+cdateDir+'/letkf-atm_%j.log'
     ))
-    cmd = "run_cycle_ocnDA {} {} --oobs".format(args.path, cdateShort)
+    cmd = "run_cycle_ocnDA {} {} --ores {} --oobs".format(args.path, cdateShort, args.ores)
     if args.strong:  cmd += " --aobs"    
     jobs.append(slurm.Job(
         name = "CFSDAOcn",
