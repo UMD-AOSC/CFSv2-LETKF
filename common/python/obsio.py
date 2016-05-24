@@ -14,8 +14,8 @@ reclen = 7    # 7 for normal, 10 for post obsop
 ## ob[6] : ob platform (atm only)
 
 ## ob[7] : time relative to analysis
-## ob[9] : y_b=H(x)
-## ob[10]: 1=valid, 0=invalid
+## ob[8] : y_b=H(x)
+## ob[9]: 1=valid, 0=invalid
 ############################################################
 def read(inputfile):
     e = ''
