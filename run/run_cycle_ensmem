@@ -23,6 +23,7 @@ log = common.setupLog()
 ## For normal operations these should all be True
 do_cfs      = True
 do_atmcnvt  = True
+do_atmobsop = True
 do_ocnobsop = True
 do_cleanup  = True
 
@@ -50,6 +51,9 @@ parser.add_argument("--ores", default="05", choices=["05","1"])
 parser.add_argument("--oobs", help=(
    "A list of 1 or more directories containing the ocean observations to be assimilated. "
    "If argument is not present, it is assumed no ocean observations are to be used."))
+parser.add_argument("--aobs", help=(
+   "A single directory containing the atmobservations to be assimilated. "
+   "If argument is not present, it is assumed no atm observations are to be used."))
 
 parser.add_argument("--3d", action="store_true", dest="is3d", help=(
    "if set, the CFS forecast is only run for 6 hours, with output at the end only. Otherwise"
@@ -66,8 +70,10 @@ args.ares_x,args.ares_y = common.getAtmRes(args.ares)
 args.wrkdir = os.path.abspath(os.getenv("TMP_DIR_SHARED")+"/cfs_fcst_" + \
                               hashlib.md5(args.path).hexdigest()[0:6] + \
                               "_{:03d}".format(args.ensNum))
+args.aobs = os.path.abspath(args.aobs)
 if args.oobs is not None:
    args.oobs = args.oobs.split()
+   args.oobs = [os.path.abspath(o) for o in args.oobs]
    
 assert( args.ensNum > 0 and args.ensNum <= common.getEnsMem(args.path))
 ## date: the date the forecast was initialized from
@@ -99,6 +105,8 @@ log.info("Setting up working directory "+args.wrkdir)
 if os.path.exists(args.wrkdir):
    shutil.rmtree(args.wrkdir)
    os.makedirs(args.wrkdir)
+
+
    
 ############################################################
 ## run the CFS forecast
@@ -147,6 +155,63 @@ if do_atmcnvt:
          log.error("Problem converting spectral to gridded")
          sys.exit(1)
 
+
+         
+############################################################
+## run the ATM observation operator
+if do_atmobsop and args.aobs:
+   log.info("Running ATM observation operator...")
+   tmpdir = args.wrkdir+'/atmObsop'
+   if (not os.path.exists(tmpdir)): os.makedirs(tmpdir)
+
+   if args.is3d:
+      window = 0
+      fcstHrStart = 6
+      fcstHrEnd = 6
+      baseSlot = 1
+   else:
+      window = 3
+      fcstHrStart = 3
+      fcstHrEnd = 9
+      baseSlot = 4
+      
+   ##get the observations linked
+   idx=1
+   for slot in range(-window,window+1):
+         slotPfx = '{:+d}'.format(slot) if slot != 0 else ''
+         obsFile = args.aobs+'/'+ndateDir+'/t'+slotPfx+'.dat'
+         if (not os.path.exists(obsFile)):
+            log.warn("ATM obs file does not exist: "+obsFile)
+            cmd = 'touch {}/obs{:02d}.dat'.format(tmpdir,idx)
+         else:
+            log.info("linking ATM obs file: "+obsFile)
+            cmd = 'ln -s {} {}/obsin{:02d}.dat'.format(obsFile, tmpdir, idx)
+         sp.check_call(cmd, shell=True)
+         idx +=1
+
+   ## get the backgrounds linked
+   for i in range(1, fcstHrEnd-fcstHrStart+2):
+      bgFile = '{}/gues/{:03d}/{}_F{:02d}.grd'.format(
+         args.path, args.ensNum, dateShort, i+fcstHrStart-1)
+      log.info("linking background file: " + bgFile)
+      os.symlink(bgFile, tmpdir+'/gues{:02d}.grd'.format(i))
+
+   ## write the spectral configuration file
+   shutil.copy(args.path+'/letkf.nml', tmpdir+'/letkf.nml')
+   with open(tmpdir+'/ssio.nml', 'w') as f:
+      res = common.getAtmRes(args.ares)
+      f.write('$common_gfs nlon={} nlat={} gfs_jcap={} nlev=64 /'.format(
+         res[0], res[1], args.ares))
+   
+   ## run the obsop
+   cmd = '$CFS_LETKF_ROOT/letkf-gfs/letkf/obsope'
+   sp.check_call(cmd, shell=True, cwd=tmpdir)
+
+   shutil.copy(tmpdir+'/obsout.dat',
+               args.path+'/obsop/{}_atm{:03d}.dat'.format(ndateShort, args.ensNum))
+
+
+   
 ############################################################
 ## run ocean observation operator
 if do_ocnobsop and args.oobs is not None:

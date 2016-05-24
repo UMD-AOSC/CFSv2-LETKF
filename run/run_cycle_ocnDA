@@ -96,6 +96,9 @@ for m in mems:
             sp.check_call('cat {} >> {}'.format(afile, obsfile), shell=True)
         if (args.oobs):
             ofile=args.path+'/obsop/{}_ocn{:03d}.dat'.format(ndateShort,m)
+            # touch the file, in case it isn't there (mom-letkf script right now requires
+            # that some type of file exists, even if empty)
+            sp.check_call('touch {}'.format(ofile), shell=True)            
             sp.check_call('cat {} >> {}'.format(ofile, obsfile), shell=True)
             
 for j in jobs:

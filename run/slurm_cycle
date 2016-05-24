@@ -140,6 +140,7 @@ while cdate < args.end:
             args.path, cdateShort, mem, args.ares, args.ores)
         if args.is3d: cmd += " --3d"
         if args.oobs is not None: cmd += " --oobs \""+args.oobs+"\""
+        if args.aobs is not None: cmd += " --aobs \""+args.aobs+"\""
         job = slurm.Job(
             name    = 'CFS_'+mem,
             cmd     = cmd,
@@ -153,23 +154,23 @@ while cdate < args.end:
     slurm.monitor(jobs)
 
     
-    ##############################
-    ## Run the observation operator for the atmosphere
-    ##  This is done separately from the above step because the
-    ##  superob program requires the mean of the atm ensemble
-    cmd = "run_cycle_atmObsop {} {} --ares {}".format(
-        args.path, cdateShort, args.ares)
-    if args.aobs is not None: cmd += " --aobs "+args.aobs
-    if args.is3d: cmd += " --3d"
-    job = slurm.Job(
-        name     = 'CFS_atmobs',
-        cmd      = cmd,
-        runtime  = "10:00",
-        nproc    = nproc_pernode,
-        output   = args.path+'/logs/'+cdateDir+'/atmObsop_%j.log'
-        )
-    log.info("  Running ATM observation operator...")    
-    slurm.monitor([job,])
+    # ##############################
+    # ## Run the observation operator for the atmosphere
+    # ##  This is done separately from the above step because the
+    # ##  superob program requires the mean of the atm ensemble
+    # cmd = "run_cycle_atmObsop {} {} --ares {}".format(
+    #     args.path, cdateShort, args.ares)
+    # if args.aobs is not None: cmd += " --aobs "+args.aobs
+    # if args.is3d: cmd += " --3d"
+    # job = slurm.Job(
+    #     name     = 'CFS_atmobs',
+    #     cmd      = cmd,
+    #     runtime  = "10:00",
+    #     nproc    = nproc_pernode,
+    #     output   = args.path+'/logs/'+cdateDir+'/atmObsop_%j.log'
+    #     )
+    # log.info("  Running ATM observation operator...")    
+    # slurm.monitor([job,])
 
 
     ##############################
