@@ -150,7 +150,7 @@ while cdate < endDate:
         # run the forecast
         job = slurm.Job(
             name = 'CFS_nature',
-            cmd = rootDir+"/run/run_fcst {} {} {} --ares {} --wrkdir {} --len {} --period 6".format(
+            cmd = rootDir+"/run/run_fcst {} {} {} --oisst --ares {} --wrkdir {} --len {} --period 6".format(
                 inPath, inPath, cdateShort, args.ares, tmpDir, args.int),
             runtime = timeLimit_CFS,
             output  = logDir+'/cfs/cfs_'+cdateShort+'_%j.log',

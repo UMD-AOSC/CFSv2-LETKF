@@ -48,6 +48,8 @@ parser.add_argument("--copy", action="store_true", help=(
     "directory, this will instead copy the files"))
 parser.add_argument("--period", type=int, default=1, help=(
     "Period of atmosphere output, in hours. (Default: 1)"))
+parser.add_argument("--oisst", action="store_true", default=False, help=(
+    "If true, the observed daily OISSTv2 is used to relax the SST"))
 
 ## parse the arguments
 args = parser.parse_args()
@@ -57,7 +59,11 @@ args.ares_x,args.ares_y = common.getAtmRes(args.ares)
 #args.ores = '05' ## TODO, make this configurable (05 or 1x1)
 if args.ores == '1':
     args.ores = '1x1'
-
+if args.oisst:
+    sfcRstr = os.getenv('CFS_LETKF_ROOT')+'/DATA/oisst/'+args.date.strftime('%Y/%Y%m/%Y%m%d.nc')
+else:
+    sfcRstr = os.getenv('FIX_DIR_OM')+'/temp_sfc_restore_05.nc'
+                    
 args.indir=os.path.abspath(args.indir)
 args.outdir=os.path.abspath(args.outdir)
 cl = 'cp' if args.copy else 'ln -s'
@@ -126,12 +132,14 @@ sp.call(cl+" $CFS_LETKF_ROOT/run/config_files/d???_table .",
 ##############################
 log.info("Copying OCN fix files...")
 momFiles=[
-    ("MOM4LND05GFSOCNt{ares}.msk", "MOM4LND_GFSOCN"),
+    ("MOM4LND05GFSOCNt{ares}.msk",     "MOM4LND_GFSOCN"),
     ("grid_spec_{ores}.nc.T{ares}",    "INPUT/grid_spec.nc"),
     ("chl_{ores}.nc",                  "INPUT/chl.nc"),
     ("r2ts_clim.nc",                   "INPUT/"),
     ("sst_ice_clim.nc",                "INPUT/"),
-    ("runoff_{ores}.nc",              "INPUT/runoff.nc"),
+    ("runoff_{ores}.nc",               "INPUT/runoff.nc"),
+    (sfcRstr,                          "INPUT/temp_sfc_restore.nc"),
+    ("salt_sfc_restore_05.nc",         "INPUT/salt_sfc_restore.nc"),   
     ("ohf_sice.nc",                    "INPUT/")  ]
 for x in momFiles:
     arg1 = x[0].format(ores=args.ores,ares=str(args.ares))

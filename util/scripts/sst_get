@@ -1,0 +1,117 @@
+#!/usr/bin/env python
+import argparse
+import datetime as dt
+import os, shutil ,sys
+import netCDF4 as nc
+import numpy as np
+import subprocess as sp
+from scipy.interpolate import griddata
+
+
+
+# get the command line arguments
+parser = argparse.ArgumentParser(
+    description=("Downloads the daily reynolds SST archive data and "
+                 "converts the resolution into the appropriate format "))
+
+g=parser.add_argument_group(title="required parameters")
+g.add_argument('--start', metavar='date', required =True, help=(
+    'start date of data to get, format is YYYYMMDD'))
+g.add_argument('--end', metavar='date', help=(
+    'end date of data to get, format is YYYYMMDD, if no date is given '
+    'only the "start" date is downloaded'))
+
+g=parser.add_argument_group(title="optional parameters")
+g.add_argument('--dst', metavar="path", default=os.getenv('CFS_LETKF_ROOT')+'/DATA/oisst')
+
+args = parser.parse_args()
+args.grdFile = os.path.abspath('../../support/fix/fix_om/grid_spec_05.nc.T62')
+args.dataUrl = "ftp://eclipse.ncdc.noaa.gov/pub/OI-daily-v2/NetCDF/"
+if not args.end:
+    args.end = args.start
+args.start = dt.datetime.strptime(args.start, '%Y%m%d')
+args.end   = dt.datetime.strptime(args.end, '%Y%m%d')
+print args
+
+
+
+
+# process all the dates
+cdate = args.start
+while cdate <= args.end:
+    print cdate
+
+    outFile = args.dst+cdate.strftime("/%Y/%Y%m/%Y%m%d.nc")
+    outPath = os.path.dirname(outFile)
+    
+    # create temporary work directory
+    tmpdir = os.getenv('TMP_DIR_LOCAL')+'/get_sst'
+    if os.path.exists(tmpdir):
+        shutil.rmtree(tmpdir)
+    os.makedirs(tmpdir)
+
+    # download file
+    filename="avhrr-only-v2."+cdate.strftime("%Y%m%d")+".nc.gz"
+    fullname = args.dataUrl+cdate.strftime("/%Y/AVHRR/")+filename
+    sp.check_call('wget '+fullname, shell=True, cwd=tmpdir)
+    sp.check_call('gunzip '+filename, shell=True, cwd=tmpdir)
+
+    
+    # read in data
+    ncIn = nc.Dataset(tmpdir+'/'+filename[:-3])
+    lonIn = ncIn.variables['lon'][:]
+    latIn = ncIn.variables['lat'][:]
+    lonGIn, latGIn = np.meshgrid(lonIn, latIn)
+    datIn = ncIn.variables['sst'][0,0]
+
+    # read in the destination grid
+    ncGrd = nc.Dataset(args.grdFile)
+    lonGOut = ncGrd.variables['x_T'][:]
+    latGOut = ncGrd.variables['y_T'][:]
+
+    # fix longitudes
+    keys = lonGIn > np.max(lonGOut)
+    lonGIn[keys] = lonGIn[keys]-360
+
+    # remove masked areas
+    fv = ncIn.variables['sst'].getncattr('_FillValue')
+    datIn  = datIn.flatten()
+    keys   = datIn > fv
+    lonGIn = lonGIn.flatten()[keys]
+    latGIn = latGIn.flatten()[keys]
+    datIn  = datIn[keys]
+
+    # interpolate
+    data = griddata(zip(lonGIn,latGIn), datIn, (lonGOut,latGOut),method='nearest')
+
+    # prepare the output file
+    if not os.path.exists(outPath):
+        os.makedirs(outPath)    
+    ncOut = nc.Dataset(outFile, 'w')
+
+    # -- dimensions
+    ncOut.createDimension('grid_x_T', lonGOut.shape[1])
+    ncOut.createDimension('grid_y_T', lonGOut.shape[0])                 
+    ncOut.createDimension('time', 0)
+
+    # -- variables
+    xT = ncOut.createVariable('x_T', np.dtype('float64').char,
+                          ('grid_y_T','grid_x_T'))
+    yT = ncOut.createVariable('y_T', np.dtype('float64').char,
+                          ('grid_y_T','grid_x_T'))
+    dat= ncOut.createVariable('temp', np.dtype('float64').char,
+                          ('time', 'grid_y_T','grid_x_T'))
+    time=ncOut.createVariable('time', np.dtype('float64').char,
+                          ('time',))
+                          
+
+    # write data
+    xT[:] = lonGOut
+    yT[:] = latGOut
+    dat[0,:,:] = data
+    time[0] = 0                
+
+    # done
+    ncOut.close()
+
+    cdate += dt.timedelta(days=1)
