@@ -70,7 +70,8 @@ args.ares_x,args.ares_y = common.getAtmRes(args.ares)
 args.wrkdir = os.path.abspath(os.getenv("TMP_DIR_SHARED")+"/cfs_fcst_" + \
                               hashlib.md5(args.path).hexdigest()[0:6] + \
                               "_{:03d}".format(args.ensNum))
-args.aobs = os.path.abspath(args.aobs)
+if args.aobs is not None:
+   args.aobs = os.path.abspath(args.aobs)
 if args.oobs is not None:
    args.oobs = args.oobs.split()
    args.oobs = [os.path.abspath(o) for o in args.oobs]
@@ -247,6 +248,10 @@ if do_ocnobsop and args.oobs is not None:
    if ret != 0:
       log.critical('error running ocean observation operator')
       sys.exit(1)
+
+else:
+   cmd='touch {}_ocn{:03d}.dat'.format(args.path+'/obsop/'+ndate.strftime('%Y%m%d%H'), args.ensNum)
+   sp.check_call(cmd, shell=True)
 
 
 ############################################################

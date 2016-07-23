@@ -177,8 +177,10 @@ while cdate < args.end:
     ## Run the Data assimilation in parallel
     ##  for the two domains
     jobs = []
-    cmd = "run_cycle_atmDA {} {} --ares {} --aobs".format(args.path, cdateShort, args.ares)
+    cmd = "run_cycle_atmDA {} {} --ares {} ".format(args.path, cdateShort, args.ares)
     if args.strong:  cmd += " --oobs"
+    if args.oobs and args.strong: cmd += " --oobs "
+    if args.aobs: cmd += " --aobs "
     jobs.append(slurm.Job(
         name = "CFSDAAtm",
         cmd = cmd,

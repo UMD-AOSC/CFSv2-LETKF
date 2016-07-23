@@ -230,6 +230,10 @@ cmd = ('mpirun -n 1 cfs_mlc_coupler : '
        '-n $NPROC_AM global_fcst &> cfs.log')
 if (sp.call(cmd, shell=True, cwd=args.wrkdir, env=env) > 0):
     log.error("problem running CFS")
+    log.info("CFS log file: ")
+    f = open(args.wrkdir+'/cfs.log','r')
+    log.info(f.read())    
+    sys.exit(1)
 etime = dt.datetime.now()
 log.info("CFS run finished in {} seconds.".format((etime-stime).seconds))
 
