@@ -9,19 +9,42 @@ import hashlib
 sys.path.insert(1,os.getenv("CFS_LETKF_ROOT")+"/common/python")
 import cfs
 
-parser=argparse.ArgumentParser()
-parser.add_argument('path')
-parser.add_argument('obsdir')
-parser.add_argument('start')
-parser.add_argument('end')
-parser.add_argument('-a',action="store_true")
-parser.add_argument('-b',action="store_true")
+parser=argparse.ArgumentParser(description=(
+    "Applies the observation operator stand-alone to the atmosphere, either the background "
+    "or analysis" ))
+parser.add_argument('path', help=(
+    "Path to the experiment for which the observation operator should be applied"))
+parser.add_argument('obsdir', help=(
+    "directory to the observations that should be used for calculating location and "
+    "obs departure"))
+parser.add_argument('--start', help=(
+    "start date, in YYYYMMDDHH format"))
+parser.add_argument('--end', help=(
+    "end date, in YYYYMMDDHH format"))
+parser.add_argument('-a',action="store_true", help=(
+    "obs operator should be applied to the analysis. either -a or -b needs to be specified"))
+parser.add_argument('-b',action="store_true", help=(
+    "obs operator should be applied to the background. either -a or -b needs to be specified"))    
+parser.add_argument('-f','--force', default=False, action="store_true", help=(
+    "if set, forces the recalculation of any already existing obs departures, otherwise they"
+    " will be skipped"))
 args=parser.parse_args()
+
+
 
 args.path = os.path.abspath(args.path)
 args.tmpdir   = os.path.abspath(os.getenv("TMP_DIR_LOCAL")+'/atm_omx_'+hashlib.md5(
     args.path+('a' if args.a else 'b')).hexdigest()[0:6])
 args.letkfDir = os.path.abspath(os.getenv("CFS_LETKF_ROOT") + '/letkf-gfs')
+
+if args.start is None and args.end is None:
+    args.start = "0000000000"
+    args.end   = "9999999999"
+elif args.start is None:
+    print "incorrect specification of start/end dates"
+    sys.exit(1)
+elif args.end is None:
+    args.end = args.start        
 
 args.obsdir = os.path.abspath(args.obsdir)
 args.ares = 62
@@ -31,7 +54,6 @@ print args
 if (not args.a and not args.b) or (args.a and args.b):
     print "must specify either -a or -b"
     sys.exit(1)
-
     
 #get list of files to process
 bgfiles = sorted(glob(args.path+"/{}/mean/????/??????/*/*/*_atm.grd".format(
@@ -70,8 +92,21 @@ window = 0
         
 # for each background state
 for bg in bgfiles:
-    cdate = bg.split('/')[-1][:10]
-    print cdate
+    
+    # check to see if this date has already been done
+    cdate = bg.split('/')[-1][:10]    
+    outfile =  args.path+'/{}/{}/{}/{}/{}/{}_atm.dat'.format(
+         'gues' if args.b else 'anal',
+         'omb' if args.b else 'oma',
+         cdate[:4], cdate[:6], cdate[:8], cdate)
+
+    print ""
+    print "************************************************************"
+    if os.path.exists(outfile):
+        print cdate+" already exists, skipping"
+        continue
+
+    print "Calculating "+cdate
 
     # link observations
     idx=1
@@ -109,12 +144,6 @@ for bg in bgfiles:
 
     
     # move the file
-    cdate = bg.split('/')[-1][:10]    
-    outfile =  args.path+'/{}/{}/{}/{}/{}/{}_atm.dat'.format(
-         'gues' if args.b else 'anal',
-         'omb' if args.b else 'oma',
-         cdate[:4], cdate[:6], cdate[:8], cdate)
-    print outfile
     outdir = os.path.dirname(outfile)
     if not os.path.exists(outdir):
         os.makedirs(outdir)      

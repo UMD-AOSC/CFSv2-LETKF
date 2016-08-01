@@ -132,6 +132,8 @@ while [ "$time" -le "$ETIME" ]; do
     
 #    mv -f prepbufr.gdas.${timef}.nr $OBSNCEP/obs${timef}/gdas1.t${hh}z.prepbufr.nr
   done
+  rm $tmprun/prepbufr.gdas.*.nr
+  rm $tmprun/download/*.nr -r
 
   
 time=$(date +%Y%m%d -d "$time + 1 day")
