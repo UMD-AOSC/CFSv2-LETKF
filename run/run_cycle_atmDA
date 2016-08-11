@@ -46,6 +46,8 @@ args.wrkdir = os.path.abspath(os.getenv("TMP_DIR_SHARED") + "/cfs-letkf-atm_" + 
                               hashlib.md5(args.path).hexdigest()[0:6])
 args.mem = common.getEnsMem(args.path)
 args.ares_x,args.ares_y = common.getAtmRes(args.ares)
+args.oma = True
+args.omb = True
 
 mems = range(1,args.mem+1)
 dateShort = args.date.strftime("%Y%m%d%H")
@@ -167,7 +169,27 @@ for j in jobs:
     if (j.returncode > 0):
         log.error("Problem copying files.")
         sys.exit(1)
-    
+
+## move the oma and omb files
+infile = args.wrkdir+'/oma.dat'
+if args.oma and os.path.exists(infile):
+    log.info('copying oma.dat')
+    outfile = args.path+'/anal/oma/'+ndate.strftime(
+        '%Y/%Y%m/%Y%m%d/%Y%m%d%H_atm.dat')
+    outpath = os.path.dirname(outfile)
+    if not os.path.exists(outpath):
+        os.makedirs(outpath)
+    shutil.copy(infile, outfile)
+
+infile = args.wrkdir+'/omb.dat'
+if args.omb and os.path.exists(infile):
+    log.info('copying omb.dat')
+    outfile = args.path+'/gues/omb/'+ndate.strftime(
+        '%Y/%Y%m/%Y%m%d/%Y%m%d%H_atm.dat')
+    outpath = os.path.dirname(outfile)
+    if not os.path.exists(outpath):
+        os.makedirs(outpath)
+    shutil.copy(infile, outfile)
     
 
 ##################################################
