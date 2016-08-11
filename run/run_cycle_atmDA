@@ -36,6 +36,7 @@ parser.add_argument("--aobs", action="store_true", default=False, help=(
     "If set, atmospheric observations are assimilated"))
 parser.add_argument("--oobs", action="store_true", default=False, help=(
     "If set, ocean observations are assimilated"))
+parser.add_argument("--mem", type=int)
 
     
 ## parse the arguments
@@ -44,7 +45,8 @@ args.path = os.path.abspath(args.path)
 args.date = dt.datetime.strptime(args.date, "%Y%m%d%H")
 args.wrkdir = os.path.abspath(os.getenv("TMP_DIR_SHARED") + "/cfs-letkf-atm_" + \
                               hashlib.md5(args.path).hexdigest()[0:6])
-args.mem = common.getEnsMem(args.path)
+if args.mem is None:
+    args.mem = common.getEnsMem(args.path)
 args.ares_x,args.ares_y = common.getAtmRes(args.ares)
 args.oma = True
 args.omb = True

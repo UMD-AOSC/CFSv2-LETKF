@@ -70,6 +70,10 @@ parser.add_argument('--mem', metavar='MEMBERS', type=int, help=(
     "on the directory structure of PATH"))
 parser.add_argument('--3d', dest='is3d', action="store_true")
 
+g = parser.add_argument_group("Ocean DA")
+g.add_argument('--async', action="store_true")
+    
+
 g = parser.add_argument_group("SLURM options")
 g.add_argument('--account', default="aosc-hi", help=(
     "The SLURM account to run the experiment with. (Default: aosc-hi)"))
@@ -154,30 +158,14 @@ while cdate < args.end:
     slurm.monitor(jobs)
 
     
-    # ##############################
-    # ## Run the observation operator for the atmosphere
-    # ##  This is done separately from the above step because the
-    # ##  superob program requires the mean of the atm ensemble
-    # cmd = "run_cycle_atmObsop {} {} --ares {}".format(
-    #     args.path, cdateShort, args.ares)
-    # if args.aobs is not None: cmd += " --aobs "+args.aobs
-    # if args.is3d: cmd += " --3d"
-    # job = slurm.Job(
-    #     name     = 'CFS_atmobs',
-    #     cmd      = cmd,
-    #     runtime  = "10:00",
-    #     nproc    = nproc_pernode,
-    #     output   = args.path+'/logs/'+cdateDir+'/atmObsop_%j.log'
-    #     )
-    # log.info("  Running ATM observation operator...")    
-    # slurm.monitor([job,])
-
 
     ##############################
     ## Run the Data assimilation in parallel
-    ##  for the two domains
+
+    ##  Atmospheric DA
     jobs = []
-    cmd = "run_cycle_atmDA {} {} --ares {} ".format(args.path, cdateShort, args.ares)
+    cmd = "run_cycle_atmDA {} {} --ares {} --mem {}".format(
+        args.path, cdateShort, args.ares, args.mem)
     if args.strong:  cmd += " --oobs"
     if args.oobs and args.strong: cmd += " --oobs "
     if args.aobs: cmd += " --aobs "
@@ -189,8 +177,16 @@ while cdate < args.end:
         nodes   = nnodes_letkf_a,    
         output = args.path+'/logs/'+cdateDir+'/letkf-atm_%j.log'
     ))
-    cmd = "run_cycle_ocnDA {} {} --ores {} --oobs".format(args.path, cdateShort, args.ores)
-    if args.strong:  cmd += " --aobs"    
+
+    ## ocean DA
+    cmd = "run_cycle_ocnDA {} {} --ores {} --oobs --mem {}".format(
+        args.path, cdateShort, args.ores, args.mem)
+    # if doing strong coupling, determine which atm obs output files to look at
+    if args.strong:
+        if not args.async or cdateShort[-2:]=='06':
+            cmd += " --aobs"
+        if args.async:
+            cmd += " --async 18"
     jobs.append(slurm.Job(
         name = "CFSDAOcn",
         cmd = cmd,
@@ -207,14 +203,24 @@ while cdate < args.end:
     ##############################
     ## clean up old files
     if args.clear > 0:
+        ## remove old ensemble members
         files  = glob(args.path+'/gues/???/??????????_*')
         files += glob(args.path+'/anal/???/??????????.*')
-        files += glob(args.path+'/obsop/??????????_*')
         for f in files:
             date = f.split('/')[-1].split('.')[0].split('_')[0]
             if (cdate - dt.datetime.strptime(date,"%Y%m%d%H")) >= dt.timedelta(hours = args.clear):
                 os.remove(f)
-                
+        ## remove old observation operator output (note, that if doing asynchronous strong DA
+        ## we might need to keep the output around longer than args.clear would imply
+        files = glob(args.path+'/obsop/??????????_*')
+        for f in files:
+            date = f.split('/')[-1].split('.')[0].split('_')[0]
+            clearInt = args.clear
+            if args.async and args.strong:
+                clearInt = max([clearInt, 24])
+            if (cdate - dt.datetime.strptime(date,"%Y%m%d%H")) >= dt.timedelta(hours = clearInt):
+                os.remove(f)        
+               
     
     ## increment the date
     cdate = ndate
