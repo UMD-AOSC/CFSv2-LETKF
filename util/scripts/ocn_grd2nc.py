@@ -14,24 +14,32 @@ sys.path.insert(1,os.getenv("CFS_LETKF_ROOT")+'/common/python')
 import grdio
 
 
-gradCtlFilename = os.getenv("CFS_LETKF_ROOT")+'/letkf-mom/ocn_1x1.ctl'
-
 ############################################################
 ## Get the command line arguemnts
 parser = argparse.ArgumentParser(description=(
-    ""))
+    "Converts the ocean grid from the LETKF's raw format (.grd file) to a netCDF format (.nc)"))
 parser.add_argument('grdfile', metavar='GRD_IN', help=(
-    ""))
+    "The source .grd file that we will be converting"))
 parser.add_argument('infile_pfx', metavar='NC_IN', help=(
-    ""))
-parser.add_argument('outfile_pfx', metavar='NC_OUT', help=(
-    ""))
+    "input netCDF files that are the same format as the ouptut this script produces (These "
+    " files are not altered, they are copied and then the grd data is placed into the newly"
+    " copied files"))
+parser.add_argument('outfile_pfx', metavar='NC_OUT', help=(    
+    "file prefix/directory location for the output files"))
+parser.add_argument('--ores', required=False, choices=['05','1x1'], default='05', help=(
+    "input/output grid resolution"))
 args = parser.parse_args()
+
+print "-------------------------------------------"
+print "ocn_grd2nc.py"
+args.gradCtlFilename = os.getenv("CFS_LETKF_ROOT")+'/letkf-mom/ocn_{}.ctl'.format(args.ores)
+
+
 print args
 
 ## load the grd file
-print "Loading grads ctl file: "+os.path.abspath(gradCtlFilename)
-grdCtl = grdio.GradsCtl(gradCtlFilename)
+print "Loading grads ctl file: "+os.path.abspath(args.gradCtlFilename)
+grdCtl = grdio.GradsCtl(args.gradCtlFilename)
 print "Loading file: " + os.path.abspath(args.grdfile)
 grdDat = grdio.readGrd(grdCtl, args.grdfile)
 

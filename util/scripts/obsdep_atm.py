@@ -10,8 +10,10 @@ sys.path.insert(1,os.getenv("CFS_LETKF_ROOT")+"/common/python")
 import cfs
 
 parser=argparse.ArgumentParser(description=(
-    "Applies the observation operator stand-alone to the atmosphere, either the background "
-    "or analysis" ))
+    "Applies the observation operator stand-alone to the atmosphere, either the ensemble mean of the "
+    "background or analysis. NOTE: this is only able to apply the observation operator to those observations "
+    " occuring at the base timeslot (analysis time) (i.e. 3D LETKF), so some observations are not "
+    "computed if you were using the 4D-LETKF" ))
 parser.add_argument('path', help=(
     "Path to the experiment for which the observation operator should be applied"))
 parser.add_argument('obsdir', help=(
@@ -63,7 +65,7 @@ bgfiles = sorted(glob(args.path+"/{}/mean/????/??????/*/*/*_atm.grd".format(
 def filterfunc(d):
     d2= d.split('/')[-1][:10]
     return d2 >= args.start and d2 <= args.end
-bgfiles = filter(filterfunc, bgfiles)
+bgfiles = sorted(filter(filterfunc, bgfiles))
 
 # setup working directory
 if os.path.exists(args.tmpdir):
@@ -102,7 +104,7 @@ for bg in bgfiles:
 
     print ""
     print "************************************************************"
-    if os.path.exists(outfile):
+    if os.path.exists(outfile) and not args.force:
         print cdate+" already exists, skipping"
         continue
 
