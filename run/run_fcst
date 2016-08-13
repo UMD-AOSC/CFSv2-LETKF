@@ -59,10 +59,12 @@ args.ares_x,args.ares_y = common.getAtmRes(args.ares)
 #args.ores = '05' ## TODO, make this configurable (05 or 1x1)
 if args.ores == '1':
     args.ores = '1x1'
+
 if args.oisst:
-    sfcRstr = os.getenv('CFS_LETKF_ROOT')+'/DATA/oisst/'+args.date.strftime('%Y/%Y%m/%Y%m%d.nc')
+    args.sfcRstr = os.getenv('CFS_LETKF_ROOT')+'/DATA/oisst/'+args.date.strftime('%Y/%Y%m/%Y%m%d.nc')
 else:
-    sfcRstr = os.getenv('FIX_DIR_OM')+'/temp_sfc_restore_05.nc'
+    args.sfcRstr = os.getenv('FIX_DIR_OM')+'/temp_sfc_restore_{}.nc'.format(args.ores)
+args.sfcRstr=os.path.abspath(args.sfcRstr)
                     
 args.indir=os.path.abspath(args.indir)
 args.outdir=os.path.abspath(args.outdir)
@@ -132,18 +134,18 @@ sp.call(cl+" $CFS_LETKF_ROOT/run/config_files/d???_table .",
 ##############################
 log.info("Copying OCN fix files...")
 momFiles=[
-    ("MOM4LND05GFSOCNt{ares}.msk",     "MOM4LND_GFSOCN"),
-    ("grid_spec_{ores}.nc.T{ares}",    "INPUT/grid_spec.nc"),
-    ("chl_{ores}.nc",                  "INPUT/chl.nc"),
-    ("r2ts_clim.nc",                   "INPUT/"),
-    ("sst_ice_clim.nc",                "INPUT/"),
-    ("runoff_{ores}.nc",               "INPUT/runoff.nc"),
-    (sfcRstr,                          "INPUT/temp_sfc_restore.nc"),
-    ("salt_sfc_restore_05.nc",         "INPUT/salt_sfc_restore.nc"),   
-    ("ohf_sice.nc",                    "INPUT/")  ]
+    ("$FIX_DIR_OM/MOM4LND05GFSOCNt{ares}.msk",     "MOM4LND_GFSOCN"),
+    ("$FIX_DIR_OM/grid_spec_{ores}.nc.T{ares}",    "INPUT/grid_spec.nc"),
+    ("$FIX_DIR_OM/chl_{ores}.nc",                  "INPUT/chl.nc"),
+    ("$FIX_DIR_OM/r2ts_clim.nc",                   "INPUT/"),
+    ("$FIX_DIR_OM/sst_ice_clim.nc",                "INPUT/"),
+    ("$FIX_DIR_OM/runoff_{ores}.nc",               "INPUT/runoff.nc"),   
+    (args.sfcRstr,                                 "INPUT/temp_sfc_restore.nc"),
+    ("$FIX_DIR_OM/salt_sfc_restore_05.nc",         "INPUT/salt_sfc_restore.nc"),
+    ("$FIX_DIR_OM/ohf_sice.nc",                    "INPUT/")  ]
 for x in momFiles:
     arg1 = x[0].format(ores=args.ores,ares=str(args.ares))
-    sp.call(cl+" $FIX_DIR_OM/"+arg1+" "+x[1],
+    sp.call(cl+" "+arg1+" "+x[1],
             shell=True, cwd=args.wrkdir)
 
     
@@ -189,8 +191,11 @@ files = [
     ("orography.t{ares}.grb", "orography"),
     ("orography_uf.t{ares}.{ares_x}.{ares_y}.grb", "orography_uf"),
     ("sfc_emissivity_idx.txt", "sfc_emissivity_idx.txt"),
-    ("co2historicaldata_2009.txt", "co2historicaldata_2009.txt"),
     ("solarconstantdata.txt", "solarconstantdata.txt")]
+for y in range(1956,2009+1):
+    files += [("co2historicaldata_{}.txt".format(y),
+               "co2historicaldata_{}.txt".format(y))]
+
 for f in files:
     cmd = f[0].format(ares=args.ares, ares_x=args.ares_x, ares_y=args.ares_y)
     sp.call(cl+" $FIX_DIR_AM/global_{} {}".format(cmd,f[1]),
