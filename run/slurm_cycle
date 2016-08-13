@@ -48,6 +48,8 @@ parser.add_argument('end', metavar="END_DATE", help=(
 
 
 ## optional variables
+parser.add_argument('--nofcst', action="store_true", help=(
+    "If set, the forecasting step is skipped... you probably don't want this flag"))
 parser.add_argument('--oobs', help=(
     "list of 1 or more directories to ocean observations that are to be assimilated. "
     "If not specified, not ocean observations are used."))
@@ -154,8 +156,9 @@ while cdate < args.end:
             output  = args.path+'/logs/'+cdateDir+'/CFS-'+mem+'_%j.log'
             )
         jobs.append(job)
-    log.info("  Running parallel ens mem forecast and other jobs...")
-    slurm.monitor(jobs)
+    if not args.nofcst:
+        log.info("  Running parallel ens mem forecast and other jobs...")
+        slurm.monitor(jobs)
 
     
 
