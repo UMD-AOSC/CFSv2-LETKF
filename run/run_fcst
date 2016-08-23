@@ -88,11 +88,18 @@ log.info("Creating working directory...")
 if os.path.exists(args.wrkdir):
     shutil.rmtree(args.wrkdir)
     log.warn("The old working directory {} was deleted".format(args.wrkdir))
-for d in [args.wrkdir, args.wrkdir+'/RESTART', args.wrkdir+'/IRESTART',
-          args.wrkdir+'/INPUT', args.wrkdir+'/fix_am']:
+#for d in [args.wrkdir, args.wrkdir+'/RESTART', args.wrkdir+'/IRESTART',
+for d in [args.wrkdir+'/INPUT', args.wrkdir+'/fix_am']:
     if not os.path.exists(d):
         os.makedirs(d)
 
+#TODO, IRESTART folder probably needs to be put on TMP_DIR_SHARED if
+# more than 1 node is used for the ocean.
+sp.check_call('mkdir -p $TMP_DIR_LOCAL/irestart', shell=True)
+sp.check_call('ln -s $TMP_DIR_LOCAL/irestart IRESTART', shell=True, cwd=args.wrkdir)
+# TODO, there has to be someway to disable RESTART writing it in the MOM input.nml file
+sp.check_call('mkdir -p $TMP_DIR_LOCAL/restart', shell=True)
+sp.check_call('ln -s $TMP_DIR_LOCAL/restart RESTART', shell=True, cwd=args.wrkdir)
         
 ##############################        
 log.info("copying executables...")
@@ -265,7 +272,9 @@ for f in files:
         f, args.outdir, dateShort, fhr, os.path.basename(f)[10:])
     jobs.append( sp.Popen(cmd, shell=True) )
 [j.wait() for j in jobs]
-
+for j in jobs:
+    if j.returncode >0:
+        sys.exit(1)
 
 ## copy atm files
 log.info("Copying ATM output...")
@@ -279,6 +288,9 @@ for i in range(1,args.len/args.period+1):
         args.wrkdir, f, args.outdir, dateShort)
     jobs.append( sp.Popen(cmd, shell=True) )
 [j.wait() for j in jobs]
+for j in jobs:
+    if j.returncode >0:
+        sys.exit(1)
 
 ## copy the flux restart file
 log.info("Copying flux restart file for coupler")
