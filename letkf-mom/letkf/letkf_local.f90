@@ -98,9 +98,10 @@ SUBROUTINE obs_local(ij,ilev,var_local,hdxf,rdiag,rloc,dep,nobsl,nobstotal)
           !!------------------------------
           !! atmospheric observation
           !!------------------------------
-
           !! Has the user enabled assimilation of atmospheric observations?
-          !! Has the user explicitly define a subset of atmospheric platforms to use?
+
+
+          !! Has the user explicitly defined a subset of atmospheric platforms to use?
           !! TODO: this should be moved to early in the LETKF program
           b = .false.
           if (atm_obs_plat(1) > 0) then
@@ -113,6 +114,22 @@ SUBROUTINE obs_local(ij,ilev,var_local,hdxf,rdiag,rloc,dep,nobsl,nobstotal)
              end do
              if (.not. b) cycle
           end if
+          
+          !! has user set a subset of obs types to use?
+          !! TODO: this as well should be moved to earlier in the LETKF
+          !! to prevent the obs from even being placed in the kdtree
+          b = .false.
+          if (atm_obs_type(1) > 0) then
+             do k=1,size(atm_obs_type)
+                if (atm_obs_type(k) <= 0) exit
+                if (atm_obs_type(k) == obselm(idx(n))) then
+                   b = .true.
+                   exit
+                end if
+             end do
+             if (.not. b) cycle
+          end if
+          
 
           !! vertical localization into the atmosphere
           if (j /= obsid_atm_ps) then

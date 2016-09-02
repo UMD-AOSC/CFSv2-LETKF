@@ -39,6 +39,7 @@ INTEGER  :: nbv
 logical :: ocn_obs = .true.
 logical :: atm_obs = .false.
 integer :: atm_obs_plat(10)
+integer :: atm_obs_type(10)
 
 !-------------------------------------------------------------------------------
 ! From letkf_local.f90
@@ -96,7 +97,8 @@ contains
          gross_error, &
          do_drifters, do_altimetry, &
          infl_rtps, infl_mult, &
-         ocn_obs, atm_obs, atm_obs_plat, atm_loc
+         ocn_obs, &
+         atm_obs, atm_obs_plat, atm_loc, atm_obs_type
     
     open(99, file="input.nml", status="old")
 
