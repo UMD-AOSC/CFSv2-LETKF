@@ -69,53 +69,66 @@ SUBROUTINE Trans_XtoY(elm,ri,rj,rk,v3d,v2d,yobs)
   ke = CEILING( rk )
   ks = ke-1
 
-  SELECT CASE (NINT(elm))
-  CASE(obsid_atm_u)  ! U
-    CALL itpl_3d(v3d(:,:,:,iv3d_u),ri,rj,rk,yobs)
-  CASE(obsid_atm_v)  ! V
-    CALL itpl_3d(v3d(:,:,:,iv3d_v),ri,rj,rk,yobs)
-  CASE(obsid_atm_t)  ! T
-    CALL itpl_3d(v3d(:,:,:,iv3d_t),ri,rj,rk,yobs)
-  CASE(obsid_atm_tv)  ! Tv
-    CALL itpl_3d(v3d(:,:,:,iv3d_t),ri,rj,rk,yobs)
-    CALL itpl_3d(v3d(:,:,:,iv3d_q),ri,rj,rk,qq)
-    yobs = yobs * (1.0d0 + fvirt * qq)
-  CASE(obsid_atm_q)  ! Q
-    CALL itpl_3d(v3d(:,:,:,iv3d_q),ri,rj,rk,yobs)
-  CASE(obsid_atm_ps) ! PS
-    CALL itpl_2d(v2d(:,:,iv2d_t2m),ri,rj,tg)
-    CALL itpl_2d(v2d(:,:,iv2d_q2m),ri,rj,qg)
-    CALL itpl_2d(v2d(:,:,iv2d_ps),ri,rj,yobs)
-    CALL prsadj(yobs,rk,tg,qg)
-  CASE(obsid_atm_rain) ! RAIN
-    CALL itpl_2d(v2d(:,:,iv2d_tprcp),ri,rj,yobs) !########
-  CASE(obsid_atm_rh) ! RH
-    DO k=ks,ke
-      DO j=js,je
-        IF(ie <= nlon ) THEN
-          CALL calc_rh(v3d(is,j,k,iv3d_t),v3d(is,j,k,iv3d_q),&
-            & v3d(is,j,k,iv3d_p),rh(is,j,k))
-          CALL calc_rh(v3d(ie,j,k,iv3d_t),v3d(ie,j,k,iv3d_q),&
-            & v3d(ie,j,k,iv3d_p),rh(ie,j,k))
-        ELSE
-          CALL calc_rh(v3d(is,j,k,iv3d_t),v3d(is,j,k,iv3d_q),&
-            & v3d(is,j,k,iv3d_p),rh(is,j,k))
-          CALL calc_rh(v3d( 1,j,k,iv3d_t),v3d( 1,j,k,iv3d_q),&
-            & v3d( 1,j,k,iv3d_p),rh( 1,j,k))
-        END IF
-      END DO
-    END DO
-    CALL itpl_3d(rh,ri,rj,rk,yobs)
-!  CASE(id_tclon_obs)
-!    CALL tctrk(v2d(:,:,iv2d_ps),v2d(:,:,iv2d_t2),ri,rj,dummy)
-!    yobs = dummy(1)
-!  CASE(id_tclat_obs)
-!    CALL tctrk(v2d(:,:,iv2d_ps),v2d(:,:,iv2d_t2),ri,rj,dummy)
-!    yobs = dummy(2)
-!  CASE(id_tcmip_obs)
-!    CALL tctrk(v2d(:,:,iv2d_ps),v2d(:,:,iv2d_t2),ri,rj,dummy)
-!    yobs = dummy(3)
-  END SELECT
+  !! 2D variables
+  if ( rk == 0.0d0 .or. nint(elm) == obsid_atm_ps) then
+     select case(nint(elm))
+     case(obsid_atm_u)
+        CALL itpl_2d(v2d(:,:,iv2d_f10m),ri,rj,tg)
+        CALL itpl_2d(v3d(:,:,1,iv3d_u),ri,rj,qg)        
+        yobs = tg*qg
+     case(obsid_atm_v)
+        CALL itpl_2d(v2d(:,:,iv2d_f10m),ri,rj,tg)
+        CALL itpl_2d(v3d(:,:,1,iv3d_v),ri,rj,qg)
+        yobs = tg*qg
+     case(obsid_atm_t)
+        call itpl_2d(v2d(:,:,iv2d_t2m), ri, rj, yobs)
+     case(obsid_atm_q)
+        call itpl_2d(v2d(:,:,iv2d_q2m), ri, rj, yobs)
+     CASE(obsid_atm_rain)
+        CALL itpl_2d(v2d(:,:,iv2d_tprcp),ri,rj,yobs)
+     CASE(obsid_atm_ps)
+        CALL itpl_2d(v2d(:,:,iv2d_t2m),ri,rj,tg)
+        CALL itpl_2d(v2d(:,:,iv2d_q2m),ri,rj,qg)
+        CALL itpl_2d(v2d(:,:,iv2d_ps),ri,rj,yobs)
+        CALL prsadj(yobs,rk,tg,qg)
+     end select
+  else
+     !! 3D variables
+     SELECT CASE (NINT(elm))
+     CASE(obsid_atm_u)  ! U
+        CALL itpl_3d(v3d(:,:,:,iv3d_u),ri,rj,rk,yobs)
+     CASE(obsid_atm_v)  ! V
+        CALL itpl_3d(v3d(:,:,:,iv3d_v),ri,rj,rk,yobs)
+     CASE(obsid_atm_t)  ! T
+        CALL itpl_3d(v3d(:,:,:,iv3d_t),ri,rj,rk,yobs)
+     CASE(obsid_atm_tv)  ! Tv
+        CALL itpl_3d(v3d(:,:,:,iv3d_t),ri,rj,rk,yobs)
+        CALL itpl_3d(v3d(:,:,:,iv3d_q),ri,rj,rk,qq)
+        yobs = yobs * (1.0d0 + fvirt * qq)
+     CASE(obsid_atm_q)  ! Q
+        CALL itpl_3d(v3d(:,:,:,iv3d_q),ri,rj,rk,yobs)
+     CASE(obsid_atm_rh) ! RH
+        DO k=ks,ke
+           DO j=js,je
+              IF(ie <= nlon ) THEN
+                 CALL calc_rh(v3d(is,j,k,iv3d_t),v3d(is,j,k,iv3d_q),&
+                      & v3d(is,j,k,iv3d_p),rh(is,j,k))
+                 CALL calc_rh(v3d(ie,j,k,iv3d_t),v3d(ie,j,k,iv3d_q),&
+                      & v3d(ie,j,k,iv3d_p),rh(ie,j,k))
+              ELSE
+                 CALL calc_rh(v3d(is,j,k,iv3d_t),v3d(is,j,k,iv3d_q),&
+                      & v3d(is,j,k,iv3d_p),rh(is,j,k))
+                 CALL calc_rh(v3d( 1,j,k,iv3d_t),v3d( 1,j,k,iv3d_q),&
+                      & v3d( 1,j,k,iv3d_p),rh( 1,j,k))
+              END IF
+           END DO
+        END DO
+        CALL itpl_3d(rh,ri,rj,rk,yobs)
+     case default
+        write (6,*) "unkown ob type: ",nint(elm),"rk:",rk
+     END SELECT
+     
+  end if
 
   RETURN
 END SUBROUTINE Trans_XtoY

@@ -95,53 +95,41 @@ PROGRAM obsope
     DO n=1,nobslots(islot)
       CALL phys2ijk(v3d(:,:,:,iv3d_p),elem(n),rlon(n),rlat(n),rlev(n),ri,rj,rk)
 
-      IF(CEILING(ri) < 2 .OR. nlon+1 < CEILING(ri)) THEN
-!        WRITE(6,'(A)') '* X-coordinate out of range'
-!        WRITE(6,'(A,F6.2,A,F6.2)') '*   ri=',ri,', rlon=',rlon(n)
-        CYCLE
+      if (nint(otyp(n)) == obsid_atm_ps) rk = 0.0d0
+
+      
+      IF(CEILING(ri) < 2 .OR. nlon+1 < CEILING(ri))  CYCLE
+      IF(CEILING(rj) < 2 .OR. nlat < CEILING(rj))    CYCLE      
+      IF(CEILING(rk) > nlev) CYCLE
+      
+      !! set the level to 0.0 for surface obs (Ps or special platforms)
+      !! otherwise make sure the level is in range
+      select case(nint(otyp(n)))
+      case (8,9,11,15,19) !i'm sure theres more surface platforms...
+         rk = 0.0d0
+      case default
+         if (ceiling(rk) < 2) cycle         
+      end select
+
+      if (nint(elem(n)) == obsid_atm_ps) then
+         !! make sure the pressure's elevation is in range         
+         if ( odat(n) < -100.0d0) cycle
+
+         !! calculate pressure adjustment
+         CALL itpl_2d(v2d(:,:,iv2d_orog),ri,rj,dz)
+         rk = rlev(n) - dz
+         IF(ABS(rk) > threshold_dz) cycle
       END IF
-      IF(CEILING(rj) < 2 .OR. nlat < CEILING(rj)) THEN
-!        WRITE(6,'(A)') '* Y-coordinate out of range'
-!        WRITE(6,'(A,F6.2,A,F6.2)') '*   rj=',rj,', rlat=',rlat(n)
-        CYCLE
-      END IF
-      IF(CEILING(rk) > nlev) THEN
-!        CALL itpl_2d(v2d(:,:,iv2d_orog),ri,rj,dz)
-!        WRITE(6,'(A)') '* Z-coordinate out of range'
-!        WRITE(6,'(A,F6.2,A,F10.2,A,F6.2,A,F6.2,A,F10.2)') &
-!         & '*   rk=',rk,', rlev=',rlev(n),&
-!         & ', (lon,lat)=(',rlon(n),',',rlat(n),'), phi0=',dz
-        CYCLE
-      END IF
-      IF(CEILING(rk) < 2 .AND. NINT(elem(n)) /= obsid_atm_ps) THEN
-         select case (nint(elem(n)))
-         case (obsid_atm_u, obsid_atm_v)
-            rk = 1.00001d0
-         case(obsid_atm_rain)
-            rk = 0.0d0
-         case default
-            CYCLE
-         end select
-      END IF
-      IF(NINT(elem(n)) == obsid_atm_ps .AND. odat(n) < -100.0d0) THEN
-        CYCLE
-      END IF
-      IF(NINT(elem(n)) == obsid_atm_ps) THEN
-        CALL itpl_2d(v2d(:,:,iv2d_orog),ri,rj,dz)
-        rk = rlev(n) - dz
-        IF(ABS(rk) > threshold_dz) THEN ! pressure adjustment threshold
-!          WRITE(6,'(A)') '* PS obs vertical adjustment beyond threshold'
-!          WRITE(6,'(A,F10.2,A,F6.2,A,F6.2,A)') '*   dz=',rk,&
-!           & ', (lon,lat)=(',elon(n),',',elat(n),')'
-          CYCLE
-        END IF
-      END IF
+
+      
       !
       ! observational operator
       !
       CALL Trans_XtoY(elem(n),ri,rj,rk,v3d,v2d,ohx(n))
       oqc(n) = 1
-    END DO
+   END DO
+
+   
     IF(firstwrite) THEN
       CALL write_obs2(obsoutfile,nobslots(islot),&
         & elem(1:nobslots(islot)),rlon(1:nobslots(islot)),&
@@ -160,6 +148,7 @@ PROGRAM obsope
     END IF
   END DO
 
+  !!TODO, need to fix rk for surface obs
   IF(nobslots(nslots+1) > 0) THEN
     v2d(:,:,iv2d_tprcp) = pp
     CALL read_obs(obsinfile_mean,nobslots(nslots+1),&
