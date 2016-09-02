@@ -26,9 +26,9 @@ MODULE letkf_obs
   PUBLIC
 
   INTEGER,SAVE :: nobs
-  LOGICAL,PARAMETER :: omb_output=.TRUE.
-  LOGICAL,PARAMETER :: oma_output=.TRUE.
-  LOGICAL,PARAMETER :: obsgues_output=.FALSE.
+  LOGICAL,PARAMETER :: omb_output=.FALSE.
+  LOGICAL,PARAMETER :: oma_output=.FALSE.
+  LOGICAL,PARAMETER :: obsgues_output=.TRUE.
   LOGICAL,PARAMETER :: obsanal_output=.FALSE.
 !  REAL(r_size),PARAMETER :: sigma_obs=500.0d3
 !  REAL(r_size),PARAMETER :: sigma_obs_rain=350.0d3   ! GYL
@@ -506,17 +506,17 @@ SUBROUTINE monit_obs
       CALL write_obs2(obsguesfile,nobs,obselm,obslon,obslat,obslev, &
                       obsdat,obserr,obstyp,obsdif,ohx,obsqc,0)
     END IF
-    l=0
-    DO
-      im = myrank+1 + nprocs * l
-      IF(im > nbv) EXIT
-      ohx(:) = obsdat(:) - obsdep(:) + obshdxf(:,im)
-      WRITE(obsguesfile(8:10),'(I3.3)') im
-      WRITE(6,'(A,I3.3,2A)') 'MYRANK ',myrank,' is writing a file ',obsguesfile
-      CALL write_obs2(obsguesfile,nobs,obselm,obslon,obslat,obslev, &
-                      obsdat,obserr,obstyp,obsdif,ohx,obsqc,0)
-      l = l+1
-    END DO
+    ! l=0
+    ! DO
+    !   im = myrank+1 + nprocs * l
+    !   IF(im > nbv) EXIT
+    !   ohx(:) = obsdat(:) - obsdep(:) + obshdxf(:,im)
+    !   WRITE(obsguesfile(8:10),'(I3.3)') im
+    !   WRITE(6,'(A,I3.3,2A)') 'MYRANK ',myrank,' is writing a file ',obsguesfile
+    !   CALL write_obs2(obsguesfile,nobs,obselm,obslon,obslat,obslev, &
+    !                   obsdat,obserr,obstyp,obsdif,ohx,obsqc,0)
+    !   l = l+1
+    ! END DO
   END IF
 
 ! This is not an accurate estimate of obsanal.

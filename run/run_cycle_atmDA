@@ -173,17 +173,17 @@ for j in jobs:
         sys.exit(1)
 
 ## move the oma and omb files
-infile = args.wrkdir+'/oma.dat'
-if args.oma and os.path.exists(infile):
-    log.info('copying oma.dat')
-    outfile = args.path+'/anal/oma/'+ndate.strftime(
-        '%Y/%Y%m/%Y%m%d/%Y%m%d%H_atm.dat')
-    outpath = os.path.dirname(outfile)
-    if not os.path.exists(outpath):
-        os.makedirs(outpath)
-    shutil.copy(infile, outfile)
+# infile = args.wrkdir+'/oma.dat'
+# if args.oma and os.path.exists(infile):
+#     log.info('copying oma.dat')
+#     outfile = args.path+'/anal/oma/'+ndate.strftime(
+#         '%Y/%Y%m/%Y%m%d/%Y%m%d%H_atm.dat')
+#     outpath = os.path.dirname(outfile)
+#     if not os.path.exists(outpath):
+#         os.makedirs(outpath)
+#     shutil.copy(infile, outfile)
 
-infile = args.wrkdir+'/omb.dat'
+infile = args.wrkdir+'/obsgues_me.dat'
 if args.omb and os.path.exists(infile):
     log.info('copying omb.dat')
     outfile = args.path+'/gues/omb/'+ndate.strftime(
