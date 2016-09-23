@@ -13,7 +13,7 @@ cstepbeg=1,
 cstepmax=${cstepmax},
 cstepres=${cstepres},
 dt_c=${CPL_PERIOD},
-VerbLev=1,
+VerbLev=0,
 write_am_sst=.true.
 /
 

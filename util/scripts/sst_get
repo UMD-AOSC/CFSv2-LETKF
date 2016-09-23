@@ -95,14 +95,40 @@ while cdate <= args.end:
     ncOut.createDimension('time', 0)
 
     # -- variables
+    gridxT = ncOut.createVariable('grid_x_T', np.dtype('float32').char,
+                                  ('grid_x_T'))
+    gridxT.long_name=""
+    gridxT.units="degree_east"
+    gridxT.cartesian_axis="X"
+
+    gridyT = ncOut.createVariable('grid_y_T', np.dtype('float32').char,
+                                  ('grid_y_T'))
+    gridyT.long_name=""
+    gridyT.units="degree_north"
+    gridyT.cartesian_axis="Y"
+    
     xT = ncOut.createVariable('x_T', np.dtype('float64').char,
-                          ('grid_y_T','grid_x_T'))
+                              ('grid_y_T','grid_x_T'))
+    xT.units="degree_east"
+    xT.long_name =""
+    
     yT = ncOut.createVariable('y_T', np.dtype('float64').char,
                           ('grid_y_T','grid_x_T'))
+    yT.units = "degree_north"
+    yT.long_name = ""
+    
     dat= ncOut.createVariable('temp', np.dtype('float64').char,
                           ('time', 'grid_y_T','grid_x_T'))
+    dat.units=""
+    dat.missing_value=-9e33
+    dat.long_name=""
+    
     time=ncOut.createVariable('time', np.dtype('float64').char,
                           ('time',))
+    time.units = "days since 1900-01-01 00:00:00"
+    time.time_origin="01-JAN-1900 00:00:00"
+    time.modulo = ""
+    time.calendar = "julian"
                           
 
     # write data

@@ -51,12 +51,12 @@ parser = argparse.ArgumentParser(
         "so that CFSR boundary conditions every 6 hours are not needed "
         "and so that the run is longer than 6 hours, but it's "
         "good enough for now)"  ))
-parser.add_argument('--start', metavar="date", required=True,
-  help="start date to begin forecast from in YYYYMMDDHH format")
-parser.add_argument('--end',  metavar="date",  required=True,
-  help="date at which to end, in YYYYMMDDHH format")
-parser.add_argument('--path', metavar='path', required=True,
+parser.add_argument('path', metavar='path',
   help="path to store the nature run in")
+parser.add_argument('start', metavar="date",
+  help="start date to begin forecast from in YYYYMMDDHH format")
+parser.add_argument('end',  metavar="date",
+  help="date at which to end, in YYYYMMDDHH format")
 parser.add_argument('--ares', type=int, choices=[62,126,190,382,574,1148], default=62,help=(
     "horizontal resolution of the atmosphere (Default:T62)"))
 parser.add_argument('--int', type=int, default=24, help=(
@@ -83,7 +83,6 @@ if args.partition:
 startDate = dt.datetime.strptime(args.start, "%Y%m%d%H")
 endDate   = dt.datetime.strptime(args.end, "%Y%m%d%H")
 slurm.account = args.account
-analGFS = os.getenv("CFSR_DIR")+"/T{}".format(args.ares)
 
 
 ## create the logging directory if not already existing,

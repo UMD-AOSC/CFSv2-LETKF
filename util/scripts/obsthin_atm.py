@@ -34,7 +34,7 @@ if not os.path.exists(args.outdir):
 # ------------------------------------------------------------
 # ------------------------------------------------------------    
 def hzthin(obs):
-    if obs[0][6] in (8,):
+    if obs[0][6] in (8,9):
         hzbin = args.hz_sfc ## extra thinning of surface obs
                   ## since we get these every 1 hour
     else:
