@@ -66,6 +66,7 @@ parser.add_argument('--partition',
   help="the SLURM partition to use, only meaningful overrides are 'debug' and 'scavenger'")
 parser.add_argument('--account', default="aosc-hi",
   help="The slurm account to run the experiment with")
+parser.add_argument('--oisst', action="store_true")
 args=parser.parse_args()
 
 

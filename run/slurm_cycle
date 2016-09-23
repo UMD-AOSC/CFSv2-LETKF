@@ -48,6 +48,7 @@ parser.add_argument('end', metavar="END_DATE", help=(
 
 
 ## optional variables
+parser.add_argument('--oisst', action="store_true")
 parser.add_argument('--nofcst', action="store_true", help=(
     "If set, the forecasting step is skipped... you probably don't want this flag"))
 parser.add_argument('--oobs', help=(
@@ -160,6 +161,7 @@ while cdate < args.end:
         if args.is3d: cmd += " --3d"
         if args.oobs is not None: cmd += " --oobs \""+args.oobs+"\""
         if args.aobs is not None: cmd += " --aobs \""+args.aobs+"\""
+        if args.oisst: cmd += " --oisst"
         job = slurm.Job(
             name    = 'CFS_'+mem,
             cmd     = cmd,
