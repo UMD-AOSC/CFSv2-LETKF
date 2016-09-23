@@ -72,30 +72,17 @@ while cdate <= args.enddate:
     ##  ll_hr (an array of lat lons used in each time)
     ##  ll_hr_date (the day that was loaded in)
     ##  obs (an array of all obs for the day
-    if ll_hr is None or ll_hr_date != cdate.strftime("%Y%m%d"):
-        ll_hr_date = cdate.strftime("%Y%m%d")
-        obsfile = os.path.abspath(args.obs+cdate.strftime("/%Y/%Y%m/%Y%m%d.dat"))
-        print "  reading obsfile: "+obsfile
-        obs = obsio.read(obsfile)
-        ##   find the list of unique lat/lons
-        ll = set([])
-        for o in obs:
-            ll.add((o[1],o[2]))        
-        print "  read {} real obs with {} unique lat/lon".format(len(obs),len(ll))
-        ##   split these locations into 4 sections, (00Z, 06Z, 12Z and 18Z)
-        ll_hr={}
-        for i in range(4):
-            ll_hr[i] = []
-        if args.split:
-            idx = 0
-            for l in ll:
-                ll_hr[idx].append(l)
-                idx +=1
-                if idx == 4:
-                    idx = 0
-        else:
-            ll_hr[2] = ll
-                    
+#    if ll_hr is None or ll_hr_date != cdate.strftime("%Y%m%d"):
+#        ll_hr_date = cdate.strftime("%Y%m%d")
+    obsfile = os.path.abspath(args.obs+cdate.strftime(
+           "/%Y/%Y%m/%Y%m%d/%Y%m%d%H.dat"))
+    print "  reading obsfile: "+obsfile
+    obs = obsio.read(obsfile)
+    ##   find the list of unique lat/lons
+    ll = set([])
+    for o in obs:
+        ll.add((o[1],o[2]))        
+    print "  read {} real obs with {} unique lat/lon".format(len(obs),len(ll))
 
                 
     ## open the nature run
@@ -104,26 +91,32 @@ while cdate <= args.enddate:
     dat = nc.Dataset(dat_filename).variables
     
     ## for this time bucket find the observations we are going to use
-    ll_hr_now = ll_hr[cdate.hour/6]
-    obs2 = []
+    obs2=[]
+    prevll = (1e6,1e6)
+    prevllres = None
     for o in obs:
-        if (o[1],o[2]) in ll_hr_now:
-            res = ll_tree.query((o[1],o[2]))
-            y = ys[res[1]]
-            x = xs[res[1]]
-            z = min(range(len(depths)),key=lambda i: abs(depths[i]-o[3]))
-            oid = o[0]
-            err = o[5]            
-            if oid == 2210:
-                val = dat['temp'][0,z,y,x]
-            elif oid == 2220:
-                val = dat['salt'][0,z,y,x]
-            else:
-                print 'unexpected obs type ',oid
-                sys.exit(1)
-            val += np.random.normal(0, err)                
-            obs2.append(
-                (oid, lons[y][x], lats[y][x], depths[z], val, err, 0))
+        ll = (o[1],o[2])
+        if ll == prevll:
+            res = prevllres
+        else:
+            res = ll_tree.query(ll)
+            prevllres=res
+            prevll=ll
+        y = ys[res[1]]
+        x = xs[res[1]]
+        z = min(range(len(depths)),key=lambda i: abs(depths[i]-o[3]))
+        oid = o[0]
+        err = o[5]            
+        if oid == 2210:
+            val = dat['temp'][0,z,y,x]
+        elif oid == 2220:
+            val = dat['salt'][0,z,y,x]
+        else:
+            print 'unexpected obs type ',oid
+            sys.exit(1)
+        val += np.random.normal(0, err)                
+        obs2.append(
+            (oid, lons[y][x], lats[y][x], depths[z], val, err, 0))
 
     ## write out the observations
     print "  writing {} synthetic obs".format(len(obs2))

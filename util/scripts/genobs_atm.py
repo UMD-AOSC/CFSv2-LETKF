@@ -61,17 +61,29 @@ parser.add_argument("--force", "-f", action="store_true", help=(
     "Forces the removing of the destination directory and temp "
     "directory if they already exist"))
 parser.add_argument("--platforms","-p", help=(
-    "a comma separated (no spaces!) list of observations platform "
-    "IDs to use. See the wiki for further documentation. "
-    "E.g., -p 1,2,3,8,9,19 is appropriate for perfect model experiments ("
-    " most PREPBUFR obs except SATWND)"))
+    "a comma separated  list of observations platform "
+    "IDs to use. OR a list of negative number for observation platforms"
+    " to NOT use. See the wiki for further documentation. "
+    'E.g., -p " -4,-5,-6" is appropriate for perfect model experiments (notice the space after the first quotation mark) '))
 
 
 args = parser.parse_args()
+args.is3d = True #TODO: allow this to be configured
 args.startdate = dt.datetime.strptime(args.startdate, "%Y%m%d%H")
 args.enddate = dt.datetime.strptime(args.enddate, "%Y%m%d%H")
 if args.platforms is not None:
-    args.platforms = [int(x) for x in args.platforms.split(',')]
+    plats = [int(x) for x in args.platforms.split(',')]
+    plat_rem = filter(lambda x: x < 0, plats)
+    plat_inc = filter(lambda x: x > 0, plats)
+    if len(plat_rem) > 0 and len(plat_inc) > 0:
+        print "ERROR, --platform ids should be all positive (only use the platforms listed)"+\
+            " or all negative (use all platforms except those listed"
+        sys.exit(1)
+    args.plat_exclude = len(plat_rem) > 0
+    args.platforms = [abs(a) for a in plats]
+        
+        
+            
 ## generate a temporary directory that has a random hash at the end,
 ## so that the user can run more than one copy of this script at a time
 ## for different experiments
@@ -198,8 +210,15 @@ while cdate <= args.enddate:
     ## read in the observation locations
     print "  reading obs file..."
     obs = []
+
     ## this will read in all timeslots for the 6 hour observation window
-    for f in ["-3","-2","-1","","+1","+2","+3"]:
+    if args.is3d:
+        timeslots = ["-3","-2","-1","","+1","+2","+3"]
+    else:
+        print 'oops, havent implemented multiple timeslots finer than 6 hours'
+        sys.exit(1)
+        
+    for f in timeslots:
         obsfile = os.path.abspath(
             args.obs+cdate.strftime("/%Y/%Y%m/%Y%m%d/%Y%m%d%H/t")+f+".dat")
         obs += obsio.read(obsfile)
@@ -208,7 +227,10 @@ while cdate <= args.enddate:
     ## remove unwanted platforms if the user explicitly defined
     ## the list of platforms to use
     if args.platforms:
-        obs = filter(lambda x: x[6] in args.platforms, obs)
+        if args.plat_exclude:
+            obs = filter(lambda x: x[6] not in args.platforms, obs)
+        else:
+            obs = filter(lambda x: x[6] in args.platforms, obs)            
 
     ## generate an x/y grid coordinate for each observation
     print "  calculating grid x/y coords..."
@@ -247,7 +269,7 @@ while cdate <= args.enddate:
     for i in range(len(obs)):
         if obs[i][0] == 1100:
             z = 0   ## PS always is at the surface... duh
-        elif obs[i][6] in (8,9,19):
+        elif obs[i][6] in (8,9,11, 15, 16, 19, 20):
             ## ADPSFC, SFCSHP, and WDSATR are at the surface
             z = 0
         else:
@@ -286,7 +308,7 @@ while cdate <= args.enddate:
         
         ## obs thinning, make sure only 1 observation of any given type
         ##  is generated at a given x/y/z
-        hkey = (o[0], x, y, z)
+        hkey = (o[0], x, y, z, o[6])
         if hkey in usedLoc:
             continue
         usedLoc.add(hkey)
