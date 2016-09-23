@@ -58,23 +58,24 @@ parser.add_argument('--aobs', help=(
     "directory to atmospheric observations that are to be assimilated. "
     "If not specified, not atmospheric observations are used."))
 parser.add_argument('--strong', action="store_true", default=False)
+parser.add_argument('--strong_atm_window', default=6, type=int)
+parser.add_argument('--strong_window_basedate', default="2005060112")
+
 
 parser.add_argument('--ares', default='62', type=int, choices=common.aresList, help=(
     "Atmospheric resolution, must match the resolution of the initial "
     " ensemble members in the PATH directory. (Default: 62)"))
 parser.add_argument('--ores', default='05', choices=['05','1'])
-parser.add_argument('--clear', metavar="HOURS", default="12", type=int, help=(
+parser.add_argument('--clear', metavar="HOURS", default="24", type=int, help=(
     "Age (in hours) at which old no longer required individual ensemble "
     "members are deleted. Setting this to 0 disables this and leaves all "
-    "members, and therefore uses a LOT of space. (Default: 12)"))
+    "members, and therefore uses a LOT of space. (Default: 24)"))
 parser.add_argument('--mem', metavar='MEMBERS', type=int, help=(
     "The number of ensemble members. By default the script will "
     "automatically determine the number of ensemble members based "
     "on the directory structure of PATH"))
 parser.add_argument('--3d', dest='is3d', action="store_true")
 
-g = parser.add_argument_group("Ocean DA")
-g.add_argument('--async', action="store_true")
     
 
 g = parser.add_argument_group("SLURM options")
@@ -106,6 +107,7 @@ args.path = os.path.abspath(args.path)
 
 if args.partition:
     slurm.partition = args.partition
+args.strong_window_basedate = dt.datetime.strptime(args.strong_window_basedate, "%Y%m%d%H")
 args.start = dt.datetime.strptime(args.start, "%Y%m%d%H")
 args.end   = dt.datetime.strptime(args.end, "%Y%m%d%H")
 slurm.account = args.account
@@ -199,12 +201,12 @@ while cdate < args.end:
     ## ocean DA
     cmd = "run_cycle_ocnDA {} {} --ores {} --oobs --mem {}".format(
         args.path, cdateShort, args.ores, args.mem)
-    # if doing strong coupling, determine which atm obs output files to look at
     if args.strong:
-        if not args.async or cdateShort[-2:]=='06':
-            cmd += " --aobs"
-        if args.async:
-            cmd += " --async 18"
+        # if doing strong coupling, determine which atm obs output files to look at
+        modu = int((ndate-args.strong_window_basedate).total_seconds()/3600) % args.strong_atm_window
+        if modu == 0:
+            cmd += " --aobs --async {}".format(args.strong_atm_window - 6)
+            log.info("  Using strong coupling...")
     jobs.append(slurm.Job(
         name = "CFSDAOcn",
         cmd = cmd,
@@ -234,8 +236,8 @@ while cdate < args.end:
         for f in files:
             date = f.split('/')[-1].split('.')[0].split('_')[0]
             clearInt = args.clear
-            if args.async and args.strong:
-                clearInt = max([clearInt, 24])
+            if args.strong:
+                clearInt = max([clearInt, args.strong_atm_window+6])
             if (cdate - dt.datetime.strptime(date,"%Y%m%d%H")) >= dt.timedelta(hours = clearInt):
                 os.remove(f)        
                
