@@ -78,7 +78,7 @@ os.makedirs(args.tmpdir)
 os.symlink(args.letkfDir+'/obs/obsop', args.tmpdir+'/obsop')
 os.symlink(args.fixDir + '/grid_spec_{}.nc.T126'.format(args.ores),
            args.tmpdir+'/grid_spec.nc')
-shutil.copy(args.path+"/letkf.nml", args.tmpdir+"/input.nml")
+shutil.copy(args.path+"/cfg/letkf.nml", args.tmpdir+"/input.nml")
 
 # grab a random ocean netcdf file to use for the grd2nc conversion
 ncin = os.path.abspath(glob(args.path+'/gues/001/*ocean_temp_salt.res.nc')[0])[:-16]

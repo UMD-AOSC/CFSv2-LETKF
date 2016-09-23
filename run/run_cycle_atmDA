@@ -72,7 +72,7 @@ if os.path.exists(args.wrkdir):
     log.warn("Removing existing working directory")
     shutil.rmtree(args.wrkdir)
 os.makedirs(args.wrkdir)
-shutil.copy(args.path+'/letkf.nml', args.wrkdir+'/letkf.nml')
+shutil.copy(args.path+'/cfg/letkf.nml', args.wrkdir+'/letkf.nml')
 
 for m in mems:
     ## get the observations that have already been processed

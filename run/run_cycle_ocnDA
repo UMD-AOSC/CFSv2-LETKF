@@ -78,7 +78,7 @@ os.makedirs(args.wrkdir)
 os.symlink(os.getenv("FIX_DIR_OM")+"/grid_spec_{}.nc.T{}".format(
     "1x1" if args.ores == "1" else args.ores, args.ares),
            args.wrkdir+'/grid_spec.nc')
-shutil.copy(args.path+"/letkf.nml", args.wrkdir+'/input.nml')
+shutil.copy(args.path+"/cfg/letkf.nml", args.wrkdir+'/input.nml')
 
 
 ## copy background and make analysis placeholder files

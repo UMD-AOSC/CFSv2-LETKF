@@ -32,6 +32,7 @@ parser.add_argument("outdir", metavar="OUT_DIR", help=(
     "Output directory to place the results"))
 parser.add_argument("date", metavar="DATE", help=(
     "Date of the initial conditions of the forecast, in YYYYMMDDHH format"))
+parser.add_argument("--nemonml", required=True)
 
 ## optional arguments
 parser.add_argument("--len", metavar="LEN", type=int, default=9, help=(
@@ -132,7 +133,7 @@ env["AM_RES_X"]   = str(args.ares_x)
 env["AM_RES_Y"]   = str(args.ares_y)
 sp.call("source $CFS_LETKF_ROOT/run/config_files/cpl_nml > cpl_nml",
         shell=True, cwd=args.wrkdir)
-sp.call("source $CFS_LETKF_ROOT/run/config_files/input.nml > input.nml",
+sp.call("source {} > input.nml".format(args.nemonml),
         shell=True, cwd=args.wrkdir)
 sp.call(cl+" $CFS_LETKF_ROOT/run/config_files/d???_table .",
         shell=True, cwd=args.wrkdir)

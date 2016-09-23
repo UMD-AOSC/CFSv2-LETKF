@@ -90,6 +90,19 @@ g.add_argument('--retries', metavar="NUM", default="3", type=int, help=(
 ## parse the variables 
 args=parser.parse_args()
 args.path = os.path.abspath(args.path)
+
+#load in from config file if possible
+print "reading in config file 'exp.config'"
+with open(args.path+'/cfg/exp.config','r') as f:
+    for l in f:
+        l2 = l.lstrip()
+        if len(l2) == 0 or l2[0] == '#':
+            continue
+        for l3 in l.split():
+            sys.argv.append(l3.rstrip())
+args = parser.parse_args()
+args.path = os.path.abspath(args.path)
+
 if args.partition:
     slurm.partition = args.partition
 args.start = dt.datetime.strptime(args.start, "%Y%m%d%H")

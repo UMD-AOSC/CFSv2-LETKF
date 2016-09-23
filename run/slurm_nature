@@ -147,11 +147,14 @@ while cdate < endDate:
         inPath  = args.path+cdate.strftime("/%Y/%Y%m/%Y%m%d/%Y%m%d%H/")
         #args.path+ndate.strftime("/%Y/%Y%m/%Y%m%d/%Y%m%d%H/")
 
-        # run the forecast
+        cmd = rootDir+"/run/run_fcst {} {} {} --ares {} --wrkdir {} --len {} --period 6 --nemonml {}".format(
+            inPath, inPath, cdateShort, args.ares, tmpDir, args.int, args.path+'/cfg/nemo.nml')
+        if args.oisst: cmd += " --oisst"
+        
+        # run the forecast        
         job = slurm.Job(
             name = 'CFS_nature',
-            cmd = rootDir+"/run/run_fcst {} {} {} --oisst --ares {} --wrkdir {} --len {} --period 6".format(
-                inPath, inPath, cdateShort, args.ares, tmpDir, args.int),
+            cmd=cmd,
             runtime = timeLimit_CFS,
             output  = logDir+'/cfs/cfs_'+cdateShort+'_%j.log',
             nproc   = nproc_cfs
