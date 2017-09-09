@@ -59,7 +59,7 @@ parser.add_argument('--aobs', help=(
     "If not specified, not atmospheric observations are used."))
 parser.add_argument('--strong', action="store_true", default=False)
 parser.add_argument('--strong_atm_window', default=6, type=int)
-parser.add_argument('--strong_window_basedate', default="2005060112")
+parser.add_argument('--strong_window_basedate', default="2000010112")
 
 
 parser.add_argument('--ares', default='62', type=int, choices=common.aresList, help=(

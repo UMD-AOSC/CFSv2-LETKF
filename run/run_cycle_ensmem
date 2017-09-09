@@ -72,9 +72,10 @@ args.wrkdir = os.path.abspath(os.getenv("TMP_DIR_SHARED")+"/cfs_fcst_" + \
                               hashlib.md5(args.path).hexdigest()[0:6] + \
                               "_{:03d}".format(args.ensNum))
 if args.aobs is not None:
-   args.aobs = os.path.abspath(args.aobs)
+   args.aobs = args.aobs.split(',')
+   args.aobs = [os.path.abspath(o) for o in args.aobs]
 if args.oobs is not None:
-   args.oobs = args.oobs.split()
+   args.oobs = args.oobs.split(',')
    args.oobs = [os.path.abspath(o) for o in args.oobs]
    
 assert( args.ensNum > 0 and args.ensNum <= common.getEnsMem(args.path))
@@ -177,19 +178,22 @@ if do_atmobsop and args.aobs:
       fcstHrStart = 3
       fcstHrEnd = 9
       baseSlot = 4
-      
+
+
    ##get the observations linked
    idx=1
    for slot in range(-window,window+1):
          slotPfx = '{:+d}'.format(slot) if slot != 0 else ''
-         obsFile = args.aobs+'/'+ndateDir+'/t'+slotPfx+'.dat'
-         if (not os.path.exists(obsFile)):
-            log.warn("ATM obs file does not exist: "+obsFile)
-            cmd = 'touch {}/obs{:02d}.dat'.format(tmpdir,idx)
-         else:
-            log.info("linking ATM obs file: "+obsFile)
-            cmd = 'ln -s {} {}/obsin{:02d}.dat'.format(obsFile, tmpdir, idx)
+         cmd = 'touch {}/obs{:02d}.dat'.format(tmpdir,idx)
          sp.check_call(cmd, shell=True)
+         for aobsDir in args.aobs:
+            obsFile = aobsDir+'/'+ndateDir+'/t'+slotPfx+'.dat'
+            if (not os.path.exists(obsFile)):
+               log.warn("ATM obs file does not exist: "+obsFile)
+            else:
+               log.info("linking ATM obs file: "+obsFile)
+               cmd = 'cat {} >> {}/obsin{:02d}.dat'.format(obsFile, tmpdir, idx)
+            sp.check_call(cmd, shell=True)
          idx +=1
 
    ## get the backgrounds linked
@@ -236,7 +240,10 @@ if do_ocnobsop and args.oobs is not None:
    ## concatenate the ocean obs files into a single file
    cmd = "cat "
    for oobsDir in args.oobs:
-      obsFile = os.path.abspath(oobsDir + ndate.strftime('/%Y/%Y%m/%Y%m%d/%Y%m%d%H.dat'))
+      #note 0Z actually uses the day before it (i.e.
+      # obs from sept 1 6Z, 12Z, 18Z,  and sept 2 00Z should pull from sept 1 file)
+      odate = ndate - dt.timedelta(hours=6)
+      obsFile = os.path.abspath(oobsDir + odate.strftime('/%Y/%Y%m/%Y%m%d/%Y%m%d.dat'))
       log.info("Using obs file: " + obsFile)
       cmd += obsFile +" "
    cmd += "> " + tmpDir + '/obsin.dat'

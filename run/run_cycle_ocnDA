@@ -15,6 +15,9 @@ import hashlib
 
 ## load our own modules
 import common
+sys.path.insert(1,os.getenv("CFS_LETKF_ROOT")+'/common/python')
+import obsio
+obsio.reclen=10
 
 ## setup the logging system
 log = common.setupLog()
@@ -42,6 +45,9 @@ parser.add_argument("--oobs", action="store_true", default=False, help=(""))
 parser.add_argument("--async", type=int, default=0, help=(
     "number of hours prior to also use for atm obs"))
 parser.add_argument("--mem", type=int)
+
+parser.add_argument('--obsavg', action='store_true')
+parser.add_argument('--calcmin', action="store_true")
 
 ## parse the arguments
 args = parser.parse_args()
@@ -82,6 +88,7 @@ shutil.copy(args.path+"/cfg/letkf.nml", args.wrkdir+'/input.nml')
 
 
 ## copy background and make analysis placeholder files
+log.info('copying background and making analysis placeholder files')
 jobs=[]
 for m in mems:
     for f in ['temp_salt','velocity','sbc']:
@@ -98,13 +105,21 @@ for j in jobs:
         log.error("error copying background files")
         sys.exit(1)
 
-
+        
 ## create a combined obsdep file
+log.info('creating combined obsdep file')
+if args.obsavg and ndate.hour == 0 and args.oobs:
+    log.info(' using averaging of past 24 hours of ocean output')
+elif not args.obsavg and ndate.hour == 12 and args.oobs:
+    log.info(' using instantaneous ocean output at 12 hr')    
+    
+
 for m in mems:
     obsfile = args.wrkdir+'/obs01{:03d}.dat'.format(m)
     sp.check_call('touch '+obsfile, shell=True)
 
     ## atmospheric obserbations
+    atmobsfile = args.wrkdir+'/atm{:03d}.dat'.format(m)    
     if (args.aobs):
         d = ndate
         while (d >= ndate-dt.timedelta(hours=args.async)):
@@ -114,21 +129,92 @@ for m in mems:
             if os.path.exists(afile):
                 if m == 1:
                     log.info("Found.")
-                sp.check_call('cat {} >> {}'.format(afile, obsfile), shell=True)                    
+                sp.check_call('cat {} >> {}'.format(afile, atmobsfile), shell=True)                    
             else:
                 if m == 1:
                     log.warn("NOT found.")
             d = d-dt.timedelta(hours=6)
+    sp.check_call('touch '+atmobsfile, shell=True)
+            
 
     ## ocean observations
-    if (args.oobs):
-        ofile=args.path+'/obsop/{}_ocn{:03d}.dat'.format(ndateShort,m)
-        # touch the file, in case it isn't there (mom-letkf script right now requires
-        # that some type of file exists, even if empty)            
-        sp.check_call('touch {}'.format(ofile), shell=True)            
-        sp.check_call('cat {} >> {}'.format(ofile, obsfile), shell=True)
+    ocnobsfile = args.wrkdir+'/ocn{:03d}.dat'.format(m)
+    if args.obsavg and ndate.hour == 0 and args.oobs:
+        ## determine the mean/min of observations over the past 24 hours
+        odate = ndate-dt.timedelta(hours=18)
+        obs=None
+        cnt = 0
+        while odate <= ndate:            
+            odateShort = odate.strftime("%Y%m%d%H")        
+            ofile=args.path+'/obsop/{}_ocn{:03d}.dat'.format(odateShort,m)
+            if (os.path.exists(ofile)):
+                tobs = obsio.read(ofile)
+                cnt += 1                
+                if obs is None:
+                    obs = tobs
+                else:
+                    for i in range(len(obs)):
+                        o = obs[i]
+                        if args.calcmin:
+                            val = min(o[8], tobs[i][8])
+                        else:
+                            val = o[8]+ tobs[i][8]
+                        obs[i] = (o[0], o[1], o[2], o[3], o[4], o[5], o[6], o[7],
+                                  val, min(o[9], tobs[i][9]))
+            odate += dt.timedelta(hours=6)
+        if obs:
+            if not args.calcmin:
+                for i in range(len(obs)):
+                    o = obs[i]
+                    obs[i] = (o[0], o[1], o[2], o[3], o[4], o[5], o[6], o[7],
+                              o[8]/cnt, o[9])
+            obsio.write(obs, ocnobsfile)
             
-        
+    elif not args.obsavg and ndate.hour == 12 and args.oobs:
+        sp.check_call('ln -s {} {}'.format(
+            args.path+'/obsop/{}_ocn{:03d}.dat'.format(ndateShort,m)
+            , ocnobsfile), shell=True)
+            
+    sp.check_call('touch {}'.format(ocnobsfile), shell=True)            
+
+    ## create combined file
+    sp.check_call('mv {1} {0}; cat {2} >> {0}'.format(
+        obsfile, atmobsfile, ocnobsfile), shell=True)
+
+
+## determine observation space background mean
+if ( (ndate.hour == 0 and args.obsavg) or (ndate.hour == 12 and not args.obsavg) )and args.oobs:    
+    log.info("calculating ocn background mean in observation space")
+    odate = ndate-dt.timedelta(hours=24)
+    obs= None
+    for m in mems:
+        ocnobsfile = args.wrkdir+'/ocn{:03d}.dat'.format(m)
+        tobs = obsio.read(ocnobsfile)
+        if obs is None:
+            obs = tobs
+        else:
+            for i in range(len(obs)):
+                o = obs[i]
+                val = o[8]+ tobs[i][8]
+                obs[i] = (o[0], o[1], o[2], o[3], o[4], o[5], o[6], o[7],
+                      val, min(o[9], tobs[i][9]))
+    for i in range(len(obs)):
+        o = obs[i]
+        obs[i] = (o[0], o[1], o[2], o[3], o[4], o[5], o[6], o[7],
+              o[8]/len(mems), o[9])
+    if args.obsavg:
+        fname=args.path+'/gues/omb/'+odate.strftime("%Y/%Y%m/%Y%m%d/%Y%m%d_ocn.dat")
+    else:
+        fname=args.path+'/gues/omb/'+ndate.strftime("%Y/%Y%m/%Y%m%d/%Y%m%d_ocn.dat")
+
+    log.info("writing to "+fname)
+    fname_dir = os.path.dirname(fname)
+    if not os.path.exists(fname_dir):
+        os.makedirs(fname_dir)
+    obsio.write(obs, fname)    
+    
+    
+
 ## adaptive inflation
 log.error("Adaptive inflation file is not being copied")
 

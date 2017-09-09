@@ -28,7 +28,7 @@ MODULE letkf_local
 CONTAINS
 
   
-SUBROUTINE obs_local(ij,ilev,var_local,hdxf,rdiag,rloc,dep,nobsl,nobstotal)
+SUBROUTINE obs_local(ij,ilev,var_local,hdxf,rdiag,rloc,dep,nobsl,nobstotal, useatm)
 !===============================================================================
 ! Project global observations to local
 !     (hdxf_global,dep_global,rdiag_global) -> (hdxf,dep,rdiag)
@@ -40,6 +40,7 @@ SUBROUTINE obs_local(ij,ilev,var_local,hdxf,rdiag,rloc,dep,nobsl,nobstotal)
     real(r_size), INTENT(out) :: rloc(nobstotal)
     real(r_size), INTENT(out) :: dep(nobstotal)
     integer,      INTENT(out) :: nobsl
+    logical, intent(in) :: useatm
 
     real(r_size),parameter  :: loc_cutoff = 4*10/3
 
@@ -94,7 +95,7 @@ SUBROUTINE obs_local(ij,ilev,var_local,hdxf,rdiag,rloc,dep,nobsl,nobstotal)
 
        !! calculate domain specific parameters
        !! ------------------------------       
-       if (atm_obs .and. getDomain(j) == dom_atm) then
+       if (useatm .and. atm_obs .and. getDomain(j) == dom_atm) then
           !!------------------------------
           !! atmospheric observation
           !!------------------------------

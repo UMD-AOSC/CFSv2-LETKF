@@ -5,6 +5,7 @@ import argparse
 import subprocess as sp
 from glob import glob
 import hashlib
+import datetime as dt
 
 parser=argparse.ArgumentParser(description=(
     "Applies the observation operator stand-alone to the ocean, either "
@@ -89,7 +90,7 @@ ncin = os.path.abspath(glob(args.tmpdir+'/*ocean_temp_salt.res.nc')[0])[:-16]
 for bg in bgfiles:
 
     # check to see if this date has already been done    
-    cdate = bg.split('/')[-1][:10]    
+    cdate = bg.split('/')[-1][:10]
     outfile =  args.path+'/{}/{}/{}/{}/{}/{}_ocn.dat'.format(
         'gues' if args.b else 'anal',
         'omb' if args.b else 'oma',
@@ -110,7 +111,7 @@ for bg in bgfiles:
                   shell=True, cwd=args.tmpdir)
 
     # run the observation operator on it
-    obsin = args.obsdir+ '/' + '/'.join(bg.split('/')[-5:-1])+'.dat'    
+    obsin = args.obsdir+ '/' + '/'.join(bg.split('/')[-5:-1])[:-2]+'.dat'    
     sp.check_call('obsop -obsin {} -gues ocndat -obsout out.dat'.format(obsin),
                   shell=True, cwd=args.tmpdir)
 

@@ -1,18 +1,5 @@
 #!/usr/bin/env python
 
-################################################################################
-## genobs_atm.py
-## CFSv2-LETKF
-##
-## Generate synthetic observations for the atmosphere using the
-## lat/lon/pressure/error information from real observations, but using
-## the corresponding values from a nature run. To be used for perfect model
-## experiments. For simplicity obs are generated at the closest grid points.
-##
-## Travis Sluka, 2016
-## University of Maryland
-################################################################################
-
 ## built-in modules
 import argparse
 import datetime as dt
@@ -38,19 +25,10 @@ import grdio
 
 
 ## get the command line arguments
-parser = argparse.ArgumentParser(description=(
-    "Generate synthetic observations for the atmosphere using the "
-    "lat/lon/pressure/error information from real observations, but using"
-    " the corresponding values from a nature run. To be used for "
-    "perfect model experiments. For simplicity obs are generated "
-    "at the closest grid points."))
+parser = argparse.ArgumentParser(description=(""))
 parser.add_argument("nature", metavar="NATURE_PATH", help=(
     "Path to the folder containing the nature run from which observation"
     " values will be generated"))
-parser.add_argument("obs", metavar="OBS_PATH", help=(
-    "Path to the folder containing the actual observations. These "
-    "existing observations will be used only in determining the "
-    "synthetic obs locations and errors."))
 parser.add_argument("startdate", metavar="START", help=(
     "Start date in YYYYMMDDHH format"))
 parser.add_argument("enddate", metavar="END", help=(
@@ -60,37 +38,17 @@ parser.add_argument("output", metavar="OUTPUT_PATH", help=(
 parser.add_argument("--force", "-f", action="store_true", help=(
     "Forces the removing of the destination directory and temp "
     "directory if they already exist"))
-parser.add_argument("--platforms","-p", help=(
-    "a comma separated  list of observations platform "
-    "IDs to use. OR a list of negative number for observation platforms"
-    " to NOT use. See the wiki for further documentation. "
-    'E.g., -p " -4,-5,-6" is appropriate for perfect model experiments (notice the space after the first quotation mark) '))
-parser.add_argument("--raob_ps", action="store_true", help=(
-    "generates surface pressures obs (ADPSFC) for each raobs location"))
-parser.add_argument("--noerr", action="store_true")
-
 
 args = parser.parse_args()
 args.is3d = True #TODO: allow this to be configured
 args.startdate = dt.datetime.strptime(args.startdate, "%Y%m%d%H")
-args.enddate = dt.datetime.strptime(args.enddate, "%Y%m%d%H")
-if args.platforms is not None:
-    plats = [int(x) for x in args.platforms.split(',')]
-    plat_rem = filter(lambda x: x < 0, plats)
-    plat_inc = filter(lambda x: x > 0, plats)
-    if len(plat_rem) > 0 and len(plat_inc) > 0:
-        print "ERROR, --platform ids should be all positive (only use the platforms listed)"+\
-            " or all negative (use all platforms except those listed"
-        sys.exit(1)
-    args.plat_exclude = len(plat_rem) > 0
-    args.platforms = [abs(a) for a in plats]
-        
+args.enddate = dt.datetime.strptime(args.enddate, "%Y%m%d%H")      
         
             
 ## generate a temporary directory that has a random hash at the end,
 ## so that the user can run more than one copy of this script at a time
 ## for different experiments
-args.tmpdir = os.getenv("TMP_DIR_LOCAL")+'/genobs_atm_'+hashlib.md5(args.output).hexdigest()[:6]
+args.tmpdir = os.getenv("TMP_DIR_LOCAL")+'/genobs_airs_'+hashlib.md5(args.output).hexdigest()[:6]
 print "parameters: "+str(args)
 cdate = args.startdate
 
@@ -193,82 +151,39 @@ def nearestDim(coord, dims, *dimV):
 ################################################################################
 ## create the observations
 ################################################################################
-
+basedate = dt.datetime(1993,1,1)
+airs_lvls = (1000, 925, 850, 700, 600, 500, 400, 300, 250, 200, 150, 100, 70, 50)
+q_err={
+    1000:4,
+    925:4,
+    850:3,
+    700:2,
+    600:1,
+    500:0.5,
+    400:0.2,
+    300:0.1}
 count = 0
 ## for each 6 hour date in the list given
 while cdate <= args.enddate:  
     print ""
     print "Processing " + cdate.strftime("%Y%m%d%H")
     
-    badObs = {}  ## a list of unknown observation ids read in
-                 ## and the number of those observations seen
+#    badObs = {}  ## a list of unknown observation ids read in
+#                 ## and the number of those observations seen
     platforms={} ## a list of the platform types seen
-                 ## and the nubmer of those observations seen
+                ## and the nubmer of those observations seen
     goodObs = dict( [ (x,0) for x in obsidmap ] )
-                 ## a list of the observation types that were
-                 ## used and the number of those generated
-    usedLoc = set([]) ## a hash of x/y/z/obid values so that
-                      ## we only generate 1 ob per grid point
+                ## a list of the observation types that were
+                ## used and the number of those generated
+    usedLoc = set([]) ## a hash of x/y values so that
+                     ## we only generate 1 ob per grid point
 
-    ## obs, obs_xy, and obs_z will be generated below, all arrays
-    ##  are the same length and corresponding elements go together
-    ##  between the 3.
-   
-    ## read in the observation locations
-    print "  reading obs file..."
-    obs = []
+    ## determine what the day in track cycle this is
+    trackFile = 'genobs_airs.dat/{:03d}_{:02d}.npy'.format(((cdate-basedate).days % 16)+1, cdate.hour)
+    print "  using ",trackFile
+    tracks = np.load(trackFile)
 
-    ## this will read in all timeslots for the 6 hour observation window
-    if args.is3d:
-        timeslots = ["-3","-2","-1","","+1","+2","+3"]
-#        timeslots = ["",]
-    else:
-        print 'oops, havent implemented multiple timeslots finer than 6 hours'
-        sys.exit(1)        
-    for f in timeslots:
-        obsfile = os.path.abspath(
-            args.obs+cdate.strftime("/%Y/%Y%m/%Y%m%d/%Y%m%d%H/t")+f+".dat")
-        obs += obsio.read(obsfile)
-    print "  {} observations loaded.".format(len(obs))
-
-
-    ## remove unwanted platforms if the user explicitly defined
-    ## the list of platforms to use
-    if args.platforms:
-        if args.plat_exclude:
-            print '  removing unwanted platforms that were listed...'            
-            obs = filter(lambda x: x[6] not in args.platforms, obs)
-        else:
-            print '  keeping only the platforms listed...'
-            obs = filter(lambda x: x[6] in args.platforms, obs)
-
-    ## generate surface pressure obs at the raobs locations if requested
-    if args.raob_ps:
-        raobLoc = set([])
-        obs_ps = []
-        for o in filter(lambda x: x[6] == 1, obs):
-            # make sure this location hasn't been handled already
-            hkey = (o[1], o[2])
-            if hkey in raobLoc:
-                continue
-            raobLoc.add(hkey)
-            
-
-            # generate a ps location
-            obs_ps.append( (1100.0, o[1], o[2], 0, 0, 1, 8) )
-        print '  generating {} extra ps locations based on raob locations...'.format(len(obs_ps))
-        obs += obs_ps
-
-
-    ## generate an x/y grid coordinate for each observation
-    print "  calculating grid x/y coords..."
-    obs_xy = []
-    for o in obs:
-        x = nearestDim(o[1], grdctl.x, 'x')
-        y = nearestDim(o[2], grdctl.y, 'y')
-        obs_xy.append((x,y))    
-        
-        
+       
     ## convert the nature run data into gridded format
     ## and then load it
     print "  Processing nature run..."
@@ -282,86 +197,72 @@ while cdate <= args.enddate:
     print "  Loading nature run..."
     nat = grdio.readGrd(grdctl, args.tmpdir+'/fort.31')
 
-       
-    ## for each observation, determine the z level
-    obs_z = []
-    for i in range(len(obs)):
-        if obs[i][0] == 1100:
-            z = 0   ## PS always is at the surface... duh
-        elif obs[i][6] in (8,9,11, 15, 16, 19, 20):
-            ## ADPSFC, SFCSHP, and WDSATR are at the surface
-            z = 0
-        else:
-            x, y = obs_xy[i]
-            xy_ps = nat['ps'][0,y,x]/100
-            z = nearestDim(obs[i][3], nat['p'][:,y,x]/100)
-        obs_z.append(z)
-
     
-    ## generate values for each observation
+     ## generate values for each observation
     synth_obs = []
     print '  generating obs values...'
-    for i in range(len(obs)):
-        o = obs[i]
-
-        ## make sure this is an observation ID we recognize
-        if o[0] not in obsidmap:
-            if o[0] not in badObs:
-                badObs[o[0]] = 0
-                badObs[o[0]] += 1
-                continue
-       
-        ## get the x/y/z coords
-        x, y = obs_xy[i]
-        z = obs_z[i]
-        
-        ## obs thinning, make sure only 1 observation of any given type
-        ##  is generated at a given x/y/z
-        hkey = (o[0], x, y, z, o[6]) # (var, x, y, z, plat)
+    for pt in tracks:
+        ## get x/y point
+        x = nearestDim(pt[1], grdctl.x, 'x')
+        y = nearestDim(pt[0], grdctl.y, 'y')
+        hkey = (x,y)
         if hkey in usedLoc:
             continue
         usedLoc.add(hkey)
 
+        ##for each z point
+        usedZLoc = set([])         
+        for lvl in airs_lvls:
+            z = nearestDim(lvl, nat['p'][:,y,x]/100)            
+            hkey = (z,)
+            if hkey in usedZLoc:
+                continue
+            usedZLoc.add(hkey)
 
-        ## generate a value
-        err = o[5]
-        val = nat[obsidmap[o[0]]][z,y,x]
-        if o[0] == 1100: 
-            val /= 100  ## convert pressure from Pa to hPa            
-        elif o[6] in (8,9,11,13,15,16,19,20):
-            print ('need to generate obs for surface report from special vars, not yet'
-                   ' implemented')
-            sys.exit(1)
-        if args.noerr:
-            err_add = 0
-        else:
+            ## generate values
+            err = 1
+            val = nat['t'][z,y,x]            
             err_add = 1e10
             while abs(err_add) > err*3: # dont have really big errors...
                 err_add = np.random.normal(0,err)
-        val += err_add ## add gaussian noise
-        
-        if o[0] == 1100:
-            ## PS obs give height as the actual terrain height
-            hgt = nat['orog'][0,y,x]
-        else:
-            ## other obs give height as pressure in mb
+            val += err_add ## add gaussian noise
             hgt = nat['p'][z,y,x]/100
-            
-        newob = (o[0], grdctl.x[x], grdctl.y[y], hgt, val, err, o[6])
+            newob = (1210, grdctl.x[x], grdctl.y[y], hgt, val, err, 14)
 
-        
-        ## add the observation
-        goodObs[newob[0]] += 1
-        if not newob[6] in platforms:
-            platforms[newob[6]] = 1
-        else:
-            platforms[newob[6]] = platforms[newob[6]] + 1           
-        synth_obs.append(newob)
+            ## add the observation
+            goodObs[newob[0]] += 1
+            if not newob[6] in platforms:
+                platforms[newob[6]] = 1
+            else:
+                platforms[newob[6]] = platforms[newob[6]] + 1           
+            synth_obs.append(newob)
+            
+
+            ## generate values
+            if lvl >=  300:
+                val = nat['q'][z,y,x]
+                if val <= 0:
+                    continue
+                err = val/10.0
+                err_add = 1e10
+                while abs(err_add) > err*3: # dont have really big errors...
+                    err_add = np.random.normal(0,err)
+                val += err_add ## add gaussian noise
+                if val <= 0:
+                    continue
+                newob = (1220, grdctl.x[x], grdctl.y[y], hgt, val, err, 14)
+            
+                ## add the observation
+                goodObs[newob[0]] += 1
+                if not newob[6] in platforms:
+                    platforms[newob[6]] = 1
+                else:
+                    platforms[newob[6]] = platforms[newob[6]] + 1           
+                synth_obs.append(newob)
+
 
         
     ## diagnostic summary info
-    for o in badObs:
-        print "  [Error] Unkown obsid ({}) found {} times".format(o, badObs[o])
     print "  ====== Observations variables ========"
     total = 0    
     for o in goodObs:

@@ -5,7 +5,7 @@ sys.path.insert(1,os.getenv('CFS_LETKF_ROOT')+"/common/python")
 import obsio
 from glob import glob
 import scipy.spatial
-
+import math
 
 
 parser = argparse.ArgumentParser(description=(
@@ -51,8 +51,8 @@ def hzthin(obs):
     idx = set([])
     for o in obs:
         idxbin = ( o[0],
-                   round(o[1] / hzbin),
-                   round(o[2] / hzbin),
+                   round(o[1]*math.cos(o[2]*3.14159/180.0) / hzbin),
+                   round(o[2]+90 / hzbin),
                    round(o[3] / vtbin))
         if idxbin not in idx:
             idx.add(idxbin)

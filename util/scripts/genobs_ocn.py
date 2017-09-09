@@ -42,6 +42,8 @@ print "Parameters: "+str(args)
 
 ## 
 cdate = args.startdate
+cdate = cdate.replace(hour=12)
+
 
 
 ## Read in the grid definition file, and save lat/lon pairs in a KD tree
@@ -75,7 +77,7 @@ while cdate <= args.enddate:
 #    if ll_hr is None or ll_hr_date != cdate.strftime("%Y%m%d"):
 #        ll_hr_date = cdate.strftime("%Y%m%d")
     obsfile = os.path.abspath(args.obs+cdate.strftime(
-           "/%Y/%Y%m/%Y%m%d/%Y%m%d%H.dat"))
+           "/%Y/%Y%m/%Y%m%d/%Y%m%d.dat"))
     print "  reading obsfile: "+obsfile
     obs = obsio.read(obsfile)
     ##   find the list of unique lat/lons
@@ -120,6 +122,6 @@ while cdate <= args.enddate:
 
     ## write out the observations
     print "  writing {} synthetic obs".format(len(obs2))
-    filename = args.output+cdate.strftime("/%Y/%Y%m/%Y%m%d/%Y%m%d%H.dat")
+    filename = args.output+cdate.strftime("/%Y/%Y%m/%Y%m%d/%Y%m%d.dat")
     obsio.write(obs2,filename)
-    cdate += dt.timedelta(hours=6)
+    cdate += dt.timedelta(hours=24)

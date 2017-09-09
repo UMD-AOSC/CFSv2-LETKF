@@ -24,6 +24,7 @@ real(r_size) :: sigma_ocn_v
 
 real(r_size) :: sigma_atm_h(2)
 real(r_size) :: sigma_atm_v
+logical :: atm_mld = .false.
 real(r_size) :: atm_loc
 
 
@@ -98,7 +99,8 @@ contains
          do_drifters, do_altimetry, &
          infl_rtps, infl_mult, &
          ocn_obs, &
-         atm_obs, atm_obs_plat, atm_loc, atm_obs_type
+         atm_obs, atm_obs_plat, atm_loc, atm_obs_type, &
+         atm_mld
     
     open(99, file="input.nml", status="old")
 

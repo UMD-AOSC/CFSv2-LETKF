@@ -100,7 +100,8 @@ SUBROUTINE das_letkf(gues3d,gues2d,anal3d,anal2d)
   INTEGER :: mindep_nn
   !STEVE: for DO_NO_VERT_LOC
   INTEGER :: klev
-
+  real(r_size) :: t0, mld
+  
   real(r_size), allocatable :: sprdg3d(:,:,:)
   real(r_size), allocatable :: sprdg2d(:,:)
   real(r_size), allocatable :: sprda3d(:,:,:)
@@ -214,7 +215,21 @@ SUBROUTINE das_letkf(gues3d,gues2d,anal3d,anal2d)
         CYCLE
       endif
 
-     
+
+      !! determine the mld
+      if (atm_mld .and. ilev == 1) then
+         t0 = mean3d(ij, 2, iv3d_t)
+         do n=3,nlev-1
+            if (abs(t0-mean3d(ij, n, iv3d_t)) > 0.2) then
+               mld = n-1
+               exit
+            end if
+         end do
+      elseif (.not. atm_mld) then
+         mld = 100         
+      end if
+      
+      
       !-------------------------------------------------------------------------
       ! Loop through all prognostic variables (e.g. temp, salt, u, v, etc.)
       !-------------------------------------------------------------------------
@@ -223,7 +238,7 @@ SUBROUTINE das_letkf(gues3d,gues2d,anal3d,anal2d)
           trans(:,:,n) = trans(:,:,var_local_n2n(n))
           work3d(ij,ilev,n) = work3d(ij,ilev,var_local_n2n(n))
        else
-          CALL obs_local(ij,ilev,var_local(n,:),hdxf,rdiag,rloc,dep,nobsl,nobstotal)
+          CALL obs_local(ij,ilev,var_local(n,:),hdxf,rdiag,rloc,dep,nobsl,nobstotal, ilev <= mld)
           parm = work3d(ij,ilev,n)
 
           debug_local_obs : if ( debug_zeroinc .and. nobsl > 0 ) then !NINT(i1(ij)) .eq. 456 .and. NINT(j1(ij)) .eq. 319 .and. ilev .eq. 5) then
@@ -383,7 +398,7 @@ SUBROUTINE das_letkf(gues3d,gues2d,anal3d,anal2d)
             trans(:,:,nv3d+n) = trans(:,:,var_local_n2n(nv3d+n))
             work2d(ij,n) = work2d(ij,var_local_n2n(nv3d+n)-nv3d)
           else
-            CALL obs_local(ij,ilev,var_local(n,:),hdxf,rdiag,rloc,dep,nobsl,nobstotal)
+            CALL obs_local(ij,ilev,var_local(n,:),hdxf,rdiag,rloc,dep,nobsl,nobstotal, .true.)
             parm = work2d(ij,n)
             !STEVE: check rdiag for > 0
             if (MINVAL(rdiag(1:nobsl)) .le. 0) then
@@ -618,7 +633,7 @@ SUBROUTINE adapt_obserr(hdxa,oer3d,oer2d)
         !this twice, and I would rather do this processing in letkf_tools)
         
         if (cnt_obs(n) < 1) CYCLE 
-        CALL obs_local(ij,ilev,var_local_oer(n,:),hdxb,rdiag_b,rloc_b,dep_b,nobsl_b,nobs)
+        CALL obs_local(ij,ilev,var_local_oer(n,:),hdxb,rdiag_b,rloc_b,dep_b,nobsl_b,nobs,.false.)
         if (nobsl_b < 1) CYCLE
           
         do nn = 1 ,nobsl_b
@@ -645,7 +660,7 @@ SUBROUTINE adapt_obserr(hdxa,oer3d,oer2d)
       if (ilev == 1) then !update 2d variable at ilev=1
         do n=1,nv2d
           if (cnt_obs(nv3d+n) < 1) CYCLE 
-          CALL obs_local(ij,ilev,var_local_oer(nv3d+n,:),hdxb,rdiag_b,rloc_b,dep_b,nobsl_b,nobs)
+          CALL obs_local(ij,ilev,var_local_oer(nv3d+n,:),hdxb,rdiag_b,rloc_b,dep_b,nobsl_b,nobs, .false.)
           if (nobsl_b < 1) CYCLE
 
           do nn = 1 ,nobsl_b
