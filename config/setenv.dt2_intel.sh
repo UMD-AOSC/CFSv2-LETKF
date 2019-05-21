@@ -43,11 +43,11 @@ export CFS_LETKF_ROOT="$( cd -P "$( dirname "$SOURCE" )/.." && pwd )"
 ##  computational node
 ## TMP_DIR_SHARED must be accessible from multiple nodes
 export TMP_DIR_LOCAL=/dev/shm/$USER
-export TMP_DIR_SHARED=/lustre/tsluka/tmp/cfs/
+export TMP_DIR_SHARED=/lustre/$USER/tmp/cfs/
 
 ## Fix files for the CFSv2, this must be optained elsewhere
-export FIX_DIR_AM=/lustre/tsluka/CFSv2-LETKF/support/fix/fix_am
-export FIX_DIR_OM=/lustre/tsluka/CFSv2-LETKF/support/fix/fix_om
+export FIX_DIR_AM=/lustre/tsluka/CFSv2-LETKF.data/fix/fix_am
+export FIX_DIR_OM=/lustre/tsluka/CFSv2-LETKF.data/fix/fix_om
 
 ##default location for data that is used in some of the scripts
 export CFSR_DIR=$CFS_LETKF_ROOT/DATA/CFSR
