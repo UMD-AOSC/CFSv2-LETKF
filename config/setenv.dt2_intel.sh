@@ -70,7 +70,8 @@ export NPROC_AM=20
 export NPROC_LETKF_A=60
 export NPROC_LETKF_O=120
 
-
+# the slurm run scripts depend on some python modules (common and slurm)
+export PYTHONPATH=$CFS_LETKF_ROOT/run:$PYTHONPATH
 
 ## Append the path, sometimes it's usefule to have the
 ##  global_sighdr and such tools added to the path

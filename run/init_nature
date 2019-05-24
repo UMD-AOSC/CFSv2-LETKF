@@ -68,3 +68,8 @@ for f in files:
                 outPath+'/{}.{}.res.nc'.format(args.date, f))
 for f in glob(outPath+'/ocnanl*'):
     shutil.rmtree(f)
+
+## copy the required configuration files
+os.makedirs(args.path+'/cfg')
+sp.check_call("cp $CFS_LETKF_ROOT/run/config_files/nemo.nml cfg/nemo.nml",
+              shell=True, cwd=args.path)
