@@ -49,7 +49,7 @@ cdate = cdate.replace(hour=12)
 ## Read in the grid definition file, and save lat/lon pairs in a KD tree
 ## for easy index lookup,
 print "Reading grid definition and proccessing lat/lons..."
-ncdat = nc.Dataset('../../support/fix/fix_om/grid_spec_05.nc.T62')
+ncdat = nc.Dataset(os.environ['FIX_DIR_OM']+'/grid_spec_05.nc.T62')
 lons = ncdat.variables["x_T"][:]
 lats = ncdat.variables["y_T"][:]
 depths = ncdat.variables["zt"][:].tolist()

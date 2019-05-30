@@ -70,7 +70,7 @@ def getOcnXY(lon, lat):
     
 
 def getAtmLevels():
-    lvlFile = _root+"/support/fix/fix_am/global_hyblev.l64.txt"
+    lvlFile = os.environ['FIX_DIR_AM'] + "/global_hyblev.l64.txt"
     if getAtmLevels.lvls == None:
         f = open(lvlFile,'r')
         d = f.read().splitlines()[1:]

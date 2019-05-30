@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e
 #===============================================================================
 #
 #  Download NCEP conventional observation data from UCAR/DSS
