@@ -56,6 +56,9 @@ args.path = os.path.abspath(args.path)
 if args.nature is None:
     args.initGFS = os.getenv("CFSR_DIR")+"/T{0}".format(args.ares)
     args.initMOM = os.getenv("CFSR_DIR")+"/ocn_05"
+else:
+    args.initGFS = args.nature
+    args.initMOM = args.nature
 args.rootDir = os.getenv("CFS_LETKF_ROOT")
 args.ssioDir = args.rootDir+'/util/bin'
 args.tmpDir  = os.getenv("TMP_DIR_LOCAL")+"/init_" + hashlib.md5(args.path).hexdigest()[0:6]
@@ -110,7 +113,7 @@ sp.check_call("cp $CFS_LETKF_ROOT/run/config_files/config.py .",
 
 
 ## get the list of files that are of the same hour to randomly pull ensemble members from
-adates = glob(args.initGFS+'/*/*/*/*{}.sig'.format(args.date[-2:]))
+adates = glob(args.initGFS+'/*/*/*/*/*{}.sig'.format(args.date[-2:]))
 adates = [a.split('/')[-1].split('.')[0] for a in adates]
 adates = [dt.datetime.strptime(a,"%Y%m%d%H") for a in adates]
 shuffle(adates)
@@ -129,8 +132,11 @@ for m in range(1,args.mem+1):
         srcAtm = args.initGFS + \
              cdate.strftime("/%Y/%Y%m/%Y%m%d/%Y%m%d%H")
     else:
-        print "oops, pulling from nature run is not yet implemented"
-        sys.exit(1)
+        srcOcn = args.initMOM + \
+             cdate.strftime("/%Y/%Y%m/%Y%m%d/%Y%m%d%H/%Y%m%d%H")
+        srcAtm = args.initGFS + \
+             cdate.strftime("/%Y/%Y%m/%Y%m%d/%Y%m%d%H/%Y%m%d%H")
+        
 
 
     ## Atmosphere files
