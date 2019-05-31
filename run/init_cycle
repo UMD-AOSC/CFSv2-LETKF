@@ -102,14 +102,16 @@ for d in ('anal','gues'):
     [os.makedirs(args.path+'/{0}/{1}'.format(d,d2)) for d2 in ('mean','sprd')]
 
 ## copy an initial letkf namelist
+os.makedirs(args.path+'/cfg')
 env = os.environ
 env['nbv'] = str(args.mem)
 sp.check_call("source $CFS_LETKF_ROOT/run/config_files/letkf.nml > letkf.nml",
-               shell=True, cwd=args.path)
+               shell=True, cwd=args.path+'/cfg')
 
 ## copy the global settings
-sp.check_call("cp $CFS_LETKF_ROOT/run/config_files/config.py .",
-              shell=True,cwd=args.path)
+for f in ('nemo.nml','exp.config'):
+    sp.check_call("cp $CFS_LETKF_ROOT/run/config_files/{} .".format(f),
+                  shell=True, cwd=args.path+'/cfg')
 
 
 ## get the list of files that are of the same hour to randomly pull ensemble members from

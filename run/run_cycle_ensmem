@@ -27,6 +27,7 @@ do_atmobsop = True
 do_ocnobsop = True
 do_cleanup  = True
 
+rootDir = os.getenv("CFS_LETKF_ROOT")
 
 ############################################################
 ## get the command line / env arguments
@@ -115,7 +116,7 @@ if os.path.exists(args.wrkdir):
 ## run the CFS forecast
 if do_cfs:
    log.info("Running the CFS forecast...")
-   cmd = 'run_fcst {0}/anal/{1:03d} {0}/gues/{1:03d} {2} --wrkdir {3} --ares {4} --ores {5} --nemonml {6}'.format(
+   cmd = rootDir+'/run/run_fcst {0}/anal/{1:03d} {0}/gues/{1:03d} {2} --wrkdir {3} --ares {4} --ores {5} --nemonml {6}'.format(
       args.path, args.ensNum, dateShort, args.wrkdir, args.ares, args.ores, args.path+'/cfg/nemo.nml')
    if args.is3d: cmd += " --len 6 --period 6"
    if args.oisst: cmd += " --oisst"

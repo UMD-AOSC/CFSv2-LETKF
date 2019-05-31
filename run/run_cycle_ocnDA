@@ -216,7 +216,7 @@ if ( (ndate.hour == 0 and args.obsavg) or (ndate.hour == 12 and not args.obsavg)
     
 
 ## adaptive inflation
-log.error("Adaptive inflation file is not being copied")
+log.warn("Adaptive inflation file is not being copied")
 
 
 

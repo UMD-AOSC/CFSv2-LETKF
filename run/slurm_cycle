@@ -16,6 +16,8 @@ import datetime as dt
 import common
 import slurm
 
+rootDir = os.getenv("CFS_LETKF_ROOT")
+
 ## setup the logging system
 log = common.setupLog()
 
@@ -121,7 +123,7 @@ sdateShort = args.start.strftime("%Y%m%d%H")
 ## print some basic information
 common.addFileLog(log,args.path+'/logs/controller_'+sdateShort+'.log')
 log.info("CFSv2-LETKF DA cycle script.")
-log.info("Travis Sluka, University of Maryland, 2016")
+log.info("Travis Sluka, University of Maryland, 2016-2019")
 log.info("")
 log.info("Configuration:\n"+str(args)+"\n")
 
@@ -158,7 +160,7 @@ while cdate < args.end:
     jobs = []
     for m in range(1, args.mem+1):
         mem = '{0:03d}'.format(m)
-        cmd = "run_cycle_ensmem {} {} {} --ares {} --ores {}".format(
+        cmd = rootDir+"/run/run_cycle_ensmem {} {} {} --ares {} --ores {}".format(
             args.path, cdateShort, mem, args.ares, args.ores)
         if args.is3d: cmd += " --3d"
         if args.oobs is not None: cmd += " --oobs \""+args.oobs+"\""
@@ -184,7 +186,7 @@ while cdate < args.end:
 
     ##  Atmospheric DA
     jobs = []
-    cmd = "run_cycle_atmDA {} {} --ares {} --mem {}".format(
+    cmd = rootDir+"/run/run_cycle_atmDA {} {} --ares {} --mem {}".format(
         args.path, cdateShort, args.ares, args.mem)
     if args.strong:  cmd += " --oobs"
     if args.oobs and args.strong: cmd += " --oobs "
@@ -199,7 +201,7 @@ while cdate < args.end:
     ))
 
     ## ocean DA
-    cmd = "run_cycle_ocnDA {} {} --ores {} --oobs --mem {}".format(
+    cmd = rootDir+"/run/run_cycle_ocnDA {} {} --ores {} --oobs --mem {}".format(
         args.path, cdateShort, args.ores, args.mem)
     if args.strong:
         # if doing strong coupling, determine which atm obs output files to look at

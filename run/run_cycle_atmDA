@@ -98,7 +98,7 @@ with open(args.wrkdir+'/ssio.nml', 'w') as f:
         
 
 ## adaptive inflation
-log.error("Adaptive inflation file not being copied")
+log.warn("Adaptive inflation file not being copied")
 
 ############################################################
 ## LETKF
