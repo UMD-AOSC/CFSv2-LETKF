@@ -72,7 +72,7 @@ SUBROUTINE set_common_gfs
   open(40, file='ssio.nml')
   read(40, nml=common_gfs)
 
-  write (6, common_gfs)
+!  write (6, common_gfs)
 
   !! allocate stuff
   nij0=nlon*nlat
