@@ -83,7 +83,8 @@ cat << EOF
   !! ------------------------------
   gross_error = 30.0d0
   DO_DRIFTERS = F,
-  DO_ALTIMETRY = F,
+  DO_ALTIMETRY_SLA = F,
+  DO_ALTIMETRY_ADT = T,
 /
 
 

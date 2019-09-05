@@ -120,6 +120,11 @@ SUBROUTINE set_letkf_obs
   INTEGER :: gross_cnt,gross_2x_cnt
   !STEVE: for DO_ALTIMETRY
   REAL(r_size) :: SSH_CLM_m 
+  !CDA: for SSH ADT bias correction
+  LOGICAL :: DO_ALTIMETRY_ADT_BC = .true.
+  REAL(r_size) :: LATMAX_ALTIMETRY_ADT_BC = 60.d0
+  REAL(r_size) :: minc_adt
+  INTEGER :: ninc_adt
 
   WRITE(6,'(A)') 'Hello from set_letkf_obs'
 
@@ -285,6 +290,42 @@ SUBROUTINE set_letkf_obs
   
   WRITE(6,*) "Processing tmphdxf for n=1 to n=nobs=",nobs 
   WRITE(6,*) "and filtering bad observations..."
+
+  !CDA: remove the ADT constant bias here
+  if (DO_ALTIMETRY_ADT_BC) then
+     WRITE(6,*) "ADT BC: Apply ADT constant bias correction."
+     ninc_adt = 0
+     minc_adt = 0.d0
+     do n=1,nobs
+        if (NINT(tmpelm(n)) /= obsid_ocn_ssh) CYCLE
+        if (ABS(tmplat(n)) > LATMAX_ALTIMETRY_ADT_BC) CYCLE
+        tmpqc(n) = MINVAL(tmpqc0(n,:))
+        if (tmpqc(n) /= 1) CYCLE
+
+        tmpdep(n) = tmphdxf(n,1) ! temp use of tmpdep for Hx calc.
+        do i=2,nbv
+           tmpdep(n) = tmpdep(n) + tmphdxf(n,i)
+        enddo
+        tmpdep(n) = tmpdep(n) / REAL(nbv,r_size) ! Hx
+        minc_adt = minc_adt + tmpdat(n) - tmpdep(n) ! y-Hx
+        ninc_adt = ninc_adt + 1
+     enddo
+     if (ninc_adt/=0) minc_adt = minc_adt/ninc_adt
+     WRITE(6,*) "ADT BC: lat limit for BC calc.=", LATMAX_ALTIMETRY_ADT_BC
+     WRITE(6,*) "ADT BC: constant bias         =", minc_adt
+     WRITE(6,*) "ADT BC: # of obs for BC calc. =", ninc_adt
+     WRITE(6,*) "ADT BC: remove this bias from yo"
+     !remove constant bias
+     do n=1,nobs
+        if (NINT(tmpelm(n)) /= obsid_ocn_ssh) CYCLE
+        if (ABS(tmplat(n)) > LATMAX_ALTIMETRY_ADT_BC) CYCLE
+        tmpqc(n) = MINVAL(tmpqc0(n,:))
+        if (tmpqc(n) /= 1) CYCLE
+
+        tmpdat(n) = tmpdat(n) - minc_adt
+     enddo
+  endif
+ 
 
 if (.true.) then
   !STEVE: this is the original version

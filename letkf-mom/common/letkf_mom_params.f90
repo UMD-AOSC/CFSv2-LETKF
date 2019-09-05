@@ -75,8 +75,10 @@ REAL(r_size) :: sp_infl_add = 0.d0 !additive inflation
 !-------------------------------------------------------------------------------
 ! For (DRIFTERS)
 LOGICAL :: DO_DRIFTERS=.false.
-! For (ALTIMETRY)
-LOGICAL :: DO_ALTIMETRY=.false.
+! For (ALTIMETRY sea level anomaly obs)
+LOGICAL :: DO_ALTIMETRY_SLA=.false.
+! For (ALTIMETRY absolute dynamic topography (ADT) obs)
+LOGICAL :: DO_ALTIMETRY_ADT=.true.
 ! For (TRIPLOAR)
 LOGICAL :: DO_TRIPOLAR=.true.
 ! For (IRREG_GRID) for non-orthogonal/non-rectilinear grids (not fully supported)
@@ -96,7 +98,7 @@ contains
          sigma_ocn_h, sigma_ocn_v, &
          sigma_atm_h, sigma_atm_v, &        
          gross_error, &
-         do_drifters, do_altimetry, &
+         do_drifters, do_altimetry_adt, do_altimetry_sla, &
          infl_rtps, infl_mult, &
          ocn_obs, &
          atm_obs, atm_obs_plat, atm_loc, atm_obs_type, &

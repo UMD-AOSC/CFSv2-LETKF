@@ -34,7 +34,7 @@ MODULE common_mom4
   USE common
   USE params_model
   USE vars_model
-  USE letkf_mom_params, ONLY: DO_ALTIMETRY, DO_DRIFTERS
+  USE letkf_mom_params, ONLY: DO_ALTIMETRY_ADT, DO_ALTIMETRY_SLA, DO_DRIFTERS
 
   IMPLICIT NONE
 
@@ -86,6 +86,15 @@ SUBROUTINE set_common_mom4
 
   WRITE(6,'(A)') 'Hello from set_common_mom4'
   !
+  ! Parameter consistency check
+  !
+  if (DO_ALTIMETRY_SLA.and.DO_ALTIMETRY_ADT) then
+     WRITE(6,*) "DO_ALTIMETRY_SLA & DO_ALTIMETRY_ADT cannot be set .TRUE. simulteneously"
+     STOP(11)
+  endif
+  WRITE(6,*) "MOM_VERSION=", MOM_VERSION
+
+  !
   ! Elements
   !
   element(iv3d_u) = 'U   '
@@ -95,7 +104,7 @@ SUBROUTINE set_common_mom4
   element(nv3d+iv2d_ssh) = 'SSH '      !(OCEAN)
   element(nv3d+iv2d_sst) = 'SST '      !(OCEAN)
   element(nv3d+iv2d_sss) = 'SSS '      !(OCEAN)
-  if (DO_ALTIMETRY) then
+  if (DO_ALTIMETRY_SLA.or.DO_ALTIMETRY_ADT) then
     element(nv3d+iv2d_eta) = 'eta '      !(OCEAN)
   endif
   if (DO_DRIFTERS) then
@@ -103,7 +112,7 @@ SUBROUTINE set_common_mom4
     element(nv3d+nv2d+iv4d_y) = 'Y   '             !(OCEAN) (DRIFTERS)
     element(nv3d+nv2d+iv4d_z) = 'Z   '             !(OCEAN) (DRIFTERS)
   endif
-  if (DO_ALTIMETRY) then
+  if (DO_ALTIMETRY_SLA) then
     INQUIRE(FILE=trim(SSHclm_file),EXIST=ex)
     if (ex) then
       ! Read in the model climatology
@@ -321,7 +330,11 @@ SUBROUTINE read_diag(infile,v3d,v2d)
   tsfile = trim(infile)//'.ocean_temp_salt.res.nc'
   uvfile = trim(infile)//'.ocean_velocity.res.nc'
   sffile = trim(infile)//'.ocean_sbc.res.nc'
-  bfile  = trim(infile)//'.ocean_barotropic.res.nc'
+  if (MOM_VERSION==4) THEN
+      bfile  = trim(infile)//'.ocean_freesurf.res.nc'
+  elseif (MOM_VERSION==5) THEN
+      bfile  = trim(infile)//'.ocean_barotropic.res.nc'
+  endif
 
 ! ALLOCATE(v3d(nlon,nlat,nlev,nv3d),v2d(nlon,nlat,nv2d))
 
@@ -528,7 +541,7 @@ SUBROUTINE read_diag(infile,v3d,v2d)
   ! Open the ALTIMETRY netcdf restart file (eta)
   ! (These are the modeled sfc height perturbations used by GODAS)
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  altimetry : if(DO_ALTIMETRY) then
+  altimetry : if(DO_ALTIMETRY_SLA.or.DO_ALTIMETRY_ADT) then
     !STEVE: use the sea level perturbation from ocean_barotropic.res.nc
     call check( NF90_OPEN(bfile,NF90_NOWRITE,ncid) )
     WRITE(6,*) "read_diag:: just opened file ", bfile
@@ -547,8 +560,14 @@ SUBROUTINE read_diag(infile,v3d,v2d)
     enddo
     if (dodebug) WRITE(6,*) "read_diag:: finished processing data for variable SSH"
 
-    ! Convert SSH eta stored in v2d to climatological Sea Level Anomaly (SLA) by subtracting pre-computed model climatology
-    v2d(:,:,iv2d_eta) = v2d(:,:,iv2d_eta) - SSHclm_m(:,:)
+    if (DO_ALTIMETRY_SLA) then
+       ! Convert SSH eta stored in v2d to climatological Sea Level Anomaly (SLA) by subtracting pre-computed model climatology
+       WRITE(6,*) "read_diag:: [SLA] remove eta_t_mean from eta_t"
+       v2d(:,:,iv2d_eta) = v2d(:,:,iv2d_eta) - SSHclm_m(:,:)
+    elseif (DO_ALTIMETRY_ADT) then
+       WRITE(6,*) "read_diag:: [ADT] use eta_t directly"
+       v2d(:,:,iv2d_eta) = v2d(:,:,iv2d_eta)
+    endif
 
     ! !STEVE: debug
     if (dodebug) then
@@ -561,7 +580,7 @@ SUBROUTINE read_diag(infile,v3d,v2d)
 
     call check( NF90_CLOSE(ncid) )
   else
-    WRITE(6,*) "read_diag:: DO_ALTIMETRY is set to false. Skipping SFC eta from: ", bfile
+    WRITE(6,*) "read_diag:: DO_ALTIMETRY_SLA & DO_ALTIMETRY_ADT both set to false. Skipping SFC eta from: ", bfile
   endif altimetry
 
   ! For additional variables:
@@ -628,7 +647,11 @@ SUBROUTINE read_restart(infile,v3d,v2d,prec_in)
   tsfile = trim(infile)//'.ocean_temp_salt.res.nc'
   uvfile = trim(infile)//'.ocean_velocity.res.nc'
   sffile = trim(infile)//'.ocean_sbc.res.nc'
-  bfile  = trim(infile)//'.ocean_barotropic.res.nc'
+  if (MOM_VERSION==4) then
+     bfile  = trim(infile)//'.ocean_freesurf.res.nc'
+  elseif(MOM_VERSION==5) then
+     bfile  = trim(infile)//'.ocean_barotropic.res.nc'
+  endif
 
 ! ALLOCATE(v3d(nlon,nlat,nlev,nv3d),v2d(nlon,nlat,nv2d))
 
@@ -855,7 +878,7 @@ SUBROUTINE read_restart(infile,v3d,v2d,prec_in)
 
   call check( NF90_CLOSE(ncid) )
 
-  altimetry : if(DO_ALTIMETRY) then
+  altimetry : if(DO_ALTIMETRY_SLA.or.DO_ALTIMETRY_ADT) then
     !STEVE: use the sea level perturbation from ocean_barotropic.res.nc
     call check( NF90_OPEN(bfile,NF90_NOWRITE,ncid) )
     if (doverbose) WRITE(6,*) "read_grd4:: just opened file ", bfile
@@ -871,11 +894,23 @@ SUBROUTINE read_restart(infile,v3d,v2d,prec_in)
       case(1)
         buf4=0.0
         call check( NF90_GET_VAR(ncid,varid,buf4(:,:,1)) )
-        v2d(:,:,ivid) = buf4(:,:,1) - REAL(SSHclm_m(:,:),r_sngl)
+        if (DO_ALTIMETRY_SLA) then
+           WRITE(6,*) "read_restart:: calculate SLA by removing clim SSH"
+           v2d(:,:,ivid) = buf4(:,:,1) - REAL(SSHclm_m(:,:),r_sngl)
+        elseif (DO_ALTIMETRY_ADT) then
+           WRITE(6,*) "read_restart:: calculate ADT"
+           v2d(:,:,ivid) = buf4(:,:,1)
+        endif
       case(2)
         buf8=0.0d0
         call check( NF90_GET_VAR(ncid,varid,buf8(:,:,1)) )
-        v2d(:,:,ivid) = REAL(buf8(:,:,1),r_sngl) - REAL(SSHclm_m(:,:),r_sngl)
+        if (DO_ALTIMETRY_SLA) then
+           WRITE(6,*) "read_restart::[SLA] remove eta_t_mean from eta_t"
+           v2d(:,:,ivid) = REAL(buf8(:,:,1),r_sngl) - REAL(SSHclm_m(:,:),r_sngl)
+        elseif (DO_ALTIMETRY_ADT) then
+           WRITE(6,*) "read_restart::[ADT] use eta_t directly"
+           v2d(:,:,ivid) = REAL(buf8(:,:,1),r_sngl) 
+        endif
     end select
 
     ! !STEVE: debug
@@ -980,7 +1015,11 @@ SUBROUTINE write_restart(outfile,v3d_in,v2d_in) !,prec_in)
   tsfile = trim(outfile)//'.ocean_temp_salt.res.nc'
   uvfile = trim(outfile)//'.ocean_velocity.res.nc'
   sffile = trim(outfile)//'.ocean_sbc.res.nc'
-  bfile  = trim(outfile)//'.ocean_barotropic.res.nc'
+  if (MOM_VERSION==4) THEN
+      bfile  = trim(outfile)//'.ocean_freesurf.res.nc'
+  elseif (MOM_VERSION==5) THEN
+      bfile  = trim(outfile)//'.ocean_barotropic.res.nc'
+  endif
 
   ALLOCATE(v3d(nlon,nlat,nlev,nv3d),v2d(nlon,nlat,nv2d))
 
@@ -1125,14 +1164,19 @@ SUBROUTINE write_restart(outfile,v3d_in,v2d_in) !,prec_in)
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   ! Write the updated eta_t to analysis restart file
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  if (DO_ALTIMETRY) then
+  if (DO_ALTIMETRY_SLA.or.DO_ALTIMETRY_ADT) then
     call check( NF90_OPEN(bfile,NF90_WRITE,ncid) )
     varname = 'eta_t'
     ivid = iv2d_eta
     call check( NF90_INQ_VARID(ncid,trim(varname),varid) )
 
     ! Convert SSH stored in v2d to climatological Sea Level Anomaly (SLA) by subtracting pre-computed model climatology
-    v2d(:,:,ivid) = v2d(:,:,ivid) + SSHclm_m(:,:)
+    if (DO_ALTIMETRY_SLA) then
+       WRITE(6,*) "write_restart::[SLA] update eta_t by adding back eta_t_mean"
+       v2d(:,:,ivid) = v2d(:,:,ivid) + SSHclm_m(:,:)
+    elseif (DO_ALTIMETRY_ADT) then
+       WRITE(6,*) "write_restart::[ADT] update eta_t directly"
+    endif
 
     call check( NF90_PUT_VAR(ncid,varid,v2d(:,:,ivid)) )
     call check( NF90_CLOSE(ncid) )

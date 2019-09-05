@@ -41,13 +41,16 @@ SUBROUTINE Trans_XtoY(elm,ri,rj,rk,v3d,v2d,yobs)        !(OCEAN)
     CALL itpl_3d(v3d(:,:,:,iv3d_t),ri,rj,rk,yobs)
   CASE(obsid_ocn_s)  ! S                             !(OCEAN)
     CALL itpl_3d(v3d(:,:,:,iv3d_s),ri,rj,rk,yobs) !(OCEAN)
-  CASE(obsid_ocn_eta) ! SSH                          !(OCEAN)
+  CASE(obsid_ocn_eta) ! SSH (SLA)     !(OCEAN)
     !STEVE: use mom4 surface height to form Yb (i.e. hdxf)
     CALL itpl_2d(v2d(:,:,iv2d_eta),ri,rj,yobs)    !(OCEAN)
   CASE(obsid_ocn_sst) ! SST                          !(OCEAN)
     CALL itpl_2d(v2d(:,:,iv2d_sst),ri,rj,yobs)    !(OCEAN)
   CASE(obsid_ocn_sss) ! SSS                          !(OCEAN)
     CALL itpl_2d(v2d(:,:,iv2d_sss),ri,rj,yobs)    !(OCEAN)
+  CASE(obsid_ocn_ssh) ! SSH (ADT)
+    !  CDA: use the variable "eta_t" consistent with Travis's calc. for ADT
+    CALL itpl_2d(v2d(:,:,iv2d_eta),ri,rj,yobs) 
   CASE DEFAULT
     print *, "ERROR::Trans_XtoY:: observation type not recognized."
     print *, "element id = ", intelm

@@ -45,8 +45,8 @@ module common_obs
   integer, parameter :: obsid_ocn_num  = 8
   integer, parameter :: obsid_ocn_offset = 8
 
-  integer, parameter :: obsid_ocn_ssh  = 2100
-  integer, parameter :: obsid_ocn_eta  = 2101
+  integer, parameter :: obsid_ocn_ssh  = 2100  ! (ADT)
+  integer, parameter :: obsid_ocn_eta  = 2101  ! (SLA)
   integer, parameter :: obsid_ocn_sst  = 2110
   integer, parameter :: obsid_ocn_sss  = 2120
   integer, parameter :: obsid_ocn_t    = 2210

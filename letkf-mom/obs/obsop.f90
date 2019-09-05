@@ -10,7 +10,7 @@ PROGRAM obsop
 !  use params_obs
 !  use vars_obs
 !  use common_obs_mom4
-!  use params_letkf,     ONLY: DO_ALTIMETRY, DO_DRIFTERS
+!  use params_letkf,     ONLY: DO_ALTIMETRY_SLA, DO_DRIFTERS
 !
 !
 ! DESCRIPTION: 
@@ -113,6 +113,13 @@ PROGRAM obsop
 
   ! Remove obs in tripolar region (edit via command line)
   LOGICAL :: DO_REMOVE_65N = .true. ! (default) Remove all observations poleward of 65ºN (due to tripolar grid)
+
+  ! CDA: ADT constant bias correction
+  !      Don't turn on here unless diagonostic uses for ensemble mean
+  LOGICAL :: DO_ALTIMETRY_ADT_BC = .false. ! remove the mean (yo-hx) for all ADT obs
+  REAL(r_size) :: LATMAX_ALTIMETRY_ADT_BC = 60.d0
+  REAL(r_size) :: minc_adt
+  INTEGER :: ninc_adt=0
 
   !-----------------------------------------------------------------------------
   ! Initialize the common_mom4 module, and process command line options
@@ -403,6 +410,13 @@ PROGRAM obsop
     ! observation operator (computes H(x)) for specified member
     !---------------------------------------------------------------------------
     CALL Trans_XtoY(elem(n),ri,rj,rk,v3d,v2d,ohx(n))
+
+    !CDA: ADT BC
+    if (NINT(elem(n))==obsid_ocn_ssh.and.ABS(rlat(n))<=LATMAX_ALTIMETRY_ADT_BC) then
+       minc_adt = minc_adt + odat(n)-ohx(n)
+       ninc_adt = ninc_adt + 1
+    endif
+
     
     if (DO_POTTEMP_to_INSITU .and. elem(n) .eq. obsid_ocn_t) then
       !STEVE: eventually use pressure from model output,
@@ -425,11 +439,24 @@ PROGRAM obsop
       STOP "obsop.f90::post-Trans_XtoY::  DO_INSITU_to_POTTEMP case must be coded."
     endif
 
-    if (dodebug .and. DO_ALTIMETRY .and. elem(n) .eq. obsid_ocn_eta) then
+    if (dodebug .and. DO_ALTIMETRY_SLA .and. elem(n) .eq. obsid_ocn_eta) then
       WRITE(6,*) "post-Trans_XtoY:: obsid_ocn_eta, ohx(n) = ", ohx(n)
+    endif
+    if (dodebug .and. DO_ALTIMETRY_ADT .and. elem(n) .eq. obsid_ocn_ssh) then
+      WRITE(6,*) "post-Trans_XtoY:: obsid_ocn_ssh, ohx(n) = ", ohx(n)
     endif
     oqc(n) = 1
   enddo !1:nobs
+
+  !CDA: ADT bias correction
+  if (DO_ALTIMETRY_ADT_BC.and.ninc_adt>0) then
+     minc_adt = minc_adt/REAL(ninc_adt,r_size)
+     WRITE(6,*) "ADT_biasCorrection: num of ssh =",ninc_adt
+     WRITE(6,*) "ADT_biasCorrection: mean bias  =",minc_adt, "(m)"
+     where (NINT(elem)==obsid_ocn_ssh)
+           odat=odat-minc_adt
+     endwhere
+  endif
 
   !-----------------------------------------------------------------------------
   ! Print out the counts of observations removed for various reasons
@@ -496,7 +523,7 @@ do i=1,COMMAND_ARGUMENT_COUNT(),2
     case('-alt')
       CALL GET_COMMAND_ARGUMENT(i+1,arg2)
       PRINT *, "Argument ", i+1, " = ",TRIM(arg2)
-      read (arg2,*) DO_ALTIMETRY
+      read (arg2,*) DO_ALTIMETRY_SLA
     case('-rm65N')
       CALL GET_COMMAND_ARGUMENT(i+1,arg2)
       PRINT *, "Argument ", i+1, " = ",TRIM(arg2)

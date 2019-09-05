@@ -6,7 +6,7 @@ IMPLICIT NONE
 
 PUBLIC
 
-
+  INTEGER,PARAMETER :: MOM_VERSION = 4  ! 4 or 5 (this affects the eta_t loading file)
 ! MOM4 ncep2012 tripolar converted to spherical
   INTEGER,PARAMETER :: nlon=720 !720
   INTEGER,PARAMETER :: nlat=410 !360
@@ -38,7 +38,7 @@ PUBLIC
   INTEGER,PARAMETER :: nv4d=0 ! x,y,z                !(OCEAN) STEVE: add t,x,y,z,id for DRIFTERS
 ! INTEGER,PARAMETER :: nv2d=3 ! ssh,sst,sss          !(OCEAN)
 ! INTEGER,PARAMETER :: nv2d=7 ! ssh/t/s, + sfc fluxes: taux,tauy,heat,freshwater
-  INTEGER,PARAMETER :: nv2d=4 ! ssh,sst,sss,eta      !(OCEAN) !(ALTIMETRY)
+  INTEGER,PARAMETER :: nv2d=4 ! ssh,sst,sss,eta      !(OCEAN) !(ALTIMETRY), eta is SLA
   INTEGER,PARAMETER :: nvsfc=0 !14
 
   INTEGER,PARAMETER :: nij0=nlon*nlat
