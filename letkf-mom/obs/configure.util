@@ -1,0 +1,22 @@
+#!/bin/bash
+
+echo ""
+echo "============================================================"
+echo " MOM-LETKF (obsop)"
+echo "============================================================"
+pwd
+
+source ../config/machine.sh
+source ../config/$MACHINE.fortran.sh
+source ../config/$MACHINE.netcdf.sh
+source ../config/$MACHINE.mpi.sh
+
+export FMKMF_F90="$F90 $NETCDF_INC $F90_OPT"
+export FMKMF_LINKOPTS="../common/netlib.o gsw_oceanographic_toolbox.o $NETCDF_LIB $LBLAS -mkl"
+export FMKMF_SPATH=".:../common:../../common"
+export FMKMF_IGNORE="netcdf"
+
+echo "Makefile.obsop_ts_bingrd4"
+$CFS_LETKF_ROOT/common/fmkmf obsop_ts_bingrd4.f90 > Makefile.obsop_ts_bingrd4
+echo "Makefile.obsop_bingrd4"
+$CFS_LETKF_ROOT/common/fmkmf obsop_bingrd4.f90 > Makefile.obsop_bingrd4

@@ -315,10 +315,11 @@ SUBROUTINE set_letkf_obs
      WRITE(6,*) "ADT BC: constant bias         =", minc_adt
      WRITE(6,*) "ADT BC: # of obs for BC calc. =", ninc_adt
      WRITE(6,*) "ADT BC: remove this bias from yo"
+     WRITE(6,*) "ADT BC: [revised] Tue Nov 12 15:23:47 EST 2019"
      !remove constant bias
      do n=1,nobs
         if (NINT(tmpelm(n)) /= obsid_ocn_ssh) CYCLE
-        if (ABS(tmplat(n)) > LATMAX_ALTIMETRY_ADT_BC) CYCLE
+        !if (ABS(tmplat(n)) > LATMAX_ALTIMETRY_ADT_BC) CYCLE
         tmpqc(n) = MINVAL(tmpqc0(n,:))
         if (tmpqc(n) /= 1) CYCLE
 

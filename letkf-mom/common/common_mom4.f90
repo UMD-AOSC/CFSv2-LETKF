@@ -67,7 +67,7 @@ MODULE common_mom4
   INTEGER, DIMENSION(:), ALLOCATABLE :: xi,yi
 
   !STEVE: for debugging
-  LOGICAL :: dodebug = .false.
+  LOGICAL :: dodebug = .true.
   LOGICAL :: doverbose = .true.
 
 CONTAINS
@@ -113,6 +113,7 @@ SUBROUTINE set_common_mom4
     element(nv3d+nv2d+iv4d_z) = 'Z   '             !(OCEAN) (DRIFTERS)
   endif
   if (DO_ALTIMETRY_SLA) then
+    WRITE(6,*) "DO_ALTIMETRY_SLA set to be .TRUE., start to read SSH climatology"
     INQUIRE(FILE=trim(SSHclm_file),EXIST=ex)
     if (ex) then
       ! Read in the model climatology
@@ -554,7 +555,7 @@ SUBROUTINE read_diag(infile,v3d,v2d)
     if (dodebug) WRITE(6,*) "read_diag:: just got data for variable eta_t"
     do j=1,nlat
       do i=1,nlon
-        !STEVE: Hopefully reading in meters here... (data might be in cm)
+        !STEVE: Hopefully reading in meters here... (data in meter)
         v2d(i,j,iv2d_eta) = REAL(buf4(i,j,ilev_sfc),r_size)
       enddo 
     enddo

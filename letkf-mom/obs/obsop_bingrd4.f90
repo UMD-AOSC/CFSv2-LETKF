@@ -1,4 +1,4 @@
-PROGRAM obsop
+PROGRAM main
 !===============================================================================
 ! PROGRAM: obsop
 ! 
@@ -42,6 +42,7 @@ PROGRAM obsop
   USE common_obs_mom4
   USE letkf_mom_params
   USE gsw_pot_to_insitu,         ONLY: t_from_pt, p_from_z
+  USE common_tsprofile
 
   IMPLICIT NONE
 
@@ -69,18 +70,6 @@ PROGRAM obsop
   REAL(r_size) :: ri,rj,rk
   INTEGER :: n
 
-  !STEVE: for (DRIFTERS)
-! REAL(r_size),ALLOCATABLE,SAVE :: obsid(:)
-! REAL(r_size),ALLOCATABLE,SAVE :: obstime(:)
-  !STEVE:
-  REAL(r_size),DIMENSION(obsid_ocn_num),PARAMETER :: & !STEVE: use this to scale the input observations
-              obserr_scaling=1.0d0 !(/ 1.00d0, 1.00d0, 1.00d0, 1.00d0, 1.0d0, 1.0d0, 1.0d0 /)
-                              ! U       V       Temp    Salt    SSH    SST    SSS 
-  REAL(r_size),DIMENSION(obsid_ocn_num),PARAMETER :: & !STEVE: use this to select random input observations
-              obs_randselect=1.0d0 !(/ 1.00d0, 1.00d0, 1.00d0, 1.00d0, 1.00d0, 1.00d0, 1.00d0 /)
-                              ! U       V       Temp    Salt    SSH     SST     SSS 
-  REAL(r_size), DIMENSION(1) :: rand
-
   !-----------------------------------------------------------------------------
   ! Debugging parameters
   !-----------------------------------------------------------------------------
@@ -104,9 +93,7 @@ PROGRAM obsop
   !STEVE: for debugging observation culling:
   INTEGER :: cnt_yout=0, cnt_xout=0, cnt_zout=0, cnt_triout=0
   INTEGER :: cnt_rigtnlon=0, cnt_nearland=0, cnt_oerlt0=0, cnt_altlatrng=0
-  !STEVE: for adaptive obs:
-  LOGICAL :: oerfile_exists
-  REAL(r_size) :: oberr
+  INTEGER :: cnt_odat=0
 
   ! For potential temperature conversion to in situ:
   REAL(r_size) :: p,pt,sp
@@ -132,6 +119,7 @@ PROGRAM obsop
   ! Read observations from file
   !-----------------------------------------------------------------------------
   nobs = obs_getnum(obsinfile,extended=.false.)
+  write(*,*) "nobs=", nobs
   ALLOCATE( elem(nobs) )
   ALLOCATE( rlon(nobs) )
   ALLOCATE( rlat(nobs) )
@@ -141,29 +129,22 @@ PROGRAM obsop
   ALLOCATE( ohx(nobs) )
   ALLOCATE( oqc(nobs) )
   ALLOCATE( obhr(nobs) )
-  
+
   if (obs2nrec==10) then
     CALL read_obs(trim(obsinfile),nobs,elem,rlon,rlat,rlev,odat,oerr)
   else
     WRITE(6,*) "obsop.f90:: no read_obs option for obs2nrec = ", obs2nrec
     STOP 95
-  endif
+  endif 
 
   !-----------------------------------------------------------------------------
   ! Read model forecast for this member
   !-----------------------------------------------------------------------------
   ALLOCATE( v3d(nlon,nlat,nlev,nv3d) )
   ALLOCATE( v2d(nlon,nlat,nv2d) )
-  CALL read_diag(guesfile,v3d,v2d)
+  CALL read_bingrd(guesfile,v3d,v2d)
   WRITE(6,*) '****************'
 
-  !!STEVE: for adaptive observation error:
-  INQUIRE(FILE=aoerinfile, EXIST=oerfile_exists)
-  if (oerfile_exists) then
-    ALLOCATE(o3d(nlon,nlat,nlev,nv3d),o2d(nlon,nlat,nv2d))
-    CALL read_bingrd(trim(aoerinfile),o3d,o2d)
-  endif
-  WRITE(6,*) '****************'
 
   !-----------------------------------------------------------------------------
   ! Cycle through all observations
@@ -172,13 +153,13 @@ PROGRAM obsop
   ohx=0.0d0
   oqc=0
   DO n=1,nobs
+
     !---------------------------------------------------------------------------
-    ! Count bad obs errors associated with observations, and skip the ob
+    ! remove missing values CDA
     !---------------------------------------------------------------------------
-    if (oerr(n) <= 0) then
-      !STEVE: this occurred for a few synthetic obs, perhaps due to Dave's code generating obs errors
-      cnt_oerlt0 = cnt_oerlt0 + 1
-      CYCLE
+    if (odat(n)<-90.0) then
+       cnt_odat = cnt_odat + 1
+       cycle
     endif
 
     !---------------------------------------------------------------------------
@@ -200,10 +181,6 @@ PROGRAM obsop
       cnt_triout = cnt_triout + 1
       CYCLE
 
-      !STEVE: 9/5/2013, trying to keep obs, but increasing error to keep
-      !the increment as smooth as possible.
-!     if (verbose) WRITE(6,'(A)') "Latitude above 60, in tripolar region. Increasing obs error..."
-!     oerr(n) = oerr(n)*3.0d0 !*gross_error
     endif
 
     !---------------------------------------------------------------------------
@@ -310,103 +287,6 @@ PROGRAM obsop
     endif boundary_points
         
     !---------------------------------------------------------------------------
-    ! (OPTIONAL) Scale the observation errors
-    !---------------------------------------------------------------------------
-    scale_obs : if (abs(maxval(obserr_scaling) - 1.0d0) .gt. (TINY(1.0d0)) .or. &
-                    abs(minval(obserr_scaling) - 1.0d0) .gt. (TINY(1.0d0)) .or. &
-                    abs(maxval(obs_randselect) - 1.0d0) .gt. (TINY(1.0d0)) .or. &
-                    abs(minval(obs_randselect) - 1.0d0) .gt. (TINY(1.0d0)) ) then
-
-      !STEVE: Process and correct observational error: 
-      !STEVE: Scale observation error if requested.
-      !STEVE: Select random subset of observations if requested.
-      !STEVE: if the observation value is far off from the mean background, then drop it.
-      !STEVE: NOTE: this might be more efficient if added above in more parallel
-      !section
-      SELECT CASE(NINT(elem(n)))
-        CASE (obsid_ocn_u) !u
-          if (abs(obserr_scaling(iv3d_u) - 1.0) > TINY(1.0d0)) &
-                oerr(n) = oerr(n) * obserr_scaling(iv3d_u)
-        CASE (obsid_ocn_v) !v
-          if (abs(obserr_scaling(iv3d_v) - 1.0) > TINY(1.0d0)) &
-                oerr(n) = oerr(n) * obserr_scaling(iv3d_v)
-        CASE (obsid_ocn_t) !temp
-          if (abs(obserr_scaling(iv3d_t) - 1.0) > TINY(1.0d0)) then
-!               WRITE(6,*) "OLD temp oerr = ", oerr(n)
-                oerr(n) = oerr(n) * obserr_scaling(iv3d_t)
-!               WRITE(6,*) "NEW temp oerr = ", oerr(n)
-          endif
-        CASE (obsid_ocn_s) !salt
-          if (abs(obserr_scaling(iv3d_s) - 1.0) > TINY(1.0d0)) then
-!               WRITE(6,*) "OLD salt oerr = ", oerr(n)
-                oerr(n) = oerr(n) * obserr_scaling(iv3d_s)
-!               WRITE(6,*) "NEW salt oerr = ", oerr(n)
-          endif
-        CASE (obsid_ocn_ssh) !ssh
-              if (abs(obserr_scaling(iv2d_ssh) - 1.0) > TINY(1.0d0)) &
-                oerr(n) = oerr(n) * obserr_scaling(iv2d_ssh)
-        CASE (obsid_ocn_sst) !surface temp
-          ! Select random subset of observations to speed up processing
-          if (abs(obs_randselect(iv2d_sst) - 1) > TINY(1.0d0)) then
-            CALL com_rand(1,rand)
-            if (rand(1) > obs_randselect(iv2d_sst)) CYCLE
-          endif
-          if (abs(obserr_scaling(iv2d_sst) - 1.0) > TINY(1.0d0)) then
-!           WRITE(6,*) "OLD sst  oerr = ", oerr(n)
-            oerr(n) = oerr(n) * obserr_scaling(iv2d_sst)
-!           WRITE(6,*) "NEW sst  oerr = ", oerr(n)
-          endif
-        CASE (obsid_ocn_sss) !surface salt
-              if (abs(obserr_scaling(iv2d_sss) - 1.0) > TINY(1.0d0)) &
-                oerr(n) = oerr(n) * obserr_scaling(iv2d_sss)
-        CASE DEFAULT
-              WRITE(6,*) "for n = ", n
-                WRITE(6,*) "WARNING: for adaptive observation error, no support for observation type: ", elem(n)
-        END SELECT
-       endif scale_obs
-
-    !---------------------------------------------------------------------------
-    ! (OPTIONAL) Apply adaptive observation error
-    !---------------------------------------------------------------------------
-    !STEVE: apply adaptive observation error (OCEAN)
-    !       I'm assuming that any type of Kalman filter
-    !       combining the old and the new observation errors
-    !       that should be applied will have been done externally,
-    !       prior to reading it in here.
-    ! adapt obs adapt_obs 
-    adapt_obs_error : if (oerfile_exists) then
-      SELECT CASE(NINT(elem(n)))
-      CASE (obsid_ocn_u) !u
-            oberr = o3d(NINT(ri),NINT(rj),NINT(rk),iv3d_u) 
-      CASE (obsid_ocn_v) !v
-            oberr = o3d(NINT(ri),NINT(rj),NINT(rk),iv3d_v) 
-      CASE (obsid_ocn_t) !temp
-            oberr = o3d(NINT(ri),NINT(rj),NINT(rk),iv3d_t) 
-      CASE (obsid_ocn_s) !salt
-            oberr = o3d(NINT(ri),NINT(rj),NINT(rk),iv3d_s) 
-      CASE (obsid_ocn_ssh) !ssh
-            oberr = o2d(NINT(ri),NINT(rj),iv2d_ssh) 
-      CASE (obsid_ocn_sst) !surface temp
-            oberr = o2d(NINT(ri),NINT(rj),iv2d_sst) 
-      CASE (obsid_ocn_sss) !surface salt
-            oberr = o2d(NINT(ri),NINT(rj),iv2d_sss) 
-
-!!(DRIFTERS)
-!!STEVE: not sure how to do this yet for drifters...
-!!        CASE (id_x_obs) !x
-!!          oberr = o4d(NINT(ri),NINT(rj),NINT(rk),iv4d_x) 
-!!        CASE (id_y_obs) !y
-!!          oberr = o4d(NINT(ri),NINT(rj),NINT(rk),iv4d_y) 
-!!        CASE (id_z_obs) !z
-!!          oberr = o4d(NINT(ri),NINT(rj),NINT(rk),iv4d_z) 
-      CASE DEFAULT
-        WRITE(6,*) "for n = ", n
-        WRITE(6,*) "WARNING: for adaptive observation error, no support for observation type: ", elem(n)
-      END SELECT
-      if (oberr > 0) oerr(n) = oberr
-    endif adapt_obs_error 
-
-    !---------------------------------------------------------------------------
     ! observation operator (computes H(x)) for specified member
     !---------------------------------------------------------------------------
     CALL Trans_XtoY(elem(n),ri,rj,rk,v3d,v2d,ohx(n))
@@ -470,15 +350,16 @@ PROGRAM obsop
   WRITE(6,*) "cnt_rigtnlon = ", cnt_rigtnlon
   WRITE(6,*) "cnt_nearland = ", cnt_nearland
   WRITE(6,*) "cnt_altlatrng = ", cnt_altlatrng
+  WRITE(6,*) "cnt_odat = ", cnt_odat
 
   !-----------------------------------------------------------------------------
   ! Write the observations and their associated innovations to file
   !-----------------------------------------------------------------------------
-  CALL write_obs2(obsoutfile,nobs,elem,rlon,rlat,rlev,odat,oerr,ohx,oqc,obhr)
+  CALL write_tsprofile_diag(trim(obsoutfile),nobs,elem,rlon,rlat,rlev,odat,ohx,oqc)
 
   if (ALLOCATED(o3d)) DEALLOCATE(o3d)
   if (ALLOCATED(o2d)) DEALLOCATE(o2d)
-  DEALLOCATE( elem,rlon,rlat,rlev,odat,oerr,ohx,oqc,obhr,v3d,v2d )
+  DEALLOCATE( elem,rlon,rlat,rlev,odat,oerr,ohx,oqc,v3d,v2d )
 
 CONTAINS
 
@@ -541,4 +422,4 @@ enddo
 
 END SUBROUTINE process_command_line
 
-END PROGRAM obsop
+END PROGRAM
