@@ -291,8 +291,10 @@ SUBROUTINE set_letkf_obs
   WRITE(6,*) "Processing tmphdxf for n=1 to n=nobs=",nobs 
   WRITE(6,*) "and filtering bad observations..."
 
-  !CDA: remove the ADT constant bias here
-  if (DO_ALTIMETRY_ADT_BC) then
+
+
+  !CDA: remove the ADT constant bias correction
+  if (.true.) then ! calculate ADT bias
      WRITE(6,*) "ADT BC: Apply ADT constant bias correction."
      ninc_adt = 0
      minc_adt = 0.d0
@@ -314,12 +316,13 @@ SUBROUTINE set_letkf_obs
      WRITE(6,*) "ADT BC: lat limit for BC calc.=", LATMAX_ALTIMETRY_ADT_BC
      WRITE(6,*) "ADT BC: constant bias         =", minc_adt
      WRITE(6,*) "ADT BC: # of obs for BC calc. =", ninc_adt
+  endif
+
+  if (DO_ALTIMETRY_ADT_BC) then ! remove bias
      WRITE(6,*) "ADT BC: remove this bias from yo"
-     WRITE(6,*) "ADT BC: [revised] Tue Nov 12 15:23:47 EST 2019"
      !remove constant bias
      do n=1,nobs
         if (NINT(tmpelm(n)) /= obsid_ocn_ssh) CYCLE
-        !if (ABS(tmplat(n)) > LATMAX_ALTIMETRY_ADT_BC) CYCLE
         tmpqc(n) = MINVAL(tmpqc0(n,:))
         if (tmpqc(n) /= 1) CYCLE
 

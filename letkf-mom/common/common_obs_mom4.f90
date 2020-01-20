@@ -18,6 +18,45 @@ MODULE common_obs_mom4
 
 CONTAINS
 
+
+SUBROUTINE get_ssh_vloc(nz,z,ri,rj,v3d,zloc)
+!===============================================================================
+! CDA: Determine the vertical location of the ADT/SLA obs based on the dT/dZ profile
+! The locaiton is set at the level with maximum |dT/dZ|
+!===============================================================================
+  IMPLICIT NONE
+  INTEGER,INTENT(IN) :: nz
+  REAL(r_size),INTENT(IN) :: z(nz)
+  REAL(r_size),INTENT(IN) :: ri, rj
+  REAL(r_size),INTENT(IN) :: v3d(nlon,nlat,nlev,nv3d)
+  REAL(r_size),INTENT(OUT) :: zloc
+
+  REAL(r_size) :: dtdz, dtdzmax
+  real(r_size) :: t(nz)
+  INTEGER :: k, kmax
+
+  DO k = 1, nz
+     CALL itpl_2d(v3d(:,:,k,iv3d_t),ri,rj,t(k))
+  ENDDO
+
+  dtdzmax = -1.d0
+  DO k = 1, nz
+     if (k==1) then
+         dtdz = abs( (t(k+1)-t(k))/(z(k+1)-t(k)) )
+     elseif (k==nz) then
+         dtdz = abs( (t(k)-t(k-1))/(z(k)-t(k-1)) )
+     else
+         dtdz = abs( (t(k+1)-t(k-1))/(z(k+1)-t(k-1)) )
+     endif
+     if (dtdz>dtdzmax) then
+        dtdzmax = dtdz
+        zloc = z(k)
+     endif
+  ENDDO
+
+ENDSUBROUTINE get_ssh_vloc
+
+
 SUBROUTINE Trans_XtoY(elm,ri,rj,rk,v3d,v2d,yobs)        !(OCEAN)
 !===============================================================================
 ! Transformation from model space to observation space (i.e. H-operator)

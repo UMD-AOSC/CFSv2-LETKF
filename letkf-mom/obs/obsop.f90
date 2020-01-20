@@ -115,7 +115,7 @@ PROGRAM obsop
   LOGICAL :: DO_REMOVE_65N = .true. ! (default) Remove all observations poleward of 65ºN (due to tripolar grid)
 
   ! CDA: ADT constant bias correction
-  !      Don't turn on here unless diagonostic uses for ensemble mean
+  !      Don't turn on here unless diagonostic uses for ensemble mean in an offline experiment
   LOGICAL :: DO_ALTIMETRY_ADT_BC = .false. ! remove the mean (yo-hx) for all ADT obs
   REAL(r_size) :: LATMAX_ALTIMETRY_ADT_BC = 60.d0
   REAL(r_size) :: minc_adt
@@ -410,6 +410,11 @@ PROGRAM obsop
     ! observation operator (computes H(x)) for specified member
     !---------------------------------------------------------------------------
     CALL Trans_XtoY(elem(n),ri,rj,rk,v3d,v2d,ohx(n))
+
+    !CDA: determine the vertical localization level for ADT or SLA obs
+    if (NINT(elem(n))==obsid_ocn_ssh.or.NINT(elem(n))==obsid_ocn_eta) then
+       CALL get_ssh_vloc(nlev,lev,ri,rj,v3d,rlev(n))
+    endif
 
     !CDA: ADT BC
     if (NINT(elem(n))==obsid_ocn_ssh.and.ABS(rlat(n))<=LATMAX_ALTIMETRY_ADT_BC) then

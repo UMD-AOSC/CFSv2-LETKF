@@ -289,6 +289,10 @@ PROGRAM main
        ninc_adt = ninc_adt + 1
     endif
 
+    !CDA: determine the vertical localization level for ADT or SLA obs
+    if (NINT(elem(n))==obsid_ocn_ssh.or.NINT(elem(n))==obsid_ocn_eta) then
+       CALL get_ssh_vloc(nlev,lev,ri,rj,v3d,rlev(n))
+    endif
     
     if (DO_POTTEMP_to_INSITU .and. elem(n) .eq. obsid_ocn_t) then
       !STEVE: eventually use pressure from model output,
