@@ -50,7 +50,7 @@ if not args.end:
 resStr = 'LIC'
 if args.high:
     resStr = 'HIC'   
-data_url = "http://nomads.ncdc.noaa.gov/modeldata/cmd_"+resStr
+data_url = "https://www.ncei.noaa.gov/data/climate-forecast-system/access/reanalysis/initial-conditions-{res}-resolution/".format(res='low' if resStr == 'LIC' else 'high')
 
 
 ## create temporary work directory
