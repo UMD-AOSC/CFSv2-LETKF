@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 ############################################################
 ##
 ## Runs a single x hour forecast for the CFS model
@@ -17,7 +17,6 @@ import common
 
 ## setup the logging system
 log = common.setupLog()
-
 
 ############################################################
 ## get the command line / env arguments
@@ -87,6 +86,12 @@ log.info("Configuration:\n"+str(args))
 ############################################################
 
 ##############################
+
+with open(args.outdir+'/ssio.nml', 'w') as f:
+    res = common.getAtmRes(args.ares)
+    f.write('$common_gfs nlon={} nlat={} gfs_jcap={} nlev=64 /'.format(
+        res[0], res[1], args.ares))
+
 log.info("Creating working directory...")
 if os.path.exists(args.wrkdir):
     shutil.rmtree(args.wrkdir)
@@ -189,7 +194,7 @@ sp.call("source $CFS_LETKF_ROOT/run/config_files/gfs_namelist.rc "
 
 
 ##############################
-log.info("Copyhing ATM fix files...")
+log.info("Copying ATM fix files...")
 files = [
     ("climaeropac_global.txt", "aerosol.dat"),
     ("co2con.l64.f77",     "fort.15"),
@@ -254,6 +259,8 @@ log.info("CFS run finished in {} seconds.".format((etime-stime).seconds))
 
 ## TODO, check to make sure the required output files have indeed been created
 
+with open(args.wrkdir + '/ssio.nml', 'w') as ssio:
+    ssio.write('&common_gfs\n nlon={}\n  nlat={}\n  gfs_jcap={}\n nlev=64\n /'.format(args.ares_x, args.ares_y, args.ares))
 
 
 ############################################################
@@ -316,4 +323,4 @@ f = open(args.wrkdir+'/cfs.log','r')
 log.info(f.read())
 
 ## clear out the temporary directory
-shutil.rmtree(args.wrkdir)
+#shutil.rmtree(args.wrkdir)

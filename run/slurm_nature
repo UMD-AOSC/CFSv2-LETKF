@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 ################################################################################
 ## slurm_nature
 ## Runs a series of 6 hours forecasts to create a free running nature
@@ -31,10 +31,12 @@ log = common.setupLog()
 ## TODO, make these configurable from the command line
 ##############################
 jobWatchSleep = 2            # in seconds
-timeLimit_CFS = "10:00"
+timeLimit_CFS = "6:00"
 
 rootDir = os.getenv("CFS_LETKF_ROOT")
 ssioPath = rootDir +'/util/bin/sscycle2'
+ss2grdPath = rootDir +'/util/bin/ss2grd'
+grdctlPath = rootDir +'/util/bin/grdctl'
 
 ################################################################################
 ################################################################################
@@ -164,6 +166,10 @@ while cdate < endDate:
         
         ## run sscycle on the output of the gfs, move forecasts to analysis 
         [os.remove(f) for f in  glob(scycle_tmpDir+'/fort.*')]
+
+        shutil.copy(ss2grdPath, tmpDir+'/ss2grd')
+        shutil.copy(grdctlPath, tmpDir+'/grdctl')
+
         for h in range(6,args.int+1,6):
             hdate = cdate+dt.timedelta(hours=h)
             hdateShort = hdate.strftime("%Y%m%d%H")
@@ -171,8 +177,18 @@ while cdate < endDate:
             if not os.path.exists(outPath):
                 os.makedirs(outPath)
                        
+            shutil.copy(inPath+cdate.strftime("/%Y%m%d%H_F{:02d}.sig".format(h)), tmpDir+'/fort.11')
+            shutil.copy(inPath+cdate.strftime("/%Y%m%d%H_F{:02d}.sfc".format(h)), tmpDir+'/fort.12')
+
+            sp.call('./ss2grd', cwd=tmpDir)
+            sp.call('./grdctl fort.31 template ' + cdate.strftime("%HZ%d%b%Y") + ' 6hr 1 x > grd.ctl', cwd=tmpDir, shell=True)
+            sp.call('cdo -f nc import_binary grd.ctl out.nc', cwd=tmpDir, shell=True)
+
+            shutil.move(tmpDir + '/out.nc', outPath+hdate.strftime("/%Y%m%d%H.nc"))
+
             shutil.move(inPath+cdate.strftime("/%Y%m%d%H_F{:02d}.sig".format(h)), scycle_tmpDir+'/fort.11')
             shutil.move(inPath+cdate.strftime("/%Y%m%d%H_F{:02d}.sfc".format(h)), scycle_tmpDir+'/fort.12')
+
             if sp.call("./sscycle2 {}".format(hdateShort), cwd=scycle_tmpDir, shell=True) != 0:
                 print "error with calling sscyle"
                 sys.exit(1)
@@ -191,4 +207,4 @@ while cdate < endDate:
     ## incremment the date
     cdate = ndate
         
-shutil.rmtree(tmpDir)
+#shutil.rmtree(tmpDir)
