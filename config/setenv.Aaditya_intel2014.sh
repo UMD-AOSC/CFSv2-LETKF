@@ -42,8 +42,10 @@ export CFS_LETKF_ROOT="$( cd -P "$( dirname "$SOURCE" )/.." && pwd )"
 ## TMP_DIR_LOCAL is used for fast file IO, existing only on the remote
 ##  computational node
 ## TMP_DIR_SHARED must be accessible from multiple nodes
-export TMP_DIR_LOCAL=/tmp/$USER
+#export TMP_DIR_LOCAL=/tmp/$USER
+export TMP_DIR_LOCAL=/backup2/$USER/tmp
 export TMP_DIR_SHARED=/backup2/$USER/scratch
+export USE_TMP_DIR_LOCAL=0
 
 ## Fix files for the CFSv2, this must be optained elsewhere
 export FIX_DIR_AM=/backup2/cheng/CFSv2-LETKF.data/fix_am

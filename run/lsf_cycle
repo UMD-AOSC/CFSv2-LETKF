@@ -175,6 +175,8 @@ while cdate < args.end:
         log.info("  Running parallel ens mem forecast and other jobs...")
         lsf.monitor(jobs)
 
+    quit()
+
     
 
     ##############################

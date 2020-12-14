@@ -60,6 +60,7 @@ def getJobs(username=os.getenv('USER')):
 
 
     ## wrap in a loop and keep trying if it fails
+    time.sleep(sleepDuration)
     while retries <= maxLSFRetries:
         retries += 1
         try:
