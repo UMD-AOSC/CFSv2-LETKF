@@ -46,8 +46,8 @@ export TMP_DIR_LOCAL=/tmp/$USER
 export TMP_DIR_SHARED=/backup2/$USER/scratch
 
 ## Fix files for the CFSv2, this must be optained elsewhere
-export FIX_DIR_AM=/backup2/cheng/CFSv2-LETKF.data/fix/fix_am
-export FIX_DIR_OM=/backup2/cheng/CFSv2-LETKF.data/fix/fix_om
+export FIX_DIR_AM=/backup2/cheng/CFSv2-LETKF.data/fix_am
+export FIX_DIR_OM=/backup2/cheng/CFSv2-LETKF.data/fix_om
 
 ##default location for data that is used in some of the scripts
 export CFSR_DIR=$CFS_LETKF_ROOT/DATA/CFSR
@@ -62,8 +62,8 @@ export NPROC_PERNODE=16
 
 ## number of cores for ocean model (OM) atmosphere model (AM) pluse
 ## one core (not defined) to be used for the coupler
-export NPROC_OM=15        
-export NPROC_AM=16        
+export NPROC_OM=15
+export NPROC_AM=16
 
 ## number of cores for the LETKF for the atmosphere (A) and ocean (O)
 ##  Should be a multiple of NPROC_PERNODE for best performance
