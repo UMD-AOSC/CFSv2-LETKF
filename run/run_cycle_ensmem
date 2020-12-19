@@ -25,7 +25,7 @@ do_cfs      = True
 do_atmcnvt  = True
 do_atmobsop = True
 do_ocnobsop = True
-do_cleanup  = False #CDA
+do_cleanup  = True
 
 rootDir = os.getenv("CFS_LETKF_ROOT")
 

@@ -24,8 +24,8 @@ log = common.setupLog()
 ##############################
 ## configurable
 ## TODO, make this configurable from outside
-timeLimit_CFS = "0:20"   # HH:MM for LSF
-timeLimit_DA  = "0:30"
+timeLimit_CFS = "0:10"   # HH:MM for LSF
+timeLimit_DA  = "0:10"
 
 
 
@@ -83,7 +83,7 @@ parser.add_argument('--3d', dest='is3d', action="store_true")
 g = parser.add_argument_group("SLURM options")
 g.add_argument('--queue', default="monsoon", help=(
     "The SLURM account to run the experiment with. (Default: aosc-hi)"))
-g.add_argument('--retries', metavar="NUM", default="3", type=int, help=(
+g.add_argument('--retries', metavar="NUM", default="10", type=int, help=(
     "Maximum number of times to retry submitting a LSF job step before "
     "This script fails out. (Default: 3)"))
 
@@ -174,8 +174,6 @@ while cdate < args.end:
     if not args.nofcst:
         log.info("  Running parallel ens mem forecast and other jobs...")
         lsf.monitor(jobs)
-
-    quit()
 
     
 

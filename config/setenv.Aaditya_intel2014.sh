@@ -69,8 +69,8 @@ export NPROC_AM=16
 
 ## number of cores for the LETKF for the atmosphere (A) and ocean (O)
 ##  Should be a multiple of NPROC_PERNODE for best performance
-export NPROC_LETKF_A=72
-export NPROC_LETKF_O=128
+export NPROC_LETKF_A=512
+export NPROC_LETKF_O=512
 
 # the slurm run scripts depend on some python modules (common and slurm)
 export PYTHONPATH=$CFS_LETKF_ROOT/run:$PYTHONPATH

@@ -3,9 +3,7 @@
 ## Module for enabling easy launching and monitoring of LSF HPC jobs from
 ## within Python. Modified based on Dr. Travis Sluka's slurm.py (2015)
 ##
-## Cheng Da
-## University of Maryland, 2020
-## cda@umd.edu
+## Cheng Da (cda@umd.edu)  Univeristy of Maryland, 2020
 ################################################################################
 
 ## Setup logging for this module
@@ -27,7 +25,7 @@ if __name__ == '__main__':
 
     
 ## module wide configurables
-maxJobRetries = 5     # number of times to retry running a LSF job after failure
+maxJobRetries = 10     # number of times to retry running a LSF job after failure
 maxLSFRetries = 100 #100 # number of times to retry LSF commands
 sleepDuration = 5     # seconds to wait after a failure
 queue = None        # account to submit the LSF job as   
@@ -60,7 +58,6 @@ def getJobs(username=os.getenv('USER')):
 
 
     ## wrap in a loop and keep trying if it fails
-    time.sleep(sleepDuration)
     while retries <= maxLSFRetries:
         retries += 1
         try:
@@ -84,10 +81,10 @@ def getJobs(username=os.getenv('USER')):
                 job['user']      = words[3]                
                 job['status']    = words[4]
                 job['nodes']     = words[5]
-                #job['nodelist']  = words[6]
-                job['nodelist'] = []
-                for node in words[6].split(':'):
-                    job['nodelist'].append(node.split("*")[1])
+                job['nodelist']  = words[6]
+                #job['nodelist'] = []   
+                #for node in words[6].split(':'):
+                #    job['nodelist'].append(node.split("*")[1])
 
                 jobs.append(job)
             return jobs
@@ -218,9 +215,6 @@ def monitor(jobs):
                     fail = True
                     log.error('job {0}, {1} completed with state {2} (EXIT_CODE={3})'.format(
                         j.name,j.id,info['state'],info['exitcode']))
-                #else:  #CDA
-                #    print 'sucess: ob {0}, {1} completed with state {2} (EXIT_CODE={3})'.format(
-                #        j.name,j.id,info['state'],info['exitcode']) #CDA
 
                 ## run the user provided check function
                 if not fail and j.fnCheck:
@@ -355,12 +349,10 @@ class Job:
                 ## get the job ID
                 self.id = out.strip().split()[1][1:-1]
                 log.debug("LSF job "+str(self.name)+" submitted as "+str(self.id))
-                print("jobid=",self.name, self.id) #CDA
 
             except:
                 ## an error occured, we'll try again after sleeping
                 log.warn("Error with submitting LSF job, retrying")
-                print("Error with submitting LSF job, retrying")  #CDA
                 time.sleep(retries * sleepDuration)
                 continue
             return
