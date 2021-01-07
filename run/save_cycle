@@ -1,0 +1,35 @@
+#/bin/env python
+
+import os, shutil, glob
+import datetime as dt
+
+nbvs=40
+srcDir='/backup2/cheng/CFSv2-LETKF/DATA/free40_IC2009083100_cfsr2009072300/anal/'
+dstDir='/backup2/chen/shared/anal_free40_snapshot/'
+dateList=['2009093018']
+
+
+#
+for i in range(len(dateList)):
+    dateList[i]=dt.datetime.strptime(dateList[i],'%Y%m%d%H') 
+print(dateList)
+
+for m in range(1,nbvs+1):
+    memDir = dstDir+'/{:03d}'.format(m)
+    print(memDir)
+    if not os.path.exists(memDir):
+        os.makedirs(memDir)
+
+for cdate in dateList:
+
+    for m in range(1,nbvs+1):
+        print '---------------------------------------------------'
+        print 'copy anal MEM{:03d} for {}'.format(m, cdate.strftime('/%Y%m%d%H'))
+        print '---------------------------------------------------'
+        memSrcDir = srcDir+'/{:03d}'.format(m)
+        memDstDir = dstDir+'/{:03d}'.format(m)
+        files = glob.glob(memSrcDir+cdate.strftime('/%Y%m%d%H*'))
+        for f in files:
+            print("cp "+f+' '+memDstDir)
+            shutil.copy(f,memDstDir)
+
