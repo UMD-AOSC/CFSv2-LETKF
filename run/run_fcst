@@ -219,7 +219,7 @@ files = [
     ("orography_uf.t{ares}.{ares_x}.{ares_y}.grb", "orography_uf"),
     ("sfc_emissivity_idx.txt", "sfc_emissivity_idx.txt"),
     ("solarconstantdata.txt", "solarconstantdata.txt")]
-for y in range(1956,2009+1):
+for y in range(1956,2013+1):
     files += [("co2historicaldata_{}.txt".format(y),
                "co2historicaldata_{}.txt".format(y))]
 

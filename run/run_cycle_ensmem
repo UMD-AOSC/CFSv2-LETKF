@@ -252,7 +252,7 @@ if do_ocnobsop and args.oobs is not None:
    
 
    ## Run the observation operator
-   ret = sp.call('obsop -obsin obsin.dat -gues gs01 -obsout {}_ocn{:03d}.dat'.format(
+   ret = sp.call('./obsop -obsin obsin.dat -gues gs01 -obsout {}_ocn{:03d}.dat'.format(
       args.path+'/obsop/'+ndate.strftime('%Y%m%d%H'), args.ensNum),
            shell=True, cwd=tmpDir)
    if ret != 0:

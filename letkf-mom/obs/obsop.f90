@@ -112,7 +112,7 @@ PROGRAM obsop
   REAL(r_size) :: p,pt,sp
 
   ! Remove obs in tripolar region (edit via command line)
-  LOGICAL :: DO_REMOVE_65N = .true. ! (default) Remove all observations poleward of 65ºN (due to tripolar grid)
+  LOGICAL :: DO_REMOVE_65N = .false. ! (default) Remove all observations poleward of 65ºN (due to tripolar grid)
 
   !-----------------------------------------------------------------------------
   ! Initialize the common_mom4 module, and process command line options
@@ -188,6 +188,7 @@ PROGRAM obsop
     !handled in letkf.
     !STEVE: 3/17/2014: It was the ice model, and probably due to perturbations in the ice model.
     !                  For now, the ice model has been removed.
+    !WRITE(6,*) "DO_REMOVE_65N=", DO_REMOVE_65N
     if (DO_REMOVE_65N .and. rlat(n) > 65) then
       if (verbose) WRITE(6,'(A)') "Latitude above 65.0N, in tripolar region. Removing observation..."
       cnt_triout = cnt_triout + 1

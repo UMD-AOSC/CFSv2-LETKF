@@ -37,6 +37,8 @@ parser.add_argument('--source', metavar="SOURCE_DIR", help=(
     "the directory where to copy the directory"))
 parser.add_argument('--force','-f', action='store_true', help= (
     "force overwriting of any existing directory"))
+parser.add_argument('--copyflux','-copyflux', action='store_true', help= (
+    "also copy flux files for ocean"))
 parser.add_argument('--ares',type=int,choices=[62,126,382],default=62,help=(
     "horizontal resolution of the atmosphere (Default: 62)"))
 args = parser.parse_args()
@@ -134,7 +136,11 @@ for m in range(1,args.mem+1):
         filename = f+".res.nc"
         print(srcOcn+"."+filename+" "+outPath+'{}.{}.res.nc'.format(args.date,f))
         shutil.copy(srcOcn+"."+filename, outPath+'{}.{}.res.nc'.format(args.date,f))
-        
+
+    if args.copyflux:
+        filename = "fluxes_restart"
+        print(srcOcn+"."+filename+" "+outPath+'{}.{}'.format(args.date,filename))
+        shutil.copy(srcOcn+"."+filename, outPath+'{}.{}'.format(args.date,filename))
     
 
 ## create/copy the grads ctl files
