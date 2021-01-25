@@ -1,0 +1,184 @@
+#!/usr/bin/env python
+################################################################################
+## create the initial ensemble for the CFSv2-LETKF using analysis from
+## another CFS-LETKF experiment output
+##
+## Cheng Da (cda@umd.edu) University of Maryland
+##
+## Environment variables required
+##  CFS_LETKF_ROOT
+##  TMP_DIR_LOCAL
+##
+################################################################################
+
+import argparse
+import os, shutil
+import datetime as dt
+import sys
+import subprocess as sp
+import hashlib
+
+import common
+
+## parse the command line arguments
+parser = argparse.ArgumentParser( description=(
+    "CFSv2-LETKF, ensemble member and project directory initialization.\n "
+    "Generates the initial ensemble members for a new experiment by using analysis from\n"
+    "another experiment") )
+
+parser.add_argument('date', metavar="DATE", help=(
+    'Initial date of data to generate. Should be in format of "YYYYMMDDHH"'))
+parser.add_argument('path', metavar='DST_DIR', help=(
+    "Path to the new directory to create for the experiment. E.g., '../DATA/exp1'"))
+parser.add_argument('mem', metavar='MEM', type=int, help=(
+    "Number of ensemble members to generate"))
+
+parser.add_argument('--source', metavar="SOURCE_DIR", default=os.getenv('CFSR_DIR'), help=(
+    "the directory where to copy the directory"))
+parser.add_argument('--force','-f', action='store_true', help= (
+    "force overwriting of any existing directory"))
+parser.add_argument('--ares',type=int,choices=[62,126,382],default=126,help=(
+    "horizontal resolution of the atmosphere (Default: 126)"))
+parser.add_argument('--cfsrDate',metavar="CFSRDATE", required=True, help=(
+    "Initial date of the CFSR data to be used at the 1st member. Should be in format of YYYYMMDDHH"))
+parser.add_argument('--verbose',action="store_true", default=False, help=(
+    "print out all preparation commands"))
+args = parser.parse_args()
+
+## process command line arguments
+args.path = os.path.abspath(args.path)
+
+args.initGFS = args.source+'/T{}'.format(args.ares)
+args.initMOM = args.source+'/ocn_05/'
+args.cfsrDate = dt.datetime.strptime(args.cfsrDate,'%Y%m%d%H')
+
+print("CDA: initGFS=",args.initGFS)
+print("CDA: initMOM=",args.initMOM)
+print("CDA: cfsrDate=", args.cfsrDate)
+
+args.rootDir = os.getenv("CFS_LETKF_ROOT")
+args.ssioDir = args.rootDir+'/util/bin'
+args.initDate=dt.datetime.strptime(args.date,"%Y%m%d%H").date()
+args.tmpDir  = os.getenv("TMP_DIR_LOCAL")+"/init_" + hashlib.md5(args.path).hexdigest()[0:6]
+##
+print ("Configuration:\n"+str(args))
+
+
+## ------------------------------------------------------------
+## setup temporary directory
+if os.path.exists(args.tmpDir):
+        shutil.rmtree(args.tmpDir)
+os.makedirs(args.tmpDir)
+shutil.copy(args.ssioDir+'/sscycle2', args.tmpDir)
+
+## write the namelist for the sscyle program
+with open(args.tmpDir+'/ssio.nml', 'w') as f:
+    res = common.getAtmRes(args.ares)
+    f.write('$common_gfs nlon={} nlat={} gfs_jcap={} nlev=64 /'.format(
+        res[0], res[1], args.ares))
+
+
+
+## create the output directory if it does not already exist
+if os.path.exists(args.path):
+    if args.force:
+        print 'removing dir'
+        shutil.rmtree(args.path)
+    else:
+        print ('Directory {0} already exists, remove and try again or force removal of old '
+               ' directory with the "-f" option.').format(os.path.abspath(args.path))
+os.makedirs(args.path)
+os.makedirs(args.path+'/infl_mul')
+os.makedirs(args.path+'/logs')
+os.makedirs(args.path+'/obsop')
+
+## create folders for ensemble members, and copy
+## other date into it for the initial conditions
+# /anal/mean, /anal/sprd, /gues/mean/, /gues/sprd/
+for d in ('anal','gues'):
+    [os.makedirs(args.path+'/{0}/{1}'.format(d,d2)) for d2 in ('mean','sprd')]
+
+## copy an initial letkf namelist
+os.makedirs(args.path+'/cfg')
+env = os.environ
+env['nbv'] = str(args.mem)
+sp.check_call("source $CFS_LETKF_ROOT/run/config_files/letkf.nml > letkf.nml",
+               shell=True, cwd=args.path+'/cfg')
+
+## copy the global settings
+for f in ('nemo.nml','exp.config'):
+    sp.check_call("cp $CFS_LETKF_ROOT/run/config_files/{} .".format(f),
+                  shell=True, cwd=args.path+'/cfg')
+
+## copy ensemble members
+for m in range(1,args.mem+1):
+    print("---------------------------------------------")
+
+    for d in ('anal','gues'):
+        os.makedirs(args.path+'/{0}/{1:03d}/'.format(d,m))
+
+    ## determine where to get the files from
+    srcOcn = args.initMOM + \
+             args.cfsrDate.strftime('/%Y/%Y%m/%Y%m%d/')
+    srcAtm = args.initGFS + \
+             args.cfsrDate.strftime('/%Y/%Y%m/%Y%m%d/') 
+        
+    print('member {0:03d} OCN from'.format(m) + srcOcn)
+    print('member {0:03d} ATM from'.format(m) + srcAtm)
+    ## Atmosphere files
+    ##############################
+    files=['sig','sfc']
+    outPath = args.path+'/anal/{0:03d}/'.format(m)
+    for f in files:
+        srcFile = args.cfsrDate.strftime('%Y%m%d%H')+"."+f
+        outFile = args.date+"."+f
+        if args.verbose:
+            print("cp "+srcAtm+srcFile+" "+outPath+outFile)
+        shutil.copy(srcAtm+srcFile, outPath+outFile)
+
+
+    ## Ocean files
+    ##############################
+    ## unzip the necessary ocn files
+    tgzFile = args.cfsrDate.strftime('%Y%m%d%H')+".tgz"
+    cmd='tar -xaf '+tgzFile+' ocnanl.gdas.*.nc'
+    if args.verbose:
+        print(cmd)
+    sp.call(cmd,shell=True,cwd=srcOcn)
+
+    ## move ocn files     
+    files=['ocean_'+x for x in (
+        'frazil', 'freesurf', 'neutral', 'temp_salt',
+        'velocity', 'velocity_advection', 'sbc','density')]
+    files += ('ice_model',)
+
+    outPath = args.path+'/anal/{0:03d}/'.format(m)
+    for f in files:
+        filename = f+".res.nc"
+        srcFile = "ocnanl.gdas.{}.{}.res.nc".format(args.cfsrDate.strftime('%Y%m%d%H'), f)
+        outFile = "{}.{}.res.nc".format(args.date, f)
+        if args.verbose:
+            print("mv "+srcOcn+srcFile+" "+outPath+outFile)
+        shutil.move(srcOcn+srcFile, outPath+outFile)
+
+    args.cfsrDate += dt.timedelta(days=1)
+
+        
+
+
+## create/copy the grads ctl files
+datestr=dt.datetime.strptime(args.date,"%Y%m%d%H").strftime("%e%b%Y")
+with open(args.rootDir+'/letkf-mom/ocn.ctl','r') as fin:
+    with open(args.path+'/anal/mean/ocn.ctl','w') as fout:
+        for line in fin:
+            line = line.replace("##DATE##", datestr)
+            fout.write(line)
+with open(args.path+'/anal/mean/atm.ctl','w') as out:
+    sp.call(args.ssioDir+'/grdctl "%y4/%y4%m2/%y4%m2%d2/%y4%m2%d2%h2/%y4%m2%d2%h2_atm.grd" "template" '+ datestr +' 6hr 10000 s'
+            , shell=True, stdout=out, cwd=args.tmpDir)
+for f in ('/anal/sprd/','/gues/mean/','/gues/sprd/', '/infl_mul/'):
+    shutil.copy(args.path+'/anal/mean/ocn.ctl',args.path+f)
+    shutil.copy(args.path+'/anal/mean/atm.ctl',args.path+f)
+   
+## cleanup
+shutil.rmtree(args.tmpDir) 

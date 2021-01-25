@@ -1,0 +1,244 @@
+#!/usr/bin/env python
+############################################################
+##
+## TODO, insert description
+##
+############################################################
+
+## load buit-in python modules
+import argparse
+import os, shutil, sys
+import subprocess as sp
+from glob import glob
+import datetime as dt
+
+## load our own modules
+import common
+import lsf
+
+rootDir = os.getenv("CFS_LETKF_ROOT")
+
+## setup the logging system
+log = common.setupLog()
+
+##############################
+## configurable
+## TODO, make this configurable from outside
+timeLimit_CFS = "0:10"   # HH:MM for LSF
+timeLimit_DA  = "0:10"
+
+
+
+############################################################
+## Get the Command line arguments
+
+parser = argparse.ArgumentParser(description=(
+    "CFS-LETKF 6 hour DA/forecast cycle script. Manages the SLURM "
+    "submission of alternating LETKF and forecast jobs. This script "
+    "monitors the job progress and relaunches any failed jobs. If "
+    "a job fails due to a bad computational node, that node is flagged "
+    "and will not be used again."))
+
+## required variables
+parser.add_argument('path', metavar="PATH", help=(
+    "Path to the directory storing the experiment."))
+parser.add_argument('start', metavar="START_DATE", help=(
+    "Start date from which first forecast is launched. Date "
+    "is in format YYYYMMDDHH"))
+parser.add_argument('end', metavar="END_DATE", help=(
+    "Stop date in format YYYYMMDDHH"))
+
+
+## optional variables
+parser.add_argument('--oisst', action="store_true")
+parser.add_argument('--nofcst', action="store_true", help=(
+    "If set, the forecasting step is skipped... you probably don't want this flag"))
+parser.add_argument('--oobs', help=(
+    "list of 1 or more directories to ocean observations that are to be assimilated. "
+    "If not specified, not ocean observations are used."))
+parser.add_argument('--aobs', help=(
+    "directory to atmospheric observations that are to be assimilated. "
+    "If not specified, not atmospheric observations are used."))
+parser.add_argument('--strong', action="store_true", default=False)
+parser.add_argument('--strong_atm_window', default=6, type=int)
+parser.add_argument('--strong_window_basedate', default="2000010112")
+
+
+parser.add_argument('--ares', default='62', type=int, choices=common.aresList, help=(
+    "Atmospheric resolution, must match the resolution of the initial "
+    " ensemble members in the PATH directory. (Default: 62)"))
+parser.add_argument('--ores', default='05', choices=['05','1'])
+parser.add_argument('--clear', metavar="HOURS", default="24", type=int, help=(
+    "Age (in hours) at which old no longer required individual ensemble "
+    "members are deleted. Setting this to 0 disables this and leaves all "
+    "members, and therefore uses a LOT of space. (Default: 24)"))
+parser.add_argument('--mem', metavar='MEMBERS', type=int, help=(
+    "The number of ensemble members. By default the script will "
+    "automatically determine the number of ensemble members based "
+    "on the directory structure of PATH"))
+parser.add_argument('--3d', dest='is3d', action="store_true")
+
+    
+
+g = parser.add_argument_group("SLURM options")
+g.add_argument('--queue', default="monsoon", help=(
+    "The SLURM account to run the experiment with. (Default: aosc-hi)"))
+g.add_argument('--retries', metavar="NUM", default="10", type=int, help=(
+    "Maximum number of times to retry submitting a LSF job step before "
+    "This script fails out. (Default: 3)"))
+
+
+## parse the variables 
+args=parser.parse_args()
+args.path = os.path.abspath(args.path)
+
+#load in from config file if possible
+print "reading in config file 'exp.config'"
+with open(args.path+'/cfg/exp.config','r') as f:
+    for l in f:
+        l2 = l.lstrip()
+        if len(l2) == 0 or l2[0] == '#':
+            continue
+        for l3 in l.split():
+            sys.argv.append(l3.rstrip())
+args = parser.parse_args()
+args.path = os.path.abspath(args.path)
+
+if args.queue:
+    lsf.queue = args.queue
+args.strong_window_basedate = dt.datetime.strptime(args.strong_window_basedate, "%Y%m%d%H")
+args.start = dt.datetime.strptime(args.start, "%Y%m%d%H")
+args.end   = dt.datetime.strptime(args.end, "%Y%m%d%H")
+lsf.maxJobRetries = args.retries
+#args.analGFS = os.getenv("CFSR_DIR")+"/T{}".format(args.ares)
+if args.mem is None:
+    args.mem = common.getEnsMem(args.path)
+sdateShort = args.start.strftime("%Y%m%d%H")
+
+############################################################
+## print some basic information
+common.addFileLog(log,args.path+'/logs/controller_'+sdateShort+'.log')
+log.info("CFSv2-LETKF DA cycle script.")
+log.info("Travis Sluka, University of Maryland, 2016-2019")
+log.info("")
+log.info("Configuration:\n"+str(args)+"\n")
+
+
+############################################################
+## run the cycle
+########################################
+## number of cores for a CFS ensemble member run
+nproc_cfs = int(os.getenv("NPROC_AM"))+int(os.getenv("NPROC_OM"))+1
+nproc_letkf_a = int(os.getenv("NPROC_LETKF_A"))
+nproc_letkf_o = int(os.getenv("NPROC_LETKF_O"))
+nproc_pernode = int(os.getenv("NPROC_PERNODE"))
+assert(nproc_cfs >= 3)
+## number of nodes for a CFS ensemble member run
+nnodes_cfs = nproc_cfs / nproc_pernode
+nnodes_letkf_a = nproc_letkf_a / nproc_pernode
+nnodes_letkf_o = nproc_letkf_o / nproc_pernode
+
+log.info("Using {:d} cores on {} nodes for each CFS ens member\n".format(
+    nproc_cfs,nnodes_cfs))
+
+cdate = args.start  ## current date
+while cdate < args.end:
+    log.info("*** Begining "+str(cdate))
+    cdateShort = cdate.strftime("%Y%m%d%H")
+    cdateDir = cdate.strftime("%Y/%Y%m/%Y%m%d/%Y%m%d%H")
+    ndate = cdate + dt.timedelta(hours=6)     ## next date
+    ndateShort = ndate.strftime("%Y%m%d%H")
+    
+
+    ##############################
+    ## run the jobs that can be done completely parallel for each ens member.
+    ## This consists of the forecast, conversion to gridded, and ocean obsop
+    jobs = []
+    for m in range(1, args.mem+1):
+        mem = '{0:03d}'.format(m)
+        cmd = rootDir+"/run/run_cycle_ensmem {} {} {} --ares {} --ores {}".format(
+            args.path, cdateShort, mem, args.ares, args.ores)
+        if args.is3d: cmd += " --3d"
+        if args.oobs is not None: cmd += " --oobs \""+args.oobs+"\""
+        if args.aobs is not None: cmd += " --aobs \""+args.aobs+"\""
+        if args.oisst: cmd += " --oisst"
+        job = lsf.Job(
+            name    = 'CFS_'+mem,
+            cmd     = cmd,
+            runtime = timeLimit_CFS,
+            nproc   = nproc_cfs,
+            output  = args.path+'/logs/'+cdateDir+'/CFS-'+mem+'_%J.log',
+            err     = args.path+'/logs/'+cdateDir+'/CFS-'+mem+'_%J.err'
+            )
+        jobs.append(job)
+    if not args.nofcst:
+        log.info("  Running parallel ens mem forecast and other jobs...")
+        lsf.monitor(jobs)
+
+    
+
+    ##############################
+    ## Run the Data assimilation in parallel
+
+    ##  Atmospheric DA
+    jobs = []
+    cmd = rootDir+"/run/run_cycle_atmDA {} {} --ares {} --mem {}".format(
+        args.path, cdateShort, args.ares, args.mem)
+    if args.strong:  cmd += " --oobs"
+    if args.oobs and args.strong: cmd += " --oobs "
+    if args.aobs: cmd += " --aobs "
+    jobs.append(lsf.Job(
+        name = "CFSDAAtm",
+        cmd = cmd,
+        runtime = timeLimit_DA,
+        nproc = nproc_letkf_a,
+        output = args.path+'/logs/'+cdateDir+'/letkf-atm_%J.log',
+        err    = args.path+'/logs/'+cdateDir+'/letkf-atm_%J.err'
+    ))
+
+    ## ocean DA
+    cmd = rootDir+"/run/run_cycle_ocnDA {} {} --ores {} --oobs --mem {}".format(
+        args.path, cdateShort, args.ores, args.mem)
+    if args.strong:
+        # if doing strong coupling, determine which atm obs output files to look at
+        modu = int((ndate-args.strong_window_basedate).total_seconds()/3600) % args.strong_atm_window
+        if modu == 0:
+            cmd += " --aobs --async {}".format(args.strong_atm_window - 6)
+            log.info("  Using strong coupling...")
+    jobs.append(lsf.Job(
+        name = "CFSDAOcn",
+        cmd = cmd,
+        runtime = timeLimit_DA,
+        nproc = nproc_letkf_o,
+        output = args.path+'/logs/'+cdateDir+'/letkf-ocn_%J.log',
+        err    = args.path+'/logs/'+cdateDir+'/letkf-ocn_%J.err'
+    ))
+    log.info("  Running LETKF...")
+    lsf.monitor(jobs)
+    
+
+    
+    ##############################
+    ## clean up old files
+    if args.clear > 0:
+        ## remove old ensemble members
+        files  = glob(args.path+'/gues/???/??????????_*')
+        files += glob(args.path+'/anal/???/??????????.*')
+        for f in files:
+            date = f.split('/')[-1].split('.')[0].split('_')[0]
+            if (cdate - dt.datetime.strptime(date,"%Y%m%d%H")) >= dt.timedelta(hours = args.clear):
+                os.remove(f)
+        ## remove old observation operator output (note, that if doing asynchronous strong DA
+        ## we might need to keep the output around longer than args.clear would imply
+        files = glob(args.path+'/obsop/??????????_*')
+        for f in files:
+            date = f.split('/')[-1].split('.')[0].split('_')[0]
+            clearInt = args.clear
+            if args.strong:
+                clearInt = max([clearInt, args.strong_atm_window+6])
+            if (cdate - dt.datetime.strptime(date,"%Y%m%d%H")) >= dt.timedelta(hours = clearInt):
+                os.remove(f)        
+               
+    
+    ## increment the date
+    cdate = ndate

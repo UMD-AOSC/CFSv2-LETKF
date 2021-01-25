@@ -78,7 +78,7 @@ ndate = args.date + dt.timedelta(hours=6)
 ## print some basic information
 log.info("CFSv2 Forecast")
 log.info(" running on: "+os.uname()[1])
-log.info(" SLURM nodes: "+os.getenv("SLURM_NODELIST"))
+#log.info(" SLURM nodes: "+os.getenv("SLURM_NODELIST"))  # remove this job system dependent command
 log.info("Configuration:\n"+str(args))
 
 
@@ -98,11 +98,28 @@ for d in [args.wrkdir+'/INPUT', args.wrkdir+'/fix_am']:
 
 #TODO, IRESTART folder probably needs to be put on TMP_DIR_SHARED if
 # more than 1 node is used for the ocean.
-sp.check_call('mkdir -p $TMP_DIR_LOCAL/irestart', shell=True)
-sp.check_call('ln -s $TMP_DIR_LOCAL/irestart IRESTART', shell=True, cwd=args.wrkdir)
+#sp.check_call('mkdir -p $TMP_DIR_LOCAL/irestart', shell=True)
+#sp.check_call('ln -s $TMP_DIR_LOCAL/irestart IRESTART', shell=True, cwd=args.wrkdir)
+useLocalDir=int(os.getenv('USE_TMP_DIR_LOCAL'))
+if useLocalDir == 1:
+    log.info(" use local dir for restart files")
+    cmd1 = 'mkdir -p $TMP_DIR_LOCAL/irestart'
+    cmd2 = 'ln -s $TMP_DIR_LOCAL/irestart IRESTART'
+    cmd3 = 'mkdir -p $TMP_DIR_LOCAL/restart'
+    cmd4 = 'ln -s $TMP_DIR_LOCAL/restart RESTART'
+else:
+    log.info(" disable local dir for restart files")
+    cmd1 = 'mkdir -p '+args.wrkdir+'/irestart'
+    cmd2 = 'ln -s '+args.wrkdir+'/irestart IRESTART'
+    cmd3 = 'mkdir -p '+args.wrkdir+'/restart'
+    cmd4 = 'ln -s '+args.wrkdir+'/restart RESTART'
+
+sp.check_call(cmd1, shell=True)
+sp.check_call(cmd2, shell=True, cwd=args.wrkdir)
 # TODO, there has to be someway to disable RESTART writing it in the MOM input.nml file
-sp.check_call('mkdir -p $TMP_DIR_LOCAL/restart', shell=True)
-sp.check_call('ln -s $TMP_DIR_LOCAL/restart RESTART', shell=True, cwd=args.wrkdir)
+sp.check_call(cmd3, shell=True)
+sp.check_call(cmd4, shell=True, cwd=args.wrkdir)
+
         
 ##############################        
 log.info("copying executables...")
@@ -202,7 +219,7 @@ files = [
     ("orography_uf.t{ares}.{ares_x}.{ares_y}.grb", "orography_uf"),
     ("sfc_emissivity_idx.txt", "sfc_emissivity_idx.txt"),
     ("solarconstantdata.txt", "solarconstantdata.txt")]
-for y in range(1956,2009+1):
+for y in range(1956,2013+1):
     files += [("co2historicaldata_{}.txt".format(y),
                "co2historicaldata_{}.txt".format(y))]
 
