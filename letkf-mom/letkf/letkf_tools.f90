@@ -391,10 +391,10 @@ SUBROUTINE das_letkf(gues3d,gues2d,anal3d,anal2d)
       !-------------------------------------------------------------------------
       if (ilev == 1) then !update 2d variable at ilev=1
         do n=1,nv2d
-          if (var_local_n2n(nv3d+n) <= nv3d) then
+          if (var_local_n2n(nv3d+n) <= nv3d) then ! pattern found from previous 3d var
             trans(:,:,nv3d+n) = trans(:,:,var_local_n2n(nv3d+n))
-            work2d(ij,n) = work2d(ij,var_local_n2n(nv3d+n))
-          elseif (var_local_n2n(nv3d+n) < nv3d+n) then
+            work2d(ij,n) = work3d(ij,ilev,var_local_n2n(nv3d+n))
+          elseif (var_local_n2n(nv3d+n) < nv3d+n) then ! pattern found from previous 2d var
             trans(:,:,nv3d+n) = trans(:,:,var_local_n2n(nv3d+n))
             work2d(ij,n) = work2d(ij,var_local_n2n(nv3d+n)-nv3d)
           else
